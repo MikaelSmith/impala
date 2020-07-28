@@ -838,7 +838,7 @@ public:
  Int64TimestampColumnWriterBase(HdfsParquetTableWriter* parent, ScalarExprEvaluator* eval,
      const Codec::CodecInfo& codec_info, const std::string& col_name)
    : HdfsParquetTableWriter::ColumnWriter<int64_t>(parent, eval, codec_info, col_name) {
-   int64_t dummy;
+   int64_t dummy = 0;
    plain_encoded_value_size_ = ParquetPlainEncoder::ByteSize(dummy);
   }
 
