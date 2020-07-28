@@ -22,6 +22,7 @@
 #include <kudu/client/client.h>
 #include <kudu/client/write_op.h>
 
+#include "common/init.h"
 #include "gutil/stl_util.h"
 #include "util/kudu-status-util.h"
 
@@ -179,6 +180,7 @@ kudu::Status RunKuduArrayInsert() {
 } // namespace impala
 
 int main(int argc, char** argv) {
+  impala::InitCommonRuntime(argc, argv, false);
   // Example usage:
   //   kudu-array-inserter impala::functional_kudu.kudu_array
   assert(argc == 2);

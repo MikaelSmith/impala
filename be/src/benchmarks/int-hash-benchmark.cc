@@ -33,6 +33,8 @@
 #include "util/hash-util.h"
 #include "util/sse-util.h"
 
+#include "common/init.h"
+
 using namespace std;
 using namespace impala;
 
@@ -318,8 +320,8 @@ void Run(int batch_size, void* data) {
   }
 }
 
-int main() {
-  CpuInfo::Init();
+int main(int argc, char** argv) {
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << endl
        << Benchmark::GetMachineInfo() << endl;
 

@@ -25,6 +25,7 @@
 #include "util/cpu-info.h"
 #include "util/string-parser.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace impala;
@@ -255,7 +256,7 @@ void TestImpalaCased(int batch_size, void* d) {
 }
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << Benchmark::GetMachineInfo() << endl;
 
   TestData data;

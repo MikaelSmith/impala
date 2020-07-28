@@ -25,6 +25,7 @@
 
 #include "gutil/strings/substitute.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace impala;
@@ -131,7 +132,7 @@ void BenchmarkAll(int len) {
 }
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << Benchmark::GetMachineInfo() << endl << endl;
 
   for (int len : {1, 10, 100, 10000}) {

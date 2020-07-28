@@ -39,6 +39,7 @@
 #include "util/runtime-profile.h"
 #include "util/runtime-profile-counters.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace impala;
@@ -86,7 +87,7 @@ void ToThriftBenchmark(int batch_size, void* dummy) {
 }
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << endl << Benchmark::GetMachineInfo() << endl;
 
   InitProfile(5, 10, &benchmark_profile);

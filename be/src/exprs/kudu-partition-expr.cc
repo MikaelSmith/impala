@@ -142,9 +142,9 @@ void CodegenGetKuduPartialRowAndPartitioner(LlvmCodeGen* codegen, LlvmBuilder* b
       {eval, codegen->GetI32Constant(fn_ctx_idx),
       kudu_row_ptr_ptr, kudu_partitioner_ptr_ptr});
 
-  *kudu_row_ptr = builder->CreateLoad(kudu_row_ptr_ptr, "kudu_row_ptr");
+  *kudu_row_ptr = builder->CreateLoad(kudu_row_ptr_type, kudu_row_ptr_ptr, "kudu_row_ptr");
   *kudu_partitioner_ptr = builder->CreateLoad(
-      kudu_partitioner_ptr_ptr, "kudu_partitioner_ptr");
+      kudu_partitioner_ptr_type, kudu_partitioner_ptr_ptr, "kudu_partitioner_ptr");
 }
 
 void CodegenCallWriteKuduValue(LlvmCodeGen* codegen, LlvmBuilder* builder, int col,
@@ -158,7 +158,7 @@ void CodegenCallWriteKuduValue(LlvmCodeGen* codegen, LlvmBuilder* builder, int c
 
   llvm::Value* const col_type_ptr = codegen->GetPtrTo(builder, type.ToIR(codegen));
   llvm::Value* const child_i8 = builder->CreateBitCast(
-      child_native_val, codegen->i8_type()->getPointerTo());
+      child_native_val, codegen->i8_ptr_type());
 
   // This can only fail if we set a col to an incorrect type, which would be a bug in
   // planning, so we could DCHECK but in codegen code we can't so we do not check it.
