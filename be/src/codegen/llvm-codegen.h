@@ -59,10 +59,6 @@ namespace llvm {
   class TargetData;
   class Type;
   class Value;
-  namespace legacy {
-    class FunctionPassManager;
-    class PassManager;
-  }
 
   template<typename T, typename I>
   class IRBuilder;
