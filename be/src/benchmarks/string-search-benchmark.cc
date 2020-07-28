@@ -23,6 +23,7 @@
 #include "runtime/string-search.h"
 #include "experiments/string-search-sse.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace impala;
@@ -162,7 +163,7 @@ void InitTestData(TestData* data) {
 }
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << Benchmark::GetMachineInfo() << endl;
 
   TestData data;

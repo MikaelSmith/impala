@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 
 #include <boost/scoped_ptr.hpp>
@@ -57,7 +58,7 @@ class Codec {
   static const int64_t STREAM_OUT_BUF_SIZE = 8 * 1024 * 1024;
 
   /// Map from codec string to compression format
-  typedef std::map<const std::string, const THdfsCompression::type> CodecMap;
+  typedef std::map<std::string, THdfsCompression::type> CodecMap;
   static const CodecMap CODEC_MAP;
 
   struct CodecInfo {

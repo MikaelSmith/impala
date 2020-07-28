@@ -24,6 +24,7 @@
 #include "util/cpu-info.h"
 #include "util/hash-util.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace impala;
@@ -178,7 +179,7 @@ void InitTestData(TestData* data, int num_small_strings, int num_large_strings) 
 }
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << Benchmark::GetMachineInfo() << endl;
 
   TestData data;

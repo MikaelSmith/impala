@@ -28,6 +28,7 @@
 #include "util/bit-util.h"
 #include "util/cpu-info.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using std::numeric_limits;
@@ -143,7 +144,7 @@ void PerfBenchmark() {
 }
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   LOG(INFO) << Benchmark::GetMachineInfo();
   PerfBenchmark();
   return 0;
