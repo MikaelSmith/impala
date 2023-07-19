@@ -46,9 +46,14 @@
 #include <llvm/Support/Host.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
 #include <llvm/Transforms/IPO/GlobalDCE.h>
 #include <llvm/Transforms/IPO/Internalize.h>
 #include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/ADCE.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Scalar/Reassociate.h>
+#include <llvm/Transforms/Scalar/SimplifyCFG.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 
@@ -1416,14 +1421,18 @@ Status LlvmCodeGen::FinalizeModuleAsync(RuntimeProfile::EventSequence* event_seq
 Status LlvmCodeGen::OptimizeModule() {
   SCOPED_TIMER(optimization_timer_);
 
-  // This pass manager will construct optimizations passes that are "typical" for
-  // c/c++ programs.  We're relying on llvm to pick the best passes for us.
-  // TODO: we can likely muck with this to get better compile speeds or write
-  // our own passes.  Our subexpression elimination optimization can be rolled into
-  // a pass.
-  llvm::PassBuilder pass_builder(execution_engine()->getTargetMachine());
-  llvm::ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(
-      llvm::PassBuilder::OptimizationLevel::O2);
+  // Do basic instruction combining and dead code elimination.
+  llvm::ModulePassManager pass_manager;
+  {
+    llvm::FunctionPassManager fpm;
+    fpm.addPass(llvm::InstCombinePass(false));
+    fpm.addPass(llvm::ReassociatePass());
+    fpm.addPass(llvm::GVN());
+    fpm.addPass(llvm::SimplifyCFGPass());
+    fpm.addPass(llvm::ADCEPass());
+    fpm.addPass(llvm::SimplifyCFGPass());
+    pass_manager.addPass(llvm::createModuleToFunctionPassAdaptor(move(fpm)));
+  }
 
   // Update counters before final optimization, but after removing unused functions. This
   // gives us a rough measure of how much work the optimization and compilation must do.
