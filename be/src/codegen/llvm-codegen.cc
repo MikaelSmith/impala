@@ -478,6 +478,13 @@ Status LlvmCodeGen::Init(unique_ptr<llvm::Module> module) {
     return Status(ss.str());
   }
 
+  llvm::PassBuilder pass_builder(execution_engine->getTargetMachine());
+  pass_builder.registerModuleAnalyses(mam_);
+  pass_builder.registerCGSCCAnalyses(cgam_);
+  pass_builder.registerFunctionAnalyses(fam_);
+  pass_builder.registerLoopAnalyses(lam_);
+  pass_builder.crossRegisterProxies(lam_, fam_, cgam_, mam_);
+
   // The module data layout must match the one selected by the execution engine.
   module_->setDataLayout(execution_engine->getDataLayout());
 
@@ -1259,17 +1266,13 @@ void LlvmCodeGen::PruneModule() {
     exported_fn_names.insert(entry.first->getName().str());
   }
 
-  llvm::ModuleAnalysisManager module_analysis_manager;
-  llvm::PassBuilder pass_builder(execution_engine()->getTargetMachine());
-  pass_builder.registerModuleAnalyses(module_analysis_manager);
-
   llvm::ModulePassManager module_pass_manager;
   module_pass_manager.addPass(
       llvm::InternalizePass([&exported_fn_names](const llvm::GlobalValue& gv) {
         return exported_fn_names.find(gv.getName().str()) != exported_fn_names.end();
       }));
   module_pass_manager.addPass(llvm::GlobalDCEPass());
-  module_pass_manager.run(*module_, module_analysis_manager);
+  module_pass_manager.run(*module_, mam_);
 }
 
 Status LlvmCodeGen::FinalizeModule() {
@@ -1413,23 +1416,12 @@ Status LlvmCodeGen::FinalizeModuleAsync(RuntimeProfile::EventSequence* event_seq
 Status LlvmCodeGen::OptimizeModule() {
   SCOPED_TIMER(optimization_timer_);
 
-  llvm::LoopAnalysisManager LAM;
-  llvm::FunctionAnalysisManager FAM;
-  llvm::CGSCCAnalysisManager CGAM;
-  llvm::ModuleAnalysisManager MAM;
-
   // This pass manager will construct optimizations passes that are "typical" for
   // c/c++ programs.  We're relying on llvm to pick the best passes for us.
   // TODO: we can likely muck with this to get better compile speeds or write
   // our own passes.  Our subexpression elimination optimization can be rolled into
   // a pass.
   llvm::PassBuilder pass_builder(execution_engine()->getTargetMachine());
-  pass_builder.registerModuleAnalyses(MAM);
-  pass_builder.registerCGSCCAnalyses(CGAM);
-  pass_builder.registerFunctionAnalyses(FAM);
-  pass_builder.registerLoopAnalyses(LAM);
-  pass_builder.crossRegisterProxies(LAM, FAM, CGAM, MAM);
-
   llvm::ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(
       llvm::PassBuilder::OptimizationLevel::O2);
 
@@ -1449,7 +1441,7 @@ Status LlvmCodeGen::OptimizeModule() {
   }
 
   // Create and run module pass manager
-  pass_manager.run(*module_, MAM);
+  pass_manager.run(*module_, mam_);
   if (FLAGS_print_llvm_ir_instruction_count) {
     for (int i = 0; i < fns_to_jit_compile_.size(); ++i) {
       InstructionCounter counter;

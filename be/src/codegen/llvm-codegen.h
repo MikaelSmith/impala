@@ -35,6 +35,7 @@
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
+#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -908,6 +909,12 @@ class LlvmCodeGen {
   /// set by Init(). module_ is owned by the execution engine in
   /// execution_engine_wrapper_.
   llvm::Module* module_;
+
+  /// New Pass Manager analyses
+  llvm::LoopAnalysisManager lam_;
+  llvm::FunctionAnalysisManager fam_;
+  llvm::CGSCCAnalysisManager cgam_;
+  llvm::ModuleAnalysisManager mam_;
 
   /// Execution/Jitting engine in a wrapper.
   std::shared_ptr<LlvmExecutionEngineWrapper> execution_engine_wrapper_;
