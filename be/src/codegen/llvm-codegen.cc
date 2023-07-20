@@ -100,6 +100,8 @@ DEFINE_bool(perf_map, false,
     "This is not recommended for production use because it may affect performance.");
 DEFINE_string(unopt_module_dir, "",
     "if set, saves unoptimized generated IR modules to the specified directory.");
+DEFINE_string(pruned_module_dir, "",
+    "if set, saves pruned generated IR modules to the specified directory.");
 DEFINE_string(opt_module_dir, "",
     "if set, saves optimized generated IR modules to the specified directory.");
 DEFINE_string(asm_module_dir, "",
@@ -1322,6 +1324,18 @@ Status LlvmCodeGen::FinalizeModule() {
 
   RETURN_IF_ERROR(FinalizeLazyMaterialization());
   PruneModule();
+
+  if (FLAGS_pruned_module_dir.size() != 0) {
+    string path = FLAGS_pruned_module_dir + "/" + id_ + "_pruned.ll";
+    fstream f(path.c_str(), fstream::out | fstream::trunc);
+    if (f.fail()) {
+      LOG(ERROR) << "Could not save IR to: " << path;
+    } else {
+      f << GetIR(true);
+      f.close();
+      LOG(INFO) << "Saved pruned IR to " << path;
+    }
+  }
 
   bool codegen_cache_enabled = state_->codegen_cache_enabled() && codegen_cache_enabled_;
   CodeGenCacheKey cache_key;
