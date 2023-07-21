@@ -26,6 +26,7 @@
 #include <boost/assert/source_location.hpp>
 #include <gutil/strings/substitute.h>
 
+#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -46,7 +47,10 @@
 #include <llvm/Support/Host.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include <llvm/Transforms/IPO/GlobalDCE.h>
+#include "llvm/Transforms/IPO/InferFunctionAttrs.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include <llvm/Transforms/IPO/Internalize.h>
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
@@ -127,6 +131,7 @@ DEFINE_string_hidden(llvm_cpu_attr_whitelist, "adx,aes,avx,avx2,bmi,bmi2,cmov,cx
     "routinely tested. This flag is provided to enable additional LLVM CPU attribute "
     "flags for testing.");
 #endif
+DEFINE_string_hidden(llvm_opt, "", "customize LLVM optimization passes");
 DECLARE_bool(enable_legacy_avx_support);
 
 namespace impala {
@@ -1435,9 +1440,30 @@ Status LlvmCodeGen::OptimizeModule() {
   // TODO: we can likely muck with this to get better compile speeds or write
   // our own passes.  Our subexpression elimination optimization can be rolled into
   // a pass.
-  llvm::PassBuilder pass_builder(execution_engine()->getTargetMachine());
-  llvm::ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(
-      llvm::PassBuilder::OptimizationLevel::O2);
+  llvm::PassBuilder PB(execution_engine()->getTargetMachine());
+  llvm::ModulePassManager MPM;
+  if (FLAGS_llvm_opt == "default") {
+    MPM = PB.buildPerModuleDefaultPipeline(
+        llvm::PassBuilder::OptimizationLevel::O2);
+  } else if (FLAGS_llvm_opt == "") {
+    MPM.addPass(llvm::InferFunctionAttrsPass());
+    MPM.addPass(llvm::RequireAnalysisPass<llvm::GlobalsAA, llvm::Module>());
+    MPM.addPass(llvm::RequireAnalysisPass<llvm::ProfileSummaryAnalysis, llvm::Module>());
+    llvm::CGSCCPassManager MainCGPipeline;
+    MainCGPipeline.addPass(llvm::InlinerPass());
+    MainCGPipeline.addPass(llvm::PostOrderFunctionAttrsPass());
+    MainCGPipeline.addPass(llvm::createCGSCCToFunctionPassAdaptor(
+        PB.buildFunctionSimplificationPipeline(llvm::PassBuilder::OptimizationLevel::O2)));
+    MPM.addPass(
+        createModuleToPostOrderCGSCCPassAdaptor(createDevirtSCCRepeatedPass(
+            std::move(MainCGPipeline), 2)));
+    MPM.addPass(
+        PB.buildModuleOptimizationPipeline(llvm::PassBuilder::OptimizationLevel::O2));
+  } else {
+    if (!PB.parsePassPipeline(MPM, FLAGS_llvm_opt)) {
+      return Status("Invalid value for llvm_opt");
+    }
+  }
 
   // Update counters before final optimization, but after removing unused functions. This
   // gives us a rough measure of how much work the optimization and compilation must do.
@@ -1455,7 +1481,7 @@ Status LlvmCodeGen::OptimizeModule() {
   }
 
   // Create and run module pass manager
-  pass_manager.run(*module_, mam_);
+  MPM.run(*module_, mam_);
   if (FLAGS_print_llvm_ir_instruction_count) {
     for (int i = 0; i < fns_to_jit_compile_.size(); ++i) {
       InstructionCounter counter;
