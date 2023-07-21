@@ -26,6 +26,8 @@
 #include <boost/assert/source_location.hpp>
 #include <gutil/strings/substitute.h>
 
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/ExecutionEngine/ExecutionEngine.h>
@@ -48,11 +50,54 @@
 #include <llvm/Support/Host.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/raw_ostream.h>
+#include "llvm/Transforms/IPO/ConstantMerge.h"
+#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
+#include "llvm/Transforms/IPO/ElimAvailExtern.h"
+#include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include <llvm/Transforms/IPO/GlobalDCE.h>
+#include "llvm/Transforms/IPO/GlobalOpt.h"
+#include "llvm/Transforms/IPO/InferFunctionAttrs.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include <llvm/Transforms/IPO/Internalize.h>
+#include <llvm/Transforms/IPO/SCCP.h>
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include <llvm/Transforms/Scalar.h>
+#include "llvm/Transforms/Scalar/ADCE.h"
+#include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
+#include "llvm/Transforms/Scalar/BDCE.h"
+#include "llvm/Transforms/Scalar/CorrelatedValuePropagation.h"
+#include "llvm/Transforms/Scalar/DeadStoreElimination.h"
+#include "llvm/Transforms/Scalar/EarlyCSE.h"
+#include "llvm/Transforms/Scalar/Float2Int.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/IndVarSimplify.h"
+#include "llvm/Transforms/Scalar/InstSimplifyPass.h"
+#include "llvm/Transforms/Scalar/JumpThreading.h"
+#include "llvm/Transforms/Scalar/LICM.h"
+#include "llvm/Transforms/Scalar/LoopDeletion.h"
+#include "llvm/Transforms/Scalar/LoopDistribute.h"
+#include "llvm/Transforms/Scalar/LoopIdiomRecognize.h"
+#include "llvm/Transforms/Scalar/LoopLoadElimination.h"
+#include "llvm/Transforms/Scalar/LoopPassManager.h"
+#include "llvm/Transforms/Scalar/LoopRotation.h"
+#include "llvm/Transforms/Scalar/LoopSink.h"
+#include "llvm/Transforms/Scalar/LoopUnrollPass.h"
+#include "llvm/Transforms/Scalar/LowerExpectIntrinsic.h"
+#include "llvm/Transforms/Scalar/MemCpyOptimizer.h"
+#include "llvm/Transforms/Scalar/MergedLoadStoreMotion.h"
+#include "llvm/Transforms/Scalar/Reassociate.h"
+#include "llvm/Transforms/Scalar/SCCP.h"
+#include "llvm/Transforms/Scalar/SROA.h"
+#include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
+#include "llvm/Transforms/Scalar/SimplifyCFG.h"
+#include "llvm/Transforms/Scalar/SpeculativeExecution.h"
+#include "llvm/Transforms/Scalar/TailRecursionElimination.h"
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <llvm/Transforms/Utils/Cloning.h>
+#include "llvm/Transforms/Utils/LibCallsShrinkWrap.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
+#include "llvm/Transforms/Vectorize/LoopVectorize.h"
+#include "llvm/Transforms/Vectorize/SLPVectorizer.h"
 
 #include "codegen/codegen-anyval.h"
 #include "codegen/codegen-callgraph.h"
@@ -129,6 +174,7 @@ DEFINE_string_hidden(llvm_cpu_attr_whitelist, "64bit,adx,aes,avx,avx2,bmi,bmi2,c
 #endif
 DEFINE_string_hidden(llvm_ir_opt, "Os",
     "The IR optimization level for pre-generated code; supports O1, O2, and Os.");
+DEFINE_bool_hidden(use_llvm5_passes, true, "if true, use LLVM 5 optimization passes");
 DECLARE_bool(enable_legacy_avx_support);
 
 namespace impala {
@@ -1385,6 +1431,111 @@ Status LlvmCodeGen::FinalizeModuleAsync(RuntimeProfile::EventSequence* event_seq
   return thread_start_status;
 }
 
+static llvm::FunctionPassManager buildFunctionSimplificationPipeline(llvm::PassBuilder &PB) {
+  llvm::FunctionPassManager FPM;
+  FPM.addPass(llvm::SROA());
+  FPM.addPass(llvm::EarlyCSEPass(true));
+  FPM.addPass(llvm::SpeculativeExecutionPass());
+  FPM.addPass(llvm::JumpThreadingPass());
+  FPM.addPass(llvm::CorrelatedValuePropagationPass());
+  FPM.addPass(llvm::SimplifyCFGPass());
+  FPM.addPass(llvm::InstCombinePass());
+  FPM.addPass(llvm::LibCallsShrinkWrapPass());
+  FPM.addPass(llvm::TailCallElimPass());
+  FPM.addPass(llvm::SimplifyCFGPass());
+  FPM.addPass(llvm::ReassociatePass());
+
+  llvm::LoopPassManager LPM1, LPM2;
+  LPM1.addPass(llvm::LoopRotatePass(true));
+  LPM1.addPass(llvm::LICMPass());
+  LPM1.addPass(llvm::SimpleLoopUnswitchPass());
+  LPM2.addPass(llvm::IndVarSimplifyPass());
+  LPM2.addPass(llvm::LoopIdiomRecognizePass());
+  LPM2.addPass(llvm::LoopDeletionPass());
+  LPM2.addPass(llvm::LoopFullUnrollPass());
+
+  FPM.addPass(llvm::RequireAnalysisPass<llvm::OptimizationRemarkEmitterAnalysis, llvm::Function>());
+  FPM.addPass(llvm::createFunctionToLoopPassAdaptor(std::move(LPM1)));
+  FPM.addPass(llvm::SimplifyCFGPass());
+  FPM.addPass(llvm::InstCombinePass());
+  FPM.addPass(createFunctionToLoopPassAdaptor(std::move(LPM2)));
+  FPM.addPass(llvm::MergedLoadStoreMotionPass());
+  FPM.addPass(llvm::GVN());
+  FPM.addPass(llvm::MemCpyOptPass());
+  FPM.addPass(llvm::SCCPPass());
+  FPM.addPass(llvm::BDCEPass());
+  FPM.addPass(llvm::InstCombinePass());
+  FPM.addPass(llvm::JumpThreadingPass());
+  FPM.addPass(llvm::CorrelatedValuePropagationPass());
+  FPM.addPass(llvm::DSEPass());
+  FPM.addPass(createFunctionToLoopPassAdaptor(llvm::LICMPass()));
+  FPM.addPass(llvm::ADCEPass());
+  FPM.addPass(llvm::SimplifyCFGPass());
+  FPM.addPass(llvm::InstCombinePass());
+  return FPM;
+}
+
+static llvm::ModulePassManager buildModuleSimplificationPipeline(llvm::PassBuilder &PB) {
+  llvm::ModulePassManager MPM;
+  MPM.addPass(llvm::InferFunctionAttrsPass());
+  llvm::FunctionPassManager EarlyFPM;
+  EarlyFPM.addPass(llvm::SimplifyCFGPass());
+  EarlyFPM.addPass(llvm::SROA());
+  EarlyFPM.addPass(llvm::EarlyCSEPass());
+  EarlyFPM.addPass(llvm::LowerExpectIntrinsicPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
+  MPM.addPass(llvm::IPSCCPPass());
+  MPM.addPass(llvm::GlobalOptPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(llvm::PromotePass()));
+  MPM.addPass(llvm::DeadArgumentEliminationPass());
+  llvm::FunctionPassManager GlobalCleanupPM;
+  GlobalCleanupPM.addPass(llvm::InstCombinePass());
+  GlobalCleanupPM.addPass(llvm::SimplifyCFGPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalCleanupPM)));
+
+  MPM.addPass(llvm::RequireAnalysisPass<llvm::GlobalsAA, llvm::Module>());
+  MPM.addPass(llvm::RequireAnalysisPass<llvm::ProfileSummaryAnalysis, llvm::Module>());
+  llvm::CGSCCPassManager MainCGPipeline;
+  MainCGPipeline.addPass(llvm::InlinerPass());
+  MainCGPipeline.addPass(llvm::PostOrderFunctionAttrsPass());
+  MainCGPipeline.addPass(llvm::createCGSCCToFunctionPassAdaptor(
+      buildFunctionSimplificationPipeline(PB)));
+  MPM.addPass(
+      createModuleToPostOrderCGSCCPassAdaptor(createDevirtSCCRepeatedPass(
+          std::move(MainCGPipeline), 2)));
+  return MPM;
+}
+
+static llvm::ModulePassManager buildModuleOptimizationPipeline(llvm::PassBuilder &PB) {
+  llvm::ModulePassManager MPM;
+  MPM.addPass(llvm::GlobalOptPass());
+  MPM.addPass(llvm::EliminateAvailableExternallyPass());
+  MPM.addPass(llvm::ReversePostOrderFunctionAttrsPass());
+  MPM.addPass(llvm::RequireAnalysisPass<llvm::GlobalsAA, llvm::Module>());
+  llvm::FunctionPassManager OptimizePM;
+  OptimizePM.addPass(llvm::Float2IntPass());
+  OptimizePM.addPass(createFunctionToLoopPassAdaptor(llvm::LoopRotatePass()));
+  OptimizePM.addPass(llvm::LoopDistributePass());
+  OptimizePM.addPass(llvm::LoopVectorizePass());
+  OptimizePM.addPass(llvm::LoopLoadEliminationPass());
+  OptimizePM.addPass(llvm::InstCombinePass());
+  OptimizePM.addPass(llvm::SLPVectorizerPass());
+  OptimizePM.addPass(llvm::SimplifyCFGPass());
+  OptimizePM.addPass(llvm::InstCombinePass());
+  OptimizePM.addPass(llvm::LoopUnrollPass());
+  OptimizePM.addPass(llvm::InstCombinePass());
+  OptimizePM.addPass(llvm::RequireAnalysisPass<llvm::OptimizationRemarkEmitterAnalysis, llvm::Function>());
+  OptimizePM.addPass(createFunctionToLoopPassAdaptor(llvm::LICMPass()));
+  OptimizePM.addPass(llvm::AlignmentFromAssumptionsPass());
+  OptimizePM.addPass(llvm::LoopSinkPass());
+  OptimizePM.addPass(llvm::InstSimplifyPass());
+  OptimizePM.addPass(llvm::SimplifyCFGPass());
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(OptimizePM)));
+  MPM.addPass(llvm::GlobalDCEPass());
+  MPM.addPass(llvm::ConstantMergePass());
+  return MPM;
+}
+
 /// TODO: In asynchronous mode, return early if the query is cancelled or finished.
 Status LlvmCodeGen::OptimizeModule() {
   SCOPED_TIMER(optimization_timer_);
@@ -1399,15 +1550,20 @@ Status LlvmCodeGen::OptimizeModule() {
   // TODO: we can likely muck with this to get better compile speeds or write
   // our own passes.  Our subexpression elimination optimization can be rolled into
   // a pass.
-  llvm::PassBuilder pass_builder(execution_engine()->getTargetMachine());
-  pass_builder.registerModuleAnalyses(MAM);
-  pass_builder.registerCGSCCAnalyses(CGAM);
-  pass_builder.registerFunctionAnalyses(FAM);
-  pass_builder.registerLoopAnalyses(LAM);
-  pass_builder.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+  llvm::PassBuilder PB(execution_engine()->getTargetMachine());
+  PB.registerModuleAnalyses(MAM);
+  PB.registerCGSCCAnalyses(CGAM);
+  PB.registerFunctionAnalyses(FAM);
+  PB.registerLoopAnalyses(LAM);
+  PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
-  llvm::ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(
-      llvm::PassBuilder::OptimizationLevel::O2);
+  llvm::ModulePassManager MPM;
+  if (FLAGS_use_llvm5_passes) {
+    MPM.addPass(buildModuleSimplificationPipeline(PB));
+    MPM.addPass(buildModuleOptimizationPipeline(PB));
+  } else {
+    MPM = PB.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+  }
 
   // Update counters before final optimization, but after removing unused functions. This
   // gives us a rough measure of how much work the optimization and compilation must do.
@@ -1425,7 +1581,7 @@ Status LlvmCodeGen::OptimizeModule() {
   }
 
   // Create and run module pass manager
-  pass_manager.run(*module_, MAM);
+  MPM.run(*module_, MAM);
   if (FLAGS_print_llvm_ir_instruction_count) {
     for (auto& entry : fns_to_jit_compile_) {
       InstructionCounter counter;
@@ -1465,7 +1621,7 @@ bool LlvmCodeGen::SetFunctionPointers(CodeGenCache* cache,
       // upgrade llvm. But because we already checked the names hashcode for key collision
       // cases, we expect all the functions should be in the cached execution engine.
       jitted_function = reinterpret_cast<void*>(
-          cached_execution_engine->getFunctionAddress(function_name));
+          cached_execution_engine->getFunctionAddress(function_name.str()));
       if (jitted_function == nullptr) {
         LOG(WARNING) << "Failed to get a jitted function from cache: "
                      << function_name.data()
