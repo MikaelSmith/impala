@@ -152,9 +152,6 @@ const map<int64_t, std::string> LlvmCodeGen::cpu_flag_mappings_{
 
 Status LlvmCodeGen::InitializeLlvm(const char* procname, bool load_backend) {
   DCHECK(!llvm_initialized_);
-  // Treat all functions as having the inline hint
-  std::array<const char*, 2> argv = { { procname, "-inline-threshold=325" } };
-  CHECK(llvm::cl::ParseCommandLineOptions(argv.size(), argv.data()));
   llvm::remove_fatal_error_handler();
   llvm::install_fatal_error_handler(LlvmCodegenHandleError);
   // These functions can *only* be called once per process and are used to set up
