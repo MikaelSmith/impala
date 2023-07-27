@@ -36,12 +36,7 @@ inline void PauseCPU() {
   // to run, not speculate memory access, etc.
   __asm__ __volatile__("pause" : : : "memory");
 #elif defined(__aarch64__)
-  // A "yield" instruction in aarch64 is essentially a nop, and does not cause
-  // enough delay to help backoff. "isb" is a barrier that, especially inside a
-  // loop, creates a small delay without consuming ALU resources. Experiments
-  // show that adding the isb instruction improves stability and reduces result
-  // jitter. Adding more delay than a single isb reduces performance.
-  __asm__ __volatile__("isb" : : : "memory");
+  __asm__ __volatile__("yield" : : : "memory");
 #else
   // PauseCPU is not defined for other architectures.
 #endif
