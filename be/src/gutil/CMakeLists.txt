@@ -53,6 +53,12 @@ set(GUTIL_SRCS
   utf/rune.c
   walltime.cc)
 
+if (NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+set(GUTIL_SRCS
+  atomicops-internals-x86.cc
+  ${GUTIL_SRCS})
+endif()
+
 set(GUTIL_LIBS
   glog
   protobuf)
