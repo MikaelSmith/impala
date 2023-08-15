@@ -132,9 +132,9 @@ export IMPALA_LIBEV_VERSION=4.20-p1
 unset IMPALA_LIBEV_URL
 export IMPALA_LIBUNWIND_VERSION=1.5.0-p1
 unset IMPALA_LIBUNWIND_URL
-export IMPALA_LLVM_VERSION=5.0.1-p7
+export IMPALA_LLVM_VERSION=5.0.1-p8
 unset IMPALA_LLVM_URL
-export IMPALA_LLVM_ASAN_VERSION=5.0.1-p7
+export IMPALA_LLVM_ASAN_VERSION=5.0.1-p8
 unset IMPALA_LLVM_ASAN_URL
 
 # To limit maximum memory available for the mini-cluster and CDH cluster, add the
@@ -148,7 +148,7 @@ export IMPALA_LLVM_UBSAN_BASE_VERSION=5.0.1
 
 # Debug builds should use the release+asserts build to get additional coverage.
 # Don't use the LLVM debug build because the binaries are too large to distribute.
-export IMPALA_LLVM_DEBUG_VERSION=5.0.1-asserts-p7
+export IMPALA_LLVM_DEBUG_VERSION=5.0.1-asserts-p8
 unset IMPALA_LLVM_DEBUG_URL
 export IMPALA_LZ4_VERSION=1.9.3
 unset IMPALA_LZ4_URL
