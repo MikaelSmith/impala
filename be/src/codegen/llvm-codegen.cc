@@ -520,6 +520,11 @@ Status LlvmCodeGen::Init(unique_ptr<llvm::Module> module) {
   builder.setMCJITMemoryManager(move(memory_manager));
   builder.setMCPU(cpu_name_);
   builder.setMAttrs(cpu_attrs_);
+#ifdef __aarch64__
+  // Use medium code model to avoid "overflow check failed for relocation" in
+  // resolveAArch64Relocation, likely due to unfinished JIT support for aarch64.
+  builder.setCodeModel(llvm::CodeModel::Small);
+#endif
   builder.setErrorStr(&error_string_);
 
   unique_ptr<llvm::ExecutionEngine> execution_engine =
