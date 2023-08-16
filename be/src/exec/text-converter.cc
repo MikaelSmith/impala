@@ -181,11 +181,12 @@ Status TextConverter::CodegenWriteSlot(LlvmCodeGen* codegen,
   // Codegen parse slot block
   builder.SetInsertPoint(parse_slot_block);
   llvm::Value* slot =
-      builder.CreateStructGEP(NULL, args[0], slot_desc->llvm_field_idx(), "slot");
+      builder.CreateStructGEP(tuple_type, args[0], slot_desc->llvm_field_idx(), "slot");
 
   if (slot_desc->type().IsVarLenStringType()) {
-    llvm::Value* ptr = builder.CreateStructGEP(NULL, slot, 0, "string_ptr");
-    llvm::Value* len = builder.CreateStructGEP(NULL, slot, 1, "string_len");
+    llvm::Type* slot_type = codegen->GetSlotType(slot_desc->type());
+    llvm::Value* ptr = builder.CreateStructGEP(slot_type, slot, 0, "string_ptr");
+    llvm::Value* len = builder.CreateStructGEP(slot_type, slot, 1, "string_len");
 
     builder.CreateStore(args[1], ptr);
     // TODO codegen memory allocation for CHAR
@@ -282,7 +283,7 @@ Status TextConverter::CodegenWriteSlot(LlvmCodeGen* codegen,
     } else {
       parse_return = builder.CreateCall(parse_fn, {args[1], args[2], parse_result_ptr});
     }
-    llvm::Value* parse_result_val = builder.CreateLoad(parse_result_ptr, "parse_result");
+    llvm::Value* parse_result_val = builder.CreateLoad(codegen->i32_type(), parse_result_ptr, "parse_result");
     llvm::Value* failed_value =
         codegen->GetI32Constant(StringParser::PARSE_FAILURE);
 

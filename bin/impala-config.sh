@@ -85,13 +85,13 @@ export USE_AVRO_CPP=${USE_AVRO_CPP:=false}
 # moving to a different build of the toolchain, e.g. when a version is bumped or a
 # compile option is changed. The build id can be found in the output of the toolchain
 # build jobs, it is constructed from the build number and toolchain git hash prefix.
-export IMPALA_TOOLCHAIN_BUILD_ID_X86_64=25-ba9ab5f36c
-export IMPALA_TOOLCHAIN_BUILD_ID_AARCH64=4-ba9ab5f36c
+export IMPALA_TOOLCHAIN_BUILD_ID_X86_64=372-9413a0e751
+export IMPALA_TOOLCHAIN_BUILD_ID_AARCH64=6-9413a0e751
 export IMPALA_TOOLCHAIN_REPO=\
-${IMPALA_TOOLCHAIN_REPO:-https://github.com/cloudera/native-toolchain.git}
-export IMPALA_TOOLCHAIN_BRANCH=${IMPALA_TOOLCHAIN_BRANCH:-master}
+${IMPALA_TOOLCHAIN_REPO:-https://github.infra.cloudera.com/michaelsmith/native-toolchain.git}
+export IMPALA_TOOLCHAIN_BRANCH=${IMPALA_TOOLCHAIN_BRANCH:-llvm15}
 export IMPALA_TOOLCHAIN_COMMIT_HASH=\
-${IMPALA_TOOLCHAIN_COMMIT_HASH-ba9ab5f36c2cd932464653d10267eeea3d46a7cf}
+${IMPALA_TOOLCHAIN_COMMIT_HASH-9413a0e7510414f78adec46c2ce58a48b1d63360}
 if [ "${IMPALA_TOOLCHAIN_BUILD_ID_X86_64#*-}" \
     != "${IMPALA_TOOLCHAIN_BUILD_ID_AARCH64#*-}" ]; then
   echo "IMPALA_TOOLCHAIN_BUILD_ID_X86_64 and IMPALA_TOOLCHAIN_BUILD_ID_X86_64 must come" \
@@ -144,9 +144,9 @@ export IMPALA_LIBEV_VERSION=4.20-p1
 unset IMPALA_LIBEV_URL
 export IMPALA_LIBUNWIND_VERSION=1.5.0-p1
 unset IMPALA_LIBUNWIND_URL
-export IMPALA_LLVM_VERSION=12.0.1-p1
+export IMPALA_LLVM_VERSION=15.0.7-p1
 unset IMPALA_LLVM_URL
-export IMPALA_LLVM_ASAN_VERSION=12.0.1-p1
+export IMPALA_LLVM_ASAN_VERSION=15.0.7-p1
 unset IMPALA_LLVM_ASAN_URL
 
 # To limit maximum memory available for the mini-cluster and CDH cluster, add the
@@ -154,13 +154,13 @@ unset IMPALA_LLVM_ASAN_URL
 #   export IMPALA_CLUSTER_MAX_MEM_GB=<value>
 
 # LLVM stores some files in subdirectories that are named after what
-# version it thinks it is. We might think it is 12.0.1-p1, based on a
-# patch we have applied, but LLVM thinks its version is 12.0.1.
-export IMPALA_LLVM_UBSAN_BASE_VERSION=12.0.1
+# version it thinks it is. We might think it is 15.0.7-p1, based on a
+# patch we have applied, but LLVM thinks its version is 15.0.7.
+export IMPALA_LLVM_UBSAN_BASE_VERSION=15.0.7
 
 # Debug builds should use the release+asserts build to get additional coverage.
 # Don't use the LLVM debug build because the binaries are too large to distribute.
-export IMPALA_LLVM_DEBUG_VERSION=12.0.1-asserts-p1
+export IMPALA_LLVM_DEBUG_VERSION=15.0.7-asserts-p1
 unset IMPALA_LLVM_DEBUG_URL
 export IMPALA_LZ4_VERSION=1.9.3
 unset IMPALA_LZ4_URL
