@@ -710,8 +710,9 @@ static void CodegenAssignNullValue(LlvmCodeGen* codegen, LlvmBuilder* builder,
   uint64_t fnv_seed = HashUtil::FNV_SEED;
 
   if (type.type == TYPE_STRING || type.type == TYPE_VARCHAR) {
-    llvm::Value* dst_ptr = builder->CreateStructGEP(NULL, dst, 0, "string_ptr");
-    llvm::Value* dst_len = builder->CreateStructGEP(NULL, dst, 1, "string_len");
+    llvm::Type* slot_type = codegen->GetSlotType(type);
+    llvm::Value* dst_ptr = builder->CreateStructGEP(slot_type, dst, 0, "string_ptr");
+    llvm::Value* dst_len = builder->CreateStructGEP(slot_type, dst, 1, "string_len");
     llvm::Value* null_len = codegen->GetI32Constant(fnv_seed);
     llvm::Value* null_ptr = builder->CreateIntToPtr(null_len, codegen->ptr_type());
     builder->CreateStore(null_ptr, dst_ptr);
@@ -905,7 +906,7 @@ Status HashTableCtx::CodegenEvalRow(LlvmCodeGen* codegen, bool build_row,
     // Convert result buffer to llvm ptr type
     int offset = result_row_layout.expr_values_offsets[i];
     llvm::Value* loc = builder.CreateInBoundsGEP(
-        NULL, expr_values, codegen->GetI32Constant(offset), "loc_addr");
+        codegen->i8_type(), expr_values, codegen->GetI32Constant(offset), "loc_addr");
     llvm::Value* llvm_loc =
         builder.CreatePointerCast(loc, codegen->GetSlotPtrType(exprs[i]->type()), "loc");
 
@@ -923,11 +924,12 @@ Status HashTableCtx::CodegenEvalRow(LlvmCodeGen* codegen, bool build_row,
       codegen->SetNoInline(expr_fn);
     }
 
-    llvm::Value* eval_arg = codegen->CodegenArrayAt(&builder, eval_vector, i, "eval");
+    llvm::PointerType* eval_type = codegen->GetStructPtrType<ScalarExprEvaluator>();
+    llvm::Value* eval_arg = codegen->CodegenArrayAt(&builder, eval_vector, eval_type, i, "eval");
     CodegenAnyVal result = CodegenAnyVal::CreateCallWrapped(
         codegen, &builder, exprs[i]->type(), expr_fn, {eval_arg, row}, "result");
     llvm::Value* llvm_null_byte_loc = builder.CreateInBoundsGEP(
-        NULL, expr_values_null, codegen->GetI32Constant(i), "null_byte_loc");
+        codegen->i8_type(), expr_values_null, codegen->GetI32Constant(i), "null_byte_loc");
 
     CodegenAnyValReadWriteInfo rwi = result.ToReadWriteInfo();
     rwi.entry_block().BranchTo(&builder);
@@ -1083,7 +1085,7 @@ Status HashTableCtx::CodegenHashRow(LlvmCodeGen* codegen, bool use_murmur,
 
       int offset = result_row_layout.expr_values_offsets[i];
       llvm::Value* llvm_loc = builder.CreateInBoundsGEP(
-          NULL, expr_values, codegen->GetI32Constant(offset), "loc_addr");
+          codegen->i8_type(), expr_values, codegen->GetI32Constant(offset), "loc_addr");
 
       // If the hash table stores nulls, we need to check if the stringval
       // evaluated to NULL
@@ -1092,9 +1094,9 @@ Status HashTableCtx::CodegenHashRow(LlvmCodeGen* codegen, bool use_murmur,
         not_null_block = llvm::BasicBlock::Create(context, "not_null", *fn);
         continue_block = llvm::BasicBlock::Create(context, "continue", *fn);
 
-        llvm::Value* llvm_null_byte_loc = builder.CreateInBoundsGEP(NULL,
+        llvm::Value* llvm_null_byte_loc = builder.CreateInBoundsGEP(codegen->i8_type(),
             expr_values_null, codegen->GetI32Constant(i), "null_byte_loc");
-        llvm::Value* null_byte = builder.CreateLoad(llvm_null_byte_loc, "null_byte");
+        llvm::Value* null_byte = builder.CreateLoad(codegen->i8_type(), llvm_null_byte_loc, "null_byte");
         llvm::Value* is_null = builder.CreateICmpNE(
             null_byte, codegen->GetI8Constant(0), "is_null");
         builder.CreateCondBr(is_null, null_block, not_null_block);
@@ -1114,13 +1116,14 @@ Status HashTableCtx::CodegenHashRow(LlvmCodeGen* codegen, bool use_murmur,
       }
 
       // Convert expr_values_buffer_ loc to llvm value
+      llvm::Type* string_type = codegen->GetSlotType(ColumnType(TYPE_STRING));
       llvm::Value* str_val = builder.CreatePointerCast(
-          llvm_loc, codegen->GetSlotPtrType(ColumnType(TYPE_STRING)), "str_val");
+          llvm_loc, codegen->GetPtrType(string_type), "str_val");
 
-      llvm::Value* ptr = builder.CreateStructGEP(NULL, str_val, 0);
-      llvm::Value* len = builder.CreateStructGEP(NULL, str_val, 1);
-      ptr = builder.CreateLoad(ptr, "ptr");
-      len = builder.CreateLoad(len, "len");
+      llvm::Value* ptr = builder.CreateStructGEP(string_type, str_val, 0);
+      llvm::Value* len = builder.CreateStructGEP(string_type, str_val, 1);
+      ptr = builder.CreateLoad(codegen->i8_ptr_type(), ptr, "ptr");
+      len = builder.CreateLoad(codegen->i32_type(), len, "len");
 
       // Call hash(ptr, len, hash_result);
       llvm::Function* general_hash_fn =
@@ -1277,7 +1280,8 @@ Status HashTableCtx::CodegenEquals(LlvmCodeGen* codegen, bool inclusive_equality
     }
 
     // Load ScalarExprEvaluator*: eval = eval_vector[i];
-    llvm::Value* eval_arg = codegen->CodegenArrayAt(&builder, eval_vector, i, "eval");
+    llvm::PointerType* eval_type = codegen->GetStructPtrType<ScalarExprEvaluator>();
+    llvm::Value* eval_arg = codegen->CodegenArrayAt(&builder, eval_vector, eval_type, i, "eval");
     // Evaluate the expression.
     CodegenAnyVal result = CodegenAnyVal::CreateCallWrapped(
         codegen, &builder, exprs[i]->type(), expr_fn, {eval_arg, row}, "result");
@@ -1291,8 +1295,8 @@ Status HashTableCtx::CodegenEquals(LlvmCodeGen* codegen, bool inclusive_equality
     // predicate is <=>
     if (inclusive_equality || config.finds_nulls[i]) {
       llvm::Value* llvm_null_byte_loc = builder.CreateInBoundsGEP(
-          NULL, expr_values_null, codegen->GetI32Constant(i), "null_byte_loc");
-      llvm::Value* null_byte = builder.CreateLoad(llvm_null_byte_loc);
+          codegen->i8_type(), expr_values_null, codegen->GetI32Constant(i), "null_byte_loc");
+      llvm::Value* null_byte = builder.CreateLoad(codegen->i8_type(), llvm_null_byte_loc);
       row_is_null = builder.CreateICmpNE(null_byte, codegen->GetI8Constant(0));
     }
     if (inclusive_equality) result.ConvertToCanonicalForm();
@@ -1300,7 +1304,7 @@ Status HashTableCtx::CodegenEquals(LlvmCodeGen* codegen, bool inclusive_equality
     // Get llvm value for row_val from 'expr_values'
     int offset = config.build_exprs_results_row_layout.expr_values_offsets[i];
     llvm::Value* loc = builder.CreateInBoundsGEP(
-        NULL, expr_values, codegen->GetI32Constant(offset), "loc");
+        codegen->i8_type(), expr_values, codegen->GetI32Constant(offset), "loc");
     llvm::Value* row_val = builder.CreatePointerCast(
         loc, codegen->GetSlotPtrType(exprs[i]->type()), "row_val");
 
