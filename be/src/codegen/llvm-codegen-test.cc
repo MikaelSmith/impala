@@ -216,7 +216,7 @@ llvm::Function* CodegenInnerLoop(
 
   // Store &jitted_counter as a constant.
   llvm::Value* const_delta = codegen->GetI64Constant(delta);
-  llvm::Value* loaded_counter = builder.CreateLoad(counter);
+  llvm::Value* loaded_counter = builder.CreateLoad(codegen->i64_type(), counter);
   llvm::Value* incremented_value = builder.CreateAdd(loaded_counter, const_delta);
   builder.CreateStore(incremented_value, counter);
   builder.CreateRetVoid();
@@ -333,8 +333,8 @@ TEST_F(LlvmCodeGenTest, ReplaceFnCall) {
 //   ret i32 %len
 // }
 llvm::Function* CodegenStringTest(LlvmCodeGen* codegen) {
-  llvm::PointerType* string_val_ptr_type =
-      codegen->GetSlotPtrType(ColumnType(TYPE_STRING));
+  llvm::Type* string_val_type = codegen->GetSlotType(ColumnType(TYPE_STRING));
+  llvm::PointerType* string_val_ptr_type = codegen->GetPtrType(string_val_type);
   EXPECT_TRUE(string_val_ptr_type != NULL);
 
   LlvmCodeGen::FnPrototype prototype(codegen, "StringTest", codegen->i32_type());
@@ -345,16 +345,16 @@ llvm::Function* CodegenStringTest(LlvmCodeGen* codegen) {
   llvm::Function* interop_fn = prototype.GeneratePrototype(&builder, &str);
 
   // strval->ptr[0] = 'A'
-  llvm::Value* str_ptr = builder.CreateStructGEP(NULL, str, 0, "str_ptr");
-  llvm::Value* ptr = builder.CreateLoad(str_ptr, "ptr");
+  llvm::Value* str_ptr = builder.CreateStructGEP(string_val_type, str, 0, "str_ptr");
+  llvm::Value* ptr = builder.CreateLoad(codegen->ptr_type(), str_ptr, "ptr");
   llvm::Value* first_char_offset[] = {codegen->GetI32Constant(0)};
   llvm::Value* first_char_ptr =
-      builder.CreateGEP(ptr, first_char_offset, "first_char_ptr");
+      builder.CreateGEP(codegen->i8_type(), ptr, first_char_offset, "first_char_ptr");
   builder.CreateStore(codegen->GetI8Constant('A'), first_char_ptr);
 
   // Update and return old len
-  llvm::Value* len_ptr = builder.CreateStructGEP(NULL, str, 1, "len_ptr");
-  llvm::Value* len = builder.CreateLoad(len_ptr, "len");
+  llvm::Value* len_ptr = builder.CreateStructGEP(string_val_type, str, 1, "len_ptr");
+  llvm::Value* len = builder.CreateLoad(codegen->i32_type(), len_ptr, "len");
   builder.CreateStore(codegen->GetI32Constant(1), len_ptr);
   builder.CreateRet(len);
 

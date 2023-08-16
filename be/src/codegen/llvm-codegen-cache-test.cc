@@ -269,8 +269,8 @@ int64_t LlvmCodeGenCacheTest::GetMemCharge(
 void LlvmCodeGenCacheTest::TestAtCapacity(TCodeGenCacheMode::type mode) {
   int64_t codegen_cache_capacity = 196; // 196B
   bool is_normal_mode = !CodeGenCacheModeAnalyzer::is_optimal(mode);
-  // 128B for optimal mode
-  if (!is_normal_mode) codegen_cache_capacity = 128;
+  // 160B for optimal mode
+  if (!is_normal_mode) codegen_cache_capacity = 160;
   // Using single shard makes the logic of scenarios simple for capacity and
   // eviction-related behavior.
   FLAGS_cache_force_single_shard = true;

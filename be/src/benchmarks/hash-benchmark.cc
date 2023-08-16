@@ -431,7 +431,7 @@ llvm::Function* CodegenCrcHash(LlvmCodeGen* codegen, bool mixed) {
 
   // Hash the current data
   llvm::Value* offset = builder.CreateMul(counter, row_size);
-  llvm::Value* data = builder.CreateGEP(args[1], offset);
+  llvm::Value* data = builder.CreateGEP(codegen->i8_type(), args[1], offset);
 
   llvm::Value* seed = codegen->GetI32Constant(HashUtil::FNV_SEED);
   seed =
@@ -439,19 +439,20 @@ llvm::Function* CodegenCrcHash(LlvmCodeGen* codegen, bool mixed) {
 
   // Get the string data
   if (mixed) {
-    llvm::Value* string_data =
-        builder.CreateGEP(data, codegen->GetI32Constant(fixed_byte_size));
+    llvm::Value* string_data = builder.CreateGEP(
+        codegen->i8_type(), data, codegen->GetI32Constant(fixed_byte_size));
+    llvm::Type* string_val_type = codegen->GetSlotType(ColumnType(TYPE_STRING));
     llvm::Value* string_val = builder.CreateBitCast(string_data,
-            codegen->GetSlotPtrType(ColumnType(TYPE_STRING)));
-    llvm::Value* str_ptr = builder.CreateStructGEP(NULL, string_val, 0);
-    llvm::Value* str_len = builder.CreateStructGEP(NULL, string_val, 1);
-    str_ptr = builder.CreateLoad(str_ptr);
-    str_len = builder.CreateLoad(str_len);
+            codegen->GetPtrType(string_val_type));
+    llvm::Value* str_ptr = builder.CreateStructGEP(string_val_type, string_val, 0);
+    llvm::Value* str_len = builder.CreateStructGEP(string_val_type, string_val, 1);
+    str_ptr = builder.CreateLoad(codegen->ptr_type(), str_ptr);
+    str_len = builder.CreateLoad(codegen->i32_type(), str_len);
     seed = builder.CreateCall(
         string_hash_fn, llvm::ArrayRef<llvm::Value*>({str_ptr, str_len, seed}));
   }
 
-  llvm::Value* result = builder.CreateGEP(args[2], counter);
+  llvm::Value* result = builder.CreateGEP(codegen->i32_type(), args[2], counter);
   builder.CreateStore(seed, result);
 
   counter_check = builder.CreateICmpSLT(next_counter, args[0]);
