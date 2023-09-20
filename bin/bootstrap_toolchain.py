@@ -253,7 +253,9 @@ class ToolchainPackage(EnvVersionedPackage):
       target_comp = parts[1]
     compiler = get_toolchain_compiler()
     label = get_platform_release_label(release=platform_release).toolchain
-    toolchain_build_id = os.environ["IMPALA_TOOLCHAIN_BUILD_ID"]
+    # Most common return values for machine are x86_64 or aarch64
+    arch = platform.machine().upper()
+    toolchain_build_id = os.environ["IMPALA_TOOLCHAIN_BUILD_ID_{}".format(arch)]
     toolchain_host = os.environ["IMPALA_TOOLCHAIN_HOST"]
     template_subs = {'compiler': compiler, 'label': label,
                      'toolchain_build_id': toolchain_build_id,
