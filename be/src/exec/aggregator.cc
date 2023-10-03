@@ -503,11 +503,7 @@ Status AggregatorConfig::CodegenCallUda(LlvmCodeGen* codegen, LlvmBuilder* build
   // same reason as above.
   llvm::Value* dst_lowered_ptr = dst_val.GetLoweredPtr("dst_lowered_ptr");
   const ColumnType& dst_type = agg_fn->intermediate_type();
-  llvm::Type* dst_unlowered_ptr_type =
-      CodegenAnyVal::GetUnloweredPtrType(codegen, dst_type);
-  llvm::Value* dst_unlowered_ptr = builder->CreateBitCast(
-      dst_lowered_ptr, dst_unlowered_ptr_type, "dst_unlowered_ptr");
-  uda_fn_args.push_back(dst_unlowered_ptr);
+  uda_fn_args.push_back(dst_lowered_ptr);
 
   // Call 'uda_fn'
   builder->CreateCall(uda_fn, uda_fn_args);
@@ -571,7 +567,6 @@ Status AggregatorConfig::CodegenUpdateTuple(LlvmCodeGen* codegen, llvm::Function
   llvm::PointerType* tuple_row_ptr_type = codegen->GetStructPtrType<TupleRow>();
 
   llvm::StructType* tuple_struct = intermediate_tuple_desc_->GetLlvmStruct(codegen);
-  llvm::PointerType* tuple_ptr = codegen->GetPtrType(tuple_struct);
   LlvmCodeGen::FnPrototype prototype(codegen, "UpdateTuple", codegen->void_type());
   prototype.AddArgument(LlvmCodeGen::NamedVariable("this_ptr", agg_node_ptr_type));
   prototype.AddArgument(LlvmCodeGen::NamedVariable("agg_fn_evals", evals_type));
@@ -585,10 +580,6 @@ Status AggregatorConfig::CodegenUpdateTuple(LlvmCodeGen* codegen, llvm::Function
   llvm::Value* agg_fn_evals_arg = args[1];
   llvm::Value* tuple_arg = args[2];
   llvm::Value* row_arg = args[3];
-
-  // Cast the parameter types to the internal llvm runtime types.
-  // TODO: get rid of this by using right type in function signature
-  tuple_arg = builder.CreateBitCast(tuple_arg, tuple_ptr, "tuple");
 
   // Loop over each expr and generate the IR for that slot.  If the expr is not
   // count(*), generate a helper IR function to update the slot and call that.

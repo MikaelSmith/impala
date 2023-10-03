@@ -724,15 +724,11 @@ static void CodegenAssignNullValue(LlvmCodeGen* codegen, LlvmBuilder* builder,
     switch (type.type) {
       case TYPE_BOOLEAN:
         // In results, booleans are stored as 1 byte
-        dst = builder->CreateBitCast(dst, codegen->ptr_type());
         null_value = codegen->GetI8Constant(fnv_seed);
         break;
       case TYPE_TIMESTAMP: {
         // Cast 'dst' to 'i128*'
         DCHECK_EQ(byte_size, 16);
-        llvm::PointerType* fnv_seed_ptr_type =
-            codegen->GetPtrType(llvm::Type::getIntNTy(codegen->context(), byte_size * 8));
-        dst = builder->CreateBitCast(dst, fnv_seed_ptr_type);
         null_value = codegen->GetIntConstant(byte_size, fnv_seed, fnv_seed);
         break;
       }

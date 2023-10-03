@@ -801,7 +801,6 @@ Status HdfsAvroScanner::CodegenMaterializeTuple(const HdfsScanPlanNode* node,
   TupleDescriptor* tuple_desc = const_cast<TupleDescriptor*>(node->tuple_desc_);
   llvm::StructType* tuple_type = tuple_desc->GetLlvmStruct(codegen);
   if (tuple_type == nullptr) return Status("Could not generate tuple struct.");
-  llvm::Type* tuple_ptr_type = llvm::PointerType::get(tuple_type, 0);
 
   llvm::PointerType* tuple_opaque_ptr_type = codegen->GetStructPtrType<Tuple>();
 
@@ -843,10 +842,7 @@ Status HdfsAvroScanner::CodegenMaterializeTuple(const HdfsScanPlanNode* node,
     llvm::Value* pool_val = args[2];
     llvm::Value* data_val = args[3];
     llvm::Value* data_end_val = args[4];
-    llvm::Value* opaque_tuple_val = args[5];
-
-    llvm::Value* tuple_val =
-        builder.CreateBitCast(opaque_tuple_val, tuple_ptr_type, "tuple_ptr");
+    llvm::Value* tuple_val = args[5];
 
     // Create a bail out block to handle decoding failures.
     llvm::BasicBlock* bail_out_block =
@@ -969,11 +965,9 @@ Status HdfsAvroScanner::CodegenReadRecord(const SchemaPath& path,
         is_null_ptr = codegen->CreateEntryBlockAlloca(*builder, codegen->bool_type(),
             "is_null_ptr");
       }
-      llvm::Value* is_null_ptr_cast =
-          builder->CreateBitCast(is_null_ptr, codegen->ptr_type());
       llvm::Value* read_union_ok = builder->CreateCall(read_union_fn,
           llvm::ArrayRef<llvm::Value*>(
-              {this_val, null_union_pos_val, data_val, data_end_val, is_null_ptr_cast}),
+              {this_val, null_union_pos_val, data_val, data_end_val, is_null_ptr}),
           "read_union_ok");
       llvm::BasicBlock* read_union_ok_block =
           llvm::BasicBlock::Create(context, "read_union_ok", fn, read_field_block);
@@ -1085,10 +1079,8 @@ Status HdfsAvroScanner::CodegenReadScalar(const AvroSchemaElement& element,
     } else {
       slot_type_val = builder->getInt32(slot_desc->type().type);
     }
-    llvm::Value* slot_val =
-        builder->CreateStructGEP(tuple_type, tuple_val, slot_desc->llvm_field_idx(), "slot");
     opaque_slot_val =
-        builder->CreateBitCast(slot_val, codegen->ptr_type(), "opaque_slot");
+        builder->CreateStructGEP(tuple_type, tuple_val, slot_desc->llvm_field_idx(), "slot");
   }
 
   // NOTE: ReadAvroVarchar/Char has different signature than rest of read functions

@@ -129,15 +129,15 @@ Status ValidTupleIdExpr::GetCodegendComputeFnImpl(
   for (uint32_t i = 0; i < tuple_ids_.size(); i++) {
     // Get the i'th Tuple* from the row.
     llvm::Value* tuple_row_ptr = builder.CreateInBoundsGEP(
-        codegen->GetStructType<TupleRow>(),
+        // Only pointers to TupleRow are ever used in IR, so TupleRow class is omitted
+        // with opaque pointers. It's just a wrapper around a pointer.
+        //codegen->GetStructType<TupleRow>(),
+        llvm::StructType::get(codegen->ptr_type()),
         row_ptr, codegen->GetI32Constant(i), "tuple_row_ptr");
     // Cast to Tuple**
     llvm::Type* tuple_ptr_type = codegen->GetNamedPtrType(Tuple::LLVM_CLASS_NAME);
-    llvm::Type* tuple_ptr_ptr_type = codegen->GetPtrType(tuple_ptr_type);
-    llvm::Value* tuple_ptr_ptr =
-        builder.CreateBitCast(tuple_row_ptr, tuple_ptr_ptr_type, "tuple_ptr_ptr");
     // Get the Tuple* and compare to nullptr.
-    llvm::Value* tuple_ptr = builder.CreateLoad(tuple_ptr_type, tuple_ptr_ptr, "tuple_ptr");
+    llvm::Value* tuple_ptr = builder.CreateLoad(tuple_ptr_type, tuple_row_ptr, "tuple_ptr");
     llvm::Value* is_not_null = builder.CreateIsNotNull(tuple_ptr, "is_not_null");
 
     // Create a conditional on the result.

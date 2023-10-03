@@ -366,10 +366,7 @@ Status ScalarFnCall::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Functi
     }
 #ifndef __aarch64__
     DCHECK_EQ(arg_val_ptr->getType(), arg_type->getPointerTo());
-    // The result of the call must be stored in a lowered AnyVal
-    llvm::Value* lowered_arg_val_ptr = builder.CreateBitCast(arg_val_ptr,
-        CodegenAnyVal::GetLoweredPtrType(codegen, children_[i]->type()),
-        "lowered_arg_val_ptr");
+    llvm::Value* lowered_arg_val_ptr = arg_val_ptr;
 #else
     llvm::Value* lowered_arg_val_ptr;
     if (col_type == TYPE_BOOLEAN or col_type == TYPE_TINYINT
@@ -378,9 +375,7 @@ Status ScalarFnCall::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Functi
           CodegenAnyVal::GetLoweredType(codegen, children_[i]->type()), 1,
           FunctionContextImpl::VARARGS_BUFFER_ALIGNMENT, "lowered_arg_val_ptr");
     } else {
-      lowered_arg_val_ptr = builder.CreateBitCast(arg_val_ptr,
-          CodegenAnyVal::GetLoweredPtrType(codegen, children_[i]->type()),
-          "lowered_arg_val_ptr");
+      lowered_arg_val_ptr = arg_val_ptr;
     }
 #endif
     CodegenAnyVal::CreateCall(
@@ -389,15 +384,12 @@ Status ScalarFnCall::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Functi
     if (col_type == TYPE_BOOLEAN or col_type == TYPE_TINYINT
         or col_type == TYPE_SMALLINT) {
       if (i < NumFixedArgs()) {
-        arg_val_ptr = builder.CreateTruncOrBitCast(lowered_arg_val_ptr,
-            CodegenAnyVal::GetUnloweredPtrType(codegen, children_[i]->type()),
-            "arg_val_ptr");
+        arg_val_ptr = lowered_arg_val_ptr;
         udf_args.push_back(arg_val_ptr);
       } else {
         llvm::Type* unlowered_type =
             CodegenAnyVal::GetUnloweredType(codegen, children_[i]->type());
-        llvm::Value* tmp_ptr = builder.CreateTruncOrBitCast(lowered_arg_val_ptr,
-            codegen->GetPtrType(unlowered_type), "tmp_ptr");
+        llvm::Value* tmp_ptr = lowered_arg_val_ptr;
         builder.CreateStore(builder.CreateLoad(unlowered_type, tmp_ptr), arg_val_ptr);
       }
     }
@@ -411,9 +403,7 @@ Status ScalarFnCall::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Functi
     // Add the number of varargs
     udf_args.push_back(codegen->GetI32Constant(NumVarArgs()));
     // Add all the accumulated vararg inputs as one input argument.
-    llvm::PointerType* vararg_type =
-        CodegenAnyVal::GetUnloweredPtrType(codegen, VarArgsType());
-    udf_args.push_back(builder.CreateBitCast(varargs_buffer, vararg_type, "varargs"));
+    udf_args.push_back(varargs_buffer);
   }
 
   // Call UDF

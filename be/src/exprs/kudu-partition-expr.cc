@@ -157,14 +157,12 @@ void CodegenCallWriteKuduValue(LlvmCodeGen* codegen, LlvmBuilder* builder, int c
       status_type, "status_ptr");
 
   llvm::Value* const col_type_ptr = codegen->GetPtrTo(builder, type.ToIR(codegen));
-  llvm::Value* const child_i8 = builder->CreateBitCast(
-      child_native_val, codegen->i8_type()->getPointerTo());
 
   // This can only fail if we set a col to an incorrect type, which would be a bug in
   // planning, so we could DCHECK but in codegen code we can't so we do not check it.
   builder->CreateCall(write_kudu_fn,
       {status_ptr, codegen->GetI32Constant(col), col_type_ptr,
-      child_i8, codegen->GetBoolConstant(false), kudu_row_ptr});
+      child_native_val, codegen->GetBoolConstant(false), kudu_row_ptr});
 }
 
 /// Sample IR:

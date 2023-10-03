@@ -402,7 +402,7 @@ Status Tuple::CodegenMaterializeExprs(LlvmCodeGen* codegen, bool collect_varlen_
   LlvmBuilder builder(context);
   llvm::Value* args[10];
   *fn = prototype.GeneratePrototype(&builder, args);
-  llvm::Value* opaque_tuple_arg = args[0];
+  llvm::Value* tuple = args[0];
   llvm::Value* row_arg = args[1];
   // llvm::Value* desc_arg = args[2]; // unused
   llvm::Value* expr_evals_arg = args[3];
@@ -419,8 +419,6 @@ Status Tuple::CodegenMaterializeExprs(LlvmCodeGen* codegen, bool collect_varlen_
   if (tuple_struct_type == NULL) {
     return Status("CodegenMaterializeExprs(): failed to generate tuple desc");
   }
-  llvm::PointerType* tuple_type = codegen->GetPtrType(tuple_struct_type);
-  llvm::Value* tuple = builder.CreateBitCast(opaque_tuple_arg, tuple_type, "tuple");
 
   // Clear tuple's null bytes
   codegen->CodegenClearNullBits(&builder, tuple, desc);

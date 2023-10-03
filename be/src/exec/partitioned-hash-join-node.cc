@@ -1321,10 +1321,6 @@ Status PartitionedHashJoinPlanNode::CodegenCreateOutputRow(
 
   llvm::PointerType* this_ptr_type = codegen->GetStructPtrType<BlockingJoinNode>();
 
-  // TupleRows are really just an array of pointers.  Easier to work with them
-  // this way.
-  llvm::PointerType* tuple_row_working_type = codegen->ptr_ptr_type();
-
   // Construct function signature to match CreateOutputRow()
   LlvmCodeGen::FnPrototype prototype(codegen, "CreateOutputRow", codegen->void_type());
   prototype.AddArgument(LlvmCodeGen::NamedVariable("this_ptr", this_ptr_type));
@@ -1336,12 +1332,9 @@ Status PartitionedHashJoinPlanNode::CodegenCreateOutputRow(
   LlvmBuilder builder(context);
   llvm::Value* args[4];
   *fn = prototype.GeneratePrototype(&builder, args);
-  llvm::Value* out_row_arg =
-      builder.CreateBitCast(args[1], tuple_row_working_type, "out");
-  llvm::Value* probe_row_arg =
-      builder.CreateBitCast(args[2], tuple_row_working_type, "probe");
-  llvm::Value* build_row_arg =
-      builder.CreateBitCast(args[3], tuple_row_working_type, "build");
+  llvm::Value* out_row_arg = args[1];
+  llvm::Value* probe_row_arg = args[2];
+  llvm::Value* build_row_arg = args[3];
 
   int num_probe_tuples = probe_row_desc().tuple_descriptors().size();
   int num_build_tuples = build_row_desc().tuple_descriptors().size();

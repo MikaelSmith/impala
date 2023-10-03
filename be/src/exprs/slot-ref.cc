@@ -289,7 +289,7 @@ void CodegenReadingStringOrCollectionVal(LlvmCodeGen* codegen, LlvmBuilder* buil
   } else {
     DCHECK(type.type == TYPE_CHAR || type.type == TYPE_FIXED_UDA_INTERMEDIATE);
     // ptr and len are the slot and its fixed length.
-    *ptr = builder->CreateBitCast(val_ptr, codegen->ptr_type());
+    *ptr = val_ptr;
     *len = codegen->GetI32Constant(type.len);
   }
 }
@@ -300,15 +300,11 @@ static void CodegenReadingTimestamp(LlvmCodeGen* codegen, LlvmBuilder* builder,
   llvm::Value* time_of_day_ptr =
       builder->CreateStructGEP(slot_type, val_ptr, 0, "time_of_day_ptr");
   // Cast boost::posix_time::time_duration to i64
-  llvm::Value* time_of_day_cast =
-      builder->CreateBitCast(time_of_day_ptr, codegen->i64_ptr_type());
   *time_of_day = builder->CreateLoad(
-      codegen->i64_type(), time_of_day_cast, "time_of_day");
+      codegen->i64_type(), time_of_day_ptr, "time_of_day");
   llvm::Value* date_ptr = builder->CreateStructGEP(slot_type, val_ptr, 1, "date_ptr");
   // Cast boost::gregorian::date to i32
-  llvm::Value* date_cast =
-      builder->CreateBitCast(date_ptr, codegen->i32_ptr_type());
-  *date = builder->CreateLoad(codegen->i32_type(), date_cast, "date");
+  *date = builder->CreateLoad(codegen->i32_type(), date_ptr, "date");
 }
 
 CodegenAnyValReadWriteInfo SlotRef::CodegenReadSlot(LlvmCodeGen* codegen,
@@ -322,8 +318,7 @@ CodegenAnyValReadWriteInfo SlotRef::CodegenReadSlot(LlvmCodeGen* codegen,
 
   // This is not used for structs because the child expressions have their own slot
   // pointers and we only read through those, not through the struct slot pointer.
-  llvm::Value* val_ptr = type_.IsStructType() ? nullptr : builder->CreateBitCast(slot_ptr,
-      codegen->GetSlotPtrType(type_), "val_ptr");
+  llvm::Value* val_ptr = type_.IsStructType() ? nullptr : slot_ptr;
 
   // For structs the code that reads the value consists of multiple basic blocks, so the
   // block that should branch to 'produce_value_block' is not 'read_slot_block'. This
@@ -449,10 +444,8 @@ CodegenAnyValReadWriteInfo SlotRef::CreateCodegenAnyValReadWriteInfo(
   //### Part 1: find the tuple address.
   builder->SetInsertPoint(entry_block);
   // Get the tuple offset addr from the row
-  llvm::Value* cast_row_ptr = builder->CreateBitCast(
-      row_ptr, codegen->ptr_ptr_type(), "cast_row_ptr");
   llvm::Value* tuple_ptr_addr =
-      builder->CreateInBoundsGEP(codegen->ptr_type(), cast_row_ptr, tuple_offset, "tuple_ptr_addr");
+      builder->CreateInBoundsGEP(codegen->ptr_type(), row_ptr, tuple_offset, "tuple_ptr_addr");
   // Load the tuple*
   llvm::Value* tuple_ptr = builder->CreateLoad(codegen->ptr_type(), tuple_ptr_addr, "tuple_ptr");
 

@@ -276,7 +276,6 @@ LlvmCodeGen::LlvmCodeGen(FragmentState* state, ObjectPool* pool,
   DCHECK(llvm_initialized_) << "Must call LlvmCodeGen::InitializeLlvm first.";
 
   context_->setDiagnosticHandlerCallBack(&DiagnosticHandler::DiagnosticHandlerFn, this);
-  context_->setOpaquePointers(false);
   load_module_timer_ = ADD_TIMER(profile_, "LoadTime");
   prepare_module_timer_ = ADD_TIMER(profile_, "PrepareTime");
   codegen_cache_lookup_timer_ = ADD_TIMER(profile_, "CodegenCacheLookupTime");
@@ -663,7 +662,7 @@ llvm::Type* LlvmCodeGen::GetSlotType(const ColumnType& type) {
 }
 
 llvm::PointerType* LlvmCodeGen::GetSlotPtrType(const ColumnType& type) {
-  return llvm::PointerType::get(GetSlotType(type), 0);
+  return llvm::PointerType::get(context(), 0);
 }
 
 llvm::Type* LlvmCodeGen::GetNamedType(const string& name) {
@@ -673,21 +672,19 @@ llvm::Type* LlvmCodeGen::GetNamedType(const string& name) {
 }
 
 llvm::PointerType* LlvmCodeGen::GetNamedPtrType(const string& name) {
-  llvm::Type* type = GetNamedType(name);
-  DCHECK(type != NULL) << name;
-  return llvm::PointerType::get(type, 0);
+  return llvm::PointerType::get(context(), 0);
 }
 
 llvm::PointerType* LlvmCodeGen::GetPtrType(llvm::Type* type) {
-  return llvm::PointerType::get(type, 0);
+  return llvm::PointerType::get(context(), 0);
 }
 
 llvm::PointerType* LlvmCodeGen::GetPtrPtrType(llvm::Type* type) {
-  return llvm::PointerType::get(llvm::PointerType::get(type, 0), 0);
+  return llvm::PointerType::get(context(), 0);
 }
 
 llvm::PointerType* LlvmCodeGen::GetNamedPtrPtrType(const string& name) {
-  return llvm::PointerType::get(GetNamedPtrType(name), 0);
+  return llvm::PointerType::get(context(), 0);
 }
 
 llvm::Constant* LlvmCodeGen::GetIntConstant(
@@ -1889,10 +1886,9 @@ void LlvmCodeGen::CodegenMemset(
 
 void LlvmCodeGen::CodegenClearNullBits(
     LlvmBuilder* builder, llvm::Value* tuple_ptr, const TupleDescriptor& tuple_desc) {
-  llvm::Value* int8_ptr = builder->CreateBitCast(tuple_ptr, ptr_type(), "int8_ptr");
   llvm::Value* null_bytes_offset = GetI32Constant(tuple_desc.null_bytes_offset());
   llvm::Value* null_bytes_ptr =
-      builder->CreateInBoundsGEP(i8_type(), int8_ptr, null_bytes_offset, "null_bytes_ptr");
+      builder->CreateInBoundsGEP(i8_type(), tuple_ptr, null_bytes_offset, "null_bytes_ptr");
   CodegenMemset(builder, null_bytes_ptr, 0, tuple_desc.num_null_bytes());
 }
 
@@ -2009,11 +2005,10 @@ llvm::Function* LlvmCodeGen::GetHashFunction(int num_bytes) {
 #ifndef __aarch64__
       llvm::Value* result_64 = builder.CreateZExt(result, i64_type());
 #endif
-      llvm::Value* ptr = builder.CreateBitCast(data, i64_ptr_type());
       int i = 0;
       while (num_bytes >= 8) {
         llvm::Value* index[] = {GetI32Constant(i++)};
-        llvm::Value* d = builder.CreateLoad(i64_type(), builder.CreateInBoundsGEP(i64_type(), ptr, index));
+        llvm::Value* d = builder.CreateLoad(i64_type(), builder.CreateInBoundsGEP(i64_type(), data, index));
 #ifdef __aarch64__
         result = builder.CreateCall(crc64_fn, llvm::ArrayRef<llvm::Value*>({result, d}));
 #else
@@ -2032,8 +2027,7 @@ llvm::Function* LlvmCodeGen::GetHashFunction(int num_bytes) {
 
     if (num_bytes >= 4) {
       DCHECK_LT(num_bytes, 8);
-      llvm::Value* ptr = builder.CreateBitCast(data, i32_ptr_type());
-      llvm::Value* d = builder.CreateLoad(i32_type(), ptr);
+      llvm::Value* d = builder.CreateLoad(i32_type(), data);
       result = builder.CreateCall(crc32_fn, llvm::ArrayRef<llvm::Value*>({result, d}));
       llvm::Value* index[] = {GetI32Constant(4)};
       data = builder.CreateInBoundsGEP(i8_type(), data, index);
@@ -2042,8 +2036,7 @@ llvm::Function* LlvmCodeGen::GetHashFunction(int num_bytes) {
 
     if (num_bytes >= 2) {
       DCHECK_LT(num_bytes, 4);
-      llvm::Value* ptr = builder.CreateBitCast(data, i16_ptr_type());
-      llvm::Value* d = builder.CreateLoad(i16_type(), ptr);
+      llvm::Value* d = builder.CreateLoad(i16_type(), data);
 #ifdef __aarch64__
       d = builder.CreateZExt(d, i32_type());
 #endif

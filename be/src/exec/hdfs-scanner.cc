@@ -403,7 +403,7 @@ Status HdfsScanner::CodegenWriteCompleteTuple(const HdfsScanPlanNode* node,
   // Generate the typed llvm struct for the output tuple
   llvm::StructType* tuple_type = tuple_desc->GetLlvmStruct(codegen);
   if (tuple_type == NULL) return Status("Could not generate tuple struct.");
-  llvm::PointerType* tuple_ptr_type = llvm::PointerType::get(tuple_type, 0);
+  llvm::PointerType* tuple_ptr_type = codegen->GetPtrType(tuple_type);
 
   // Initialize the function prototype.  This needs to match
   // HdfsScanner::WriteCompleteTuple's signature identically.
@@ -430,9 +430,7 @@ Status HdfsScanner::CodegenWriteCompleteTuple(const HdfsScanPlanNode* node,
   llvm::Value* this_arg = args[0];
   llvm::Value* mem_pool_arg = args[1];
   llvm::Value* fields_arg = args[2];
-  llvm::Value* opaque_tuple_arg = args[3];
-  llvm::Value* tuple_arg =
-      builder.CreateBitCast(opaque_tuple_arg, tuple_ptr_type, "tuple_ptr");
+  llvm::Value* tuple_arg = args[3];
   llvm::Value* tuple_row_arg = args[4];
   llvm::Value* opaque_template_arg = args[5];
   llvm::Value* errors_arg = args[6];
@@ -443,14 +441,12 @@ Status HdfsScanner::CodegenWriteCompleteTuple(const HdfsScanPlanNode* node,
 
   llvm::Function* init_tuple_fn;
   RETURN_IF_ERROR(CodegenInitTuple(node, codegen, &init_tuple_fn));
-  builder.CreateCall(init_tuple_fn, {this_arg, opaque_template_arg, opaque_tuple_arg});
+  builder.CreateCall(init_tuple_fn, {this_arg, opaque_template_arg, tuple_arg});
 
   // Put tuple in tuple_row
-  llvm::Value* tuple_row_typed =
-      builder.CreateBitCast(tuple_row_arg, llvm::PointerType::get(tuple_ptr_type, 0));
   llvm::Value* tuple_row_idxs[] = {codegen->GetI32Constant(0)};
   llvm::Value* tuple_in_row_addr =
-      builder.CreateInBoundsGEP(tuple_ptr_type, tuple_row_typed, tuple_row_idxs);
+      builder.CreateInBoundsGEP(tuple_ptr_type, tuple_row_arg, tuple_row_idxs);
   builder.CreateStore(tuple_arg, tuple_in_row_addr);
   builder.CreateBr(parse_block);
 
@@ -524,7 +520,7 @@ Status HdfsScanner::CodegenWriteCompleteTuple(const HdfsScanPlanNode* node,
         DCHECK(interpreted_slot_fn != nullptr);
 
         slot_parsed = builder.CreateCall(interpreted_slot_fn,
-            {this_arg, slot_idx_value, opaque_tuple_arg, data, len, mem_pool_arg});
+            {this_arg, slot_idx_value, tuple_arg, data, len, mem_pool_arg});
       }
 
       llvm::Value* slot_error = builder.CreateNot(slot_parsed, "slot_parse_error");

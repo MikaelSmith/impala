@@ -707,7 +707,7 @@ void SlotDescriptor::CodegenLoadAnyVal(CodegenAnyVal* any_val, llvm::Value* raw_
     case TYPE_CHAR:
     case TYPE_FIXED_UDA_INTERMEDIATE: {
       // Convert fixed-size slot to StringVal.
-      any_val->SetPtr(builder->CreateBitCast(raw_val_ptr, codegen->ptr_type()));
+      any_val->SetPtr(raw_val_ptr);
       any_val->SetLen(codegen->GetI32Constant(type.len));
       break;
     }
@@ -888,9 +888,8 @@ llvm::Value* SlotDescriptor::CodegenGetNullByte(
     llvm::Value** null_byte_ptr) {
   llvm::Constant* byte_offset =
       codegen->GetI32Constant(null_indicator_offset.byte_offset);
-  llvm::Value* tuple_bytes = builder->CreateBitCast(tuple, codegen->ptr_type());
   llvm::Value* byte_ptr =
-      builder->CreateInBoundsGEP(codegen->i8_type(), tuple_bytes, byte_offset, "null_byte_ptr");
+      builder->CreateInBoundsGEP(codegen->i8_type(), tuple, byte_offset, "null_byte_ptr");
   if (null_byte_ptr != nullptr) *null_byte_ptr = byte_ptr;
   return builder->CreateLoad(codegen->i8_type(), byte_ptr, "null_byte");
 }
