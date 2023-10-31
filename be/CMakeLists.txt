@@ -334,6 +334,7 @@ IF($ENV{ENABLE_IMPALA_IR_DEBUG_INFO} STREQUAL "true")
   #     are useful for debugging codegened code and interpreting codegen disassembly
   #     dumps.
   SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-g")
+  add_definitions(-DENABLE_IMPALA_IR_DEBUG_INFO)
 endif()
 
 # Flags to pass to LLVM's opt to further optimize cross-compiled IR.

@@ -61,7 +61,7 @@ Status IfExpr::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Function** f
   LlvmBuilder builder(context);
 
   llvm::Value* args[2];
-  llvm::Function* function = CreateIrFunctionPrototype("IfExpr", codegen, &args);
+  llvm::Function* function = CreateIrFunctionPrototype(builder, "IfExpr", codegen, &args);
 
   llvm::BasicBlock* is_condition_null_block = llvm::BasicBlock::Create(
       context, "is_condition_null", function);
@@ -137,7 +137,7 @@ Status CoalesceExpr::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Functi
   llvm::LLVMContext& context = codegen->context();
   LlvmBuilder builder(context);
   llvm::Value* args[2];
-  llvm::Function* function = CreateIrFunctionPrototype("CoalesceExpr", codegen, &args);
+  llvm::Function* function = CreateIrFunctionPrototype(builder, "CoalesceExpr", codegen, &args);
 
   // The entry block to the function, Checks whether the first child is null.
   // To be filled later in the loop.
@@ -215,7 +215,7 @@ Status IsNullExpr::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Function
   LlvmBuilder builder(context);
 
   llvm::Value* args[2];
-  llvm::Function* function = CreateIrFunctionPrototype("IsNullExpr", codegen, &args);
+  llvm::Function* function = CreateIrFunctionPrototype(builder, "IsNullExpr", codegen, &args);
 
   llvm::BasicBlock* is_first_value_null_block = llvm::BasicBlock::Create(
       context, "is_first_value_null", function);

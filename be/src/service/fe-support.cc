@@ -230,13 +230,12 @@ Java_org_apache_impala_service_FeSupport_NativeEvalExprsWithoutRow(
 
   // UDFs which cannot be interpreted need to be handled by codegen.
   if (fragment_state.ScalarExprNeedsCodegen()) {
-    status = fragment_state.CreateCodegen();
+    status = fragment_state.CreateCodegen(false);
     if (!status.ok()) goto error;
     LlvmCodeGen* codegen = fragment_state.codegen();
     DCHECK(codegen != NULL);
     status = fragment_state.CodegenScalarExprs();
     if (!status.ok()) goto error;
-    codegen->EnableOptimizations(false);
     status = codegen->FinalizeModule();
     if (!status.ok()) goto error;
   }

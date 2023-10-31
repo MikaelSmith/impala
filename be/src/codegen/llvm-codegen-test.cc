@@ -362,7 +362,8 @@ llvm::Function* CodegenStringTest(LlvmCodeGen* codegen) {
 // and modify it.
 TEST_F(LlvmCodeGenTest, StringValue) {
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, NULL, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, NULL, "test", false, &codegen));
   EXPECT_TRUE(codegen.get() != NULL);
 
   string str("Test");
@@ -407,7 +408,8 @@ TEST_F(LlvmCodeGenTest, StringValue) {
 // Test calling memcpy intrinsic
 TEST_F(LlvmCodeGenTest, MemcpyTest) {
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, NULL, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, NULL, "test", false, &codegen));
   ASSERT_TRUE(codegen.get() != NULL);
 
   LlvmCodeGen::FnPrototype prototype(codegen.get(), "MemcpyTest", codegen->void_type());
@@ -449,7 +451,8 @@ TEST_F(LlvmCodeGenTest, HashTest) {
   const char* data2 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, NULL, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, NULL, "test", false, &codegen));
   ASSERT_TRUE(codegen.get() != NULL);
   const auto close_codegen =
       MakeScopeExitTrigger([&codegen]() { codegen->Close(); });
@@ -543,7 +546,8 @@ TEST_F(LlvmCodeGenTest, CpuAttrWhitelist) {
 // finalizes the llvm module.
 TEST_F(LlvmCodeGenTest, CleanupNonFinalizedMethodsTest) {
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, nullptr, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, nullptr, "test", false, &codegen));
   ASSERT_TRUE(codegen.get() != nullptr);
   const auto close_codegen = MakeScopeExitTrigger([&codegen]() { codegen->Close(); });
   LlvmBuilder builder(codegen->context());
@@ -639,7 +643,7 @@ class LlvmOptTest :
 
     ASSERT_OK(CreateFromFile(module_file.c_str(), &codegen));
     EXPECT_TRUE(codegen.get() != nullptr);
-    codegen->EnableOptimizations(true);
+    codegen->optimizations_enabled_ = true;
 
     llvm::Function* fn = codegen->GetFunction(func, false);
     EXPECT_TRUE(fn != nullptr);

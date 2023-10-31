@@ -173,7 +173,7 @@ class TestLineage(CustomClusterTestSuite):
 
   @SkipIfFS.hbase
   @pytest.mark.execute_serially
-  @CustomClusterTestSuite.with_args("--lineage_event_log_dir={0}"
+  @CustomClusterTestSuite.with_args("--lineage_event_log_dir={0} --unopt_module_dir=/tmp/unopt"
                                     .format(LINEAGE_TESTS_DIR))
   def test_lineage_output(self, vector):
     try:

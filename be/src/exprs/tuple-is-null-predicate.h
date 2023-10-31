@@ -49,9 +49,9 @@ class TupleIsNullPredicate: public Predicate {
 
  private:
   void FillCodegendComputeFnConstantFalse(
-      LlvmCodeGen* codegen, llvm::Function* function) const;
+      LlvmBuilder& builder, LlvmCodeGen* codegen, llvm::Function* function) const;
   void FillCodegendComputeFnNonConstant(
-      LlvmCodeGen* codegen, llvm::Function* function, llvm::Value* args[2]) const;
+      LlvmBuilder& builder, LlvmCodeGen* codegen, llvm::Function* function, llvm::Value* args[2]) const;
 
   /// Tuple ids to check for NULL. May contain ids of nullable and non-nullable tuples.
   std::vector<TupleId> tuple_ids_;

@@ -50,6 +50,12 @@ namespace llvm {
   class BasicBlock;
   class ConstantFolder;
   class DiagnosticInfo;
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+  class DIBuilder;
+  class DICompileUnit;
+  class DIScope;
+  class DIType;
+#endif
   class ExecutionEngine;
   class Function;
   class LLVMContext;
@@ -60,15 +66,6 @@ namespace llvm {
   class TargetData;
   class Type;
   class Value;
-  namespace legacy {
-    class FunctionPassManager;
-    class PassManager;
-  }
-
-  template<typename T, typename I>
-  class IRBuilder;
-
-  class IRBuilderDefaultInserter;
 }
 
 // The number of function calls replaced is not knowable when UBSAN is enabled, since it
@@ -97,7 +94,13 @@ class CodeGenCacheKey;
 
 /// Define builder subclass in case we want to change the template arguments later
 class LlvmBuilder : public llvm::IRBuilder<> {
-  using llvm::IRBuilder<>::IRBuilder;
+ public:
+  // Limit to this constructor. GeneratePrototype is the canonical way to define/declare
+  // a function, and handles creating an entry BasicBlock (accessible via getEntryBlock).
+  // It also sets up DebugInfo when ENABLE_IMPALA_IR_DEBUG_INFO, and verifyFunction will
+  // fail if not all Functions are created with debug locations, so everything needs to
+  // use GeneratePrototype and pass in the IRBuilder.
+  LlvmBuilder(llvm::LLVMContext& context) : llvm::IRBuilder<>(context) {}
 };
 
 /// LLVM code generator.  This is the top level object to generate jitted code.
@@ -176,7 +179,7 @@ class LlvmCodeGen {
   /// 'parent_mem_tracker' - if non-NULL, the CodeGen MemTracker is created under this.
   /// 'id' is used for outputting the IR module for debugging.
   static Status CreateImpalaCodegen(FragmentState* state, MemTracker* parent_mem_tracker,
-      const std::string& id, boost::scoped_ptr<LlvmCodeGen>* codegen);
+      const std::string& id, bool optimize, boost::scoped_ptr<LlvmCodeGen>* codegen);
 
   ~LlvmCodeGen();
 
@@ -189,8 +192,7 @@ class LlvmCodeGen {
   RuntimeProfile::Counter* main_thread_timer() { return main_thread_timer_; }
   RuntimeProfile::ThreadCounters* llvm_thread_counters() { return llvm_thread_counters_; }
 
-  /// Turns on/off optimization passes
-  void EnableOptimizations(bool enable);
+  bool OptimizationsEnabled() const;
 
   std::string DebugCacheEntryString(CodeGenCacheKey& key, bool is_lookup, bool debug_mode,
       bool success) const;
@@ -918,6 +920,16 @@ class LlvmCodeGen {
   /// set by Init(). module_ is owned by the execution engine in
   /// execution_engine_wrapper_.
   llvm::Module* module_;
+
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+  std::unique_ptr<llvm::DIBuilder> di_builder_;
+  llvm::DICompileUnit* di_compile_unit_;
+  std::unordered_map<llvm::Type*, llvm::DIType*> di_types_;
+  std::vector<llvm::DIScope*> di_scopes_;
+
+  llvm::DIType* createDIType(llvm::Type*);
+  llvm::DIType* getDIType(llvm::Type*);
+#endif
 
   /// Execution/Jitting engine in a wrapper.
   std::shared_ptr<LlvmExecutionEngineWrapper> execution_engine_wrapper_;

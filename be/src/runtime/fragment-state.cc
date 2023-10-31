@@ -154,15 +154,14 @@ void FragmentState::ReleaseResources() {
 }
 
 
-Status FragmentState::CreateCodegen() {
+Status FragmentState::CreateCodegen(bool optimize) {
   if (codegen_.get() != NULL) return Status::OK();
   // Create with an id of "QueryId_FragmentName_PID" to avoid conflicts between fragments.
   // The id is used when dumping IR modules or codegen disassembly.
   RETURN_IF_ERROR(LlvmCodeGen::CreateImpalaCodegen(
       this, query_mem_tracker(),
       Substitute("$0_$1_$2", PrintId(query_id()), fragment_.display_name, getpid()),
-      &codegen_));
-  codegen_->EnableOptimizations(true);
+      optimize, &codegen_));
   runtime_profile_->AddChild(codegen_->runtime_profile());
   return Status::OK();
 }

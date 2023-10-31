@@ -296,11 +296,10 @@ Status ScalarFnCall::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Functi
   fn_name << udf->getName().str() << "Wrapper";
 
   llvm::Value* args[2];
-  *fn = CreateIrFunctionPrototype(fn_name.str(), codegen, &args);
+  LlvmBuilder builder(codegen->context());
+  *fn = CreateIrFunctionPrototype(builder, fn_name.str(), codegen, &args);
   llvm::Value* eval = args[0];
   llvm::Value* row = args[1];
-  llvm::BasicBlock* block = llvm::BasicBlock::Create(codegen->context(), "entry", *fn);
-  LlvmBuilder builder(block);
 
   // Populate UDF arguments
   vector<llvm::Value*> udf_args;

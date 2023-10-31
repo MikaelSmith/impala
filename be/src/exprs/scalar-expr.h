@@ -60,6 +60,7 @@ using impala_udf::StructVal;
 
 class FragmentState;
 struct LibCacheEntry;
+class LlvmBuilder;
 class LlvmCodeGen;
 class MemTracker;
 class ObjectPool;
@@ -345,8 +346,8 @@ class ScalarExpr : public Expr {
   /// 'name' is the name of the returned llvm::Function*. The arguments to the IR function
   /// are returned in 'args'. The return type is determined by the return type of the expr
   /// tree.
-  llvm::Function* CreateIrFunctionPrototype(const std::string& name, LlvmCodeGen* codegen,
-      llvm::Value* (*args)[2]);
+  llvm::Function* CreateIrFunctionPrototype(LlvmBuilder& builder, const std::string& name,
+      LlvmCodeGen* codegen, llvm::Value* (*args)[2]);
  protected:
 
   /// Return true if we should codegen this expression node, based on query options

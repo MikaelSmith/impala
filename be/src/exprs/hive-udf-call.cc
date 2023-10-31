@@ -522,13 +522,9 @@ Status HiveUdfCall::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Functio
 
    llvm::Value* args[2];
    llvm::Function* const function =
-       CreateIrFunctionPrototype("HiveUdfCall", codegen, &args);
+       CreateIrFunctionPrototype(builder, "HiveUdfCall", codegen, &args);
 
    // Codegen the initialisation of function context etc.
-   llvm::BasicBlock* const entry_block =
-       llvm::BasicBlock::Create(context, "entry", function);
-   builder.SetInsertPoint(entry_block);
-
    llvm::Value* const fn_ctx = builder.CreateCall(
        get_func_ctx_fn, {args[0], codegen->GetI32Constant(fn_ctx_idx_)}, "fn_ctx");
    llvm::Value* const jni_ctx = builder.CreateCall(get_jni_ctx_fn, {fn_ctx}, "jni_ctx");

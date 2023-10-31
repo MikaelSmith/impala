@@ -144,7 +144,6 @@ class Planner {
       LlvmCodeGen* codegen = fragment_state->codegen();
       DCHECK(codegen != NULL);
       RETURN_IF_ERROR(fragment_state->CodegenScalarExprs());
-      codegen->EnableOptimizations(true);
       RETURN_IF_ERROR(codegen->FinalizeModule());
     }
     RETURN_IF_ERROR(eval->Open(state));

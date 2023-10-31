@@ -34,6 +34,9 @@
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/DiagnosticInfo.h>
 #include <llvm/IR/DiagnosticPrinter.h>
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+  #include <llvm/IR/DIBuilder.h>
+#endif
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalVariable.h>
 #include <llvm/IR/InstIterator.h>
@@ -417,12 +420,13 @@ void LlvmCodeGen::StripGlobalCtorsDtors(llvm::Module* module) {
 }
 
 Status LlvmCodeGen::CreateImpalaCodegen(FragmentState* state,
-    MemTracker* parent_mem_tracker, const string& id,
+    MemTracker* parent_mem_tracker, const string& id, bool optimize,
     scoped_ptr<LlvmCodeGen>* codegen_ret) {
   DCHECK(state != nullptr);
   RETURN_IF_ERROR(CreateFromMemory(
       state, state->obj_pool(), parent_mem_tracker, id, codegen_ret));
   LlvmCodeGen* codegen = codegen_ret->get();
+  codegen->optimizations_enabled_ = optimize;
 
   // Parse module for cross compiled functions and types
   SCOPED_TIMER(codegen->profile_->total_time_counter());
@@ -447,6 +451,13 @@ Status LlvmCodeGen::CreateImpalaCodegen(FragmentState* state,
     return Status("Could not create llvm struct type for StringVal");
   }
 
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+  llvm::DIFile *di_file = codegen->di_builder_->createFile(id, ".");
+  codegen->di_compile_unit_ = codegen->di_builder_->createCompileUnit(
+      llvm::dwarf::DW_LANG_C, di_file, "Impala", codegen->OptimizationsEnabled(), "", 0);
+  codegen->di_scopes_.push_back(codegen->di_compile_unit_);
+#endif
+
   // Materialize functions referenced by the global variables.
   for (const string& fn_name : shared_call_graph_.fns_referenced_by_gv()) {
     llvm::Function* fn = codegen->module_->getFunction(fn_name);
@@ -467,6 +478,9 @@ Status LlvmCodeGen::Init(unique_ptr<llvm::Module> module) {
   opt_level = llvm::CodeGenOpt::None;
 #endif
   module_ = module.get();
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+  di_builder_.reset(new llvm::DIBuilder(*module));
+#endif
   llvm::EngineBuilder builder(move(module));
   builder.setEngineKind(llvm::EngineKind::JIT);
   builder.setOptLevel(opt_level);
@@ -539,8 +553,8 @@ void LlvmCodeGen::Close() {
   module_ = nullptr;
 }
 
-void LlvmCodeGen::EnableOptimizations(bool enable) {
-  optimizations_enabled_ = enable;
+bool LlvmCodeGen::OptimizationsEnabled() const {
+  return optimizations_enabled_ && !FLAGS_disable_optimization_passes;
 }
 
 void LlvmCodeGen::GetHostCPUAttrs(std::unordered_set<string>* attrs) {
@@ -815,6 +829,18 @@ bool LlvmCodeGen::VerifyFunction(llvm::Function* fn) {
     string fn_name = fn->getName(); // llvm has some fancy operator overloading
     LOG(ERROR) << "Function corrupt: " << fn_name <<"\nFunction Dump: "
         << LlvmCodeGen::Print(fn);
+
+    if (FLAGS_unopt_module_dir.size() != 0) {
+      string path = FLAGS_unopt_module_dir + "/" + id_ + "_unopt_corrupt.ll";
+      fstream f(path.c_str(), fstream::out | fstream::trunc);
+      if (f.fail()) {
+        LOG(ERROR) << "Could not save IR to: " << path;
+      } else {
+        f << GetIR(true);
+        f.close();
+        LOG(ERROR) << "Saved corrupt IR to " << path;
+      }
+    }
     return false;
   }
   return true;
@@ -836,6 +862,53 @@ void LlvmCodeGen::SetCPUAttrs(llvm::Function* function) {
   function->addFnAttr("target-features", target_features_attr_);
 }
 
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+llvm::DIType* LlvmCodeGen::createDIType(llvm::Type* type) {
+  uint64_t typeSize = module_->getDataLayout().getTypeStoreSize(type) * 8;
+  switch (type->getTypeID()) {
+  case llvm::Type::FloatTyID:
+    return di_builder_->createBasicType("float", typeSize, llvm::dwarf::DW_ATE_float);
+  case llvm::Type::DoubleTyID:
+    return di_builder_->createBasicType("double", typeSize, llvm::dwarf::DW_ATE_float);
+  case llvm::Type::IntegerTyID:
+    return di_builder_->createBasicType("int", typeSize, llvm::dwarf::DW_ATE_signed);
+  case llvm::Type::PointerTyID:
+    return di_builder_->createPointerType(
+        getDIType(type->getPointerElementType()), typeSize);
+  case llvm::Type::StructTyID: {
+    llvm::SmallVector<llvm::Metadata*, 8> elems;
+    for (int i = 0; i < type->getStructNumElements(); i++) {
+      elems.push_back(getDIType(type->getStructElementType(i)));
+    }
+    return di_builder_->createStructType(di_scopes_.back(), type->getStructName(),
+        di_compile_unit_->getFile(), 0, typeSize, 0, llvm::DINode::DIFlags::FlagPublic,
+        nullptr, di_builder_->getOrCreateArray(elems));
+  }
+  case llvm::Type::ArrayTyID: {
+    llvm::SmallVector<llvm::Metadata *, 8> Subscripts;
+    for (llvm::Type* ty = type; ty->isArrayTy(); ty = ty->getArrayElementType()) {
+      Subscripts.push_back(di_builder_->getOrCreateSubrange(0, -1));
+    }
+    return di_builder_->createArrayType(type->getArrayNumElements(), 0,
+        getDIType(type->getArrayElementType()), di_builder_->getOrCreateArray(Subscripts));
+  }
+  default:
+    DCHECK(false) << "Unexpected LLVM type " << Print(type);
+  }
+}
+
+llvm::DIType* LlvmCodeGen::getDIType(llvm::Type* type) {
+  if (type->isVoidTy()) return nullptr;
+  auto dit = di_types_.find(type);
+  if (dit != di_types_.end()) {
+    return dit->second;
+  }
+  llvm::DIType* dtype = createDIType(type);
+  di_types_.emplace_hint(dit, type, dtype);
+  return dtype;
+}
+#endif
+
 LlvmCodeGen::FnPrototype::FnPrototype(
     LlvmCodeGen* codegen, const string& name, llvm::Type* ret_type)
   : codegen_(codegen), name_(name), ret_type_(ret_type) {
@@ -846,14 +919,34 @@ llvm::Function* LlvmCodeGen::FnPrototype::GeneratePrototype(
     LlvmBuilder* builder, llvm::Value** params) {
   vector<llvm::Type*> arguments;
   arguments.reserve(args_.size());
+  llvm::SmallVector<llvm::Metadata*, 8> metargs;
+  // if (llvm::DIType* dtype = codegen_->getDIType(ret_type_); dtype != nullptr) {
+  //   metargs.push_back(codegen_->getDIType(ret_type_));
+  // }
   for (int i = 0; i < args_.size(); ++i) {
     arguments.push_back(args_[i].type);
+    // metargs.push_back(codegen_->getDIType(args_[i].type));
   }
   llvm::FunctionType* prototype = llvm::FunctionType::get(ret_type_, arguments, false);
 
   llvm::Function* fn = llvm::Function::Create(
       prototype, llvm::GlobalValue::ExternalLinkage, name_, codegen_->module_);
   DCHECK(fn != NULL);
+
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+  llvm::DISubroutineType* disub = codegen_->di_builder_->createSubroutineType(
+      codegen_->di_builder_->getOrCreateTypeArray(metargs));
+  llvm::DISubprogram* sp = codegen_->di_builder_->createFunction(
+      codegen_->di_scopes_.back(), name_, llvm::StringRef(),
+      codegen_->di_compile_unit_->getFile(), 0, disub, false, true, 0);
+  fn->setSubprogram(sp);
+  codegen_->di_scopes_.push_back(sp);
+
+  if (builder != nullptr) {
+    // Omit debug info in prologue so the debugger runs to the first real instruction.
+    builder->SetCurrentDebugLocation(llvm::DebugLoc());
+  }
+#endif
 
   // Name the arguments
   int idx = 0;
@@ -863,12 +956,16 @@ llvm::Function* LlvmCodeGen::FnPrototype::GeneratePrototype(
     if (params != NULL) params[idx] = &*iter;
   }
 
-  if (builder != NULL) {
+  if (builder != nullptr) {
     llvm::BasicBlock* entry_block =
         llvm::BasicBlock::Create(codegen_->context(), "entry", fn);
     // Add it to the llvm module via the builder and to the list of handcrafted functions
     // that are a part of the module.
     builder->SetInsertPoint(entry_block);
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+    builder->SetCurrentDebugLocation(
+        llvm::DebugLoc::get(0, 0, codegen_->di_scopes_.back()));
+#endif
     codegen_->handcrafted_functions_.push_back(fn);
   }
   return fn;
@@ -1110,10 +1207,26 @@ llvm::Function* LlvmCodeGen::CloneFunction(llvm::Function* fn) {
   // CloneFunction() automatically gives the new function a unique name
   llvm::Function* fn_clone = llvm::CloneFunction(fn, dummy_vmap);
   fn_clone->copyAttributesFrom(fn);
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+  if (llvm::DISubprogram* sp = fn->getSubprogram(); sp != nullptr) {
+    di_scopes_.push_back(sp);
+  }
+#endif
   return fn_clone;
 }
 
 llvm::Function* LlvmCodeGen::FinalizeFunction(llvm::Function* function) {
+#ifdef ENABLE_IMPALA_IR_DEBUG_INFO
+  if (llvm::DISubprogram* disub = function->getSubprogram(); disub != nullptr) {
+    // finalizeSubprogram does not resolve temporaries, causing verifyFunction to fail.
+    // di_builder_->finalizeSubprogram(disub);
+    di_builder_->finalize();
+    // di_compile_unit_ is never popped.
+    DCHECK(di_scopes_.size() > 1);
+    di_scopes_.pop_back();
+  }
+#endif
+
   SetCPUAttrs(function);
   if (!VerifyFunction(function)) return NULL;
   finalized_functions_.insert(function);
@@ -1334,7 +1447,7 @@ Status LlvmCodeGen::FinalizeModule() {
   COUNTER_SET(num_functions_, counter.GetCount(InstructionCounter::TOTAL_FUNCTIONS));
   COUNTER_SET(num_instructions_, counter.GetCount(InstructionCounter::TOTAL_INSTS));
 
-  if (optimizations_enabled_ && !FLAGS_disable_optimization_passes) {
+  if (OptimizationsEnabled()) {
     RETURN_IF_ERROR(OptimizeModule());
     counter.ResetCount();
     counter.visit(*module_);

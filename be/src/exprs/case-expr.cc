@@ -188,7 +188,7 @@ Status CaseExpr::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Function**
   LlvmBuilder builder(context);
 
   llvm::Value* args[2];
-  llvm::Function* function = CreateIrFunctionPrototype("CaseExpr", codegen, &args);
+  llvm::Function* function = CreateIrFunctionPrototype(builder, "CaseExpr", codegen, &args);
   llvm::BasicBlock* eval_case_expr_block = nullptr;
 
   // This is the block immediately after the when/then exprs. It will either point to a

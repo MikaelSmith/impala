@@ -91,7 +91,7 @@ class FragmentState {
   /// Methods relevant for codegen.
 
   /// Create a codegen object accessible via codegen() if it doesn't exist already.
-  Status CreateCodegen();
+  Status CreateCodegen(bool optimize = true);
 
   /// Codegen all ScalarExpr expressions in 'scalar_exprs_to_codegen_'. If codegen fails
   /// for any expressions, return immediately with the error status. Once IMPALA-4233 is

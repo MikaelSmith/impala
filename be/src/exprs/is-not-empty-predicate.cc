@@ -82,10 +82,9 @@ Status IsNotEmptyPredicate::GetCodegendComputeFnImpl(
   // Create a method with the expected signature.
   llvm::LLVMContext& context = codegen->context();
   llvm::Value* args[2];
+  LlvmBuilder builder(context);
   llvm::Function* new_fn =
-      CreateIrFunctionPrototype("IsNotEmptyPredicate", codegen, &args);
-  llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(context, "entry", new_fn);
-  LlvmBuilder builder(entry_block);
+      CreateIrFunctionPrototype(builder, "IsNotEmptyPredicate", codegen, &args);
 
   ScalarExpr* child = children_[0]; // The child node, on which to call GetCollectionVal.
   llvm::Function* get_collection_val_fn;

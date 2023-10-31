@@ -249,13 +249,9 @@ Status KuduPartitionExpr::GetCodegendComputeFnImpl(
   // Parameters of the generated function (ScalarExprEvaluator*, TupleRow*).
   llvm::Value* args[2];
   llvm::Function* const function =
-      CreateIrFunctionPrototype("KuduPartitionExpr", codegen, &args);
+      CreateIrFunctionPrototype(builder, "KuduPartitionExpr", codegen, &args);
 
   // Codegen the initialisation of function context etc.
-  llvm::BasicBlock* const entry_block =
-      llvm::BasicBlock::Create(context, "entry", function);
-  builder.SetInsertPoint(entry_block);
-
   llvm::Value* kudu_row_ptr = nullptr;
   llvm::Value* kudu_partitioner_ptr = nullptr;
   CodegenGetKuduPartialRowAndPartitioner(codegen, &builder, args[0], fn_ctx_idx_,

@@ -389,10 +389,8 @@ string Literal::DebugString() const {
 Status Literal::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Function** fn) {
   DCHECK_EQ(GetNumChildren(), 0);
   llvm::Value* args[2];
-  *fn = CreateIrFunctionPrototype("Literal", codegen, &args);
-  llvm::BasicBlock* entry_block =
-      llvm::BasicBlock::Create(codegen->context(), "entry", *fn);
-  LlvmBuilder builder(entry_block);
+  LlvmBuilder builder(codegen->context());
+  *fn = CreateIrFunctionPrototype(builder, "Literal", codegen, &args);
 
   CodegenAnyVal v = CodegenAnyVal::GetNonNullVal(codegen, &builder, type_);
   switch (type_.type) {

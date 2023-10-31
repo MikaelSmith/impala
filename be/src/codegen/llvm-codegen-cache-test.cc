@@ -198,12 +198,13 @@ void LlvmCodeGenCacheTest::TestBasicFunction(TCodeGenCacheMode::type mode) {
 
   // Create a LlvmCodeGen containing a codegen function Echo.
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, NULL, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, NULL, "test", false, &codegen));
   AddLlvmCodegenEcho(codegen.get());
   // Create a LlvmCodeGen containing a codegen function Double.
   scoped_ptr<LlvmCodeGen> codegen_double;
   ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
-      fragment_state_, NULL, "test_double", &codegen_double));
+      fragment_state_, NULL, "test_double", false, &codegen_double));
   AddLlvmCodegenDouble(codegen_double.get());
 
   CodeGenCacheKey cache_key;
@@ -284,12 +285,13 @@ void LlvmCodeGenCacheTest::TestAtCapacity(TCodeGenCacheMode::type mode) {
 
   // Create two LlvmCodeGen objects containing a different codegen function separately.
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, NULL, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, NULL, "test", false, &codegen));
   AddLlvmCodegenEcho(codegen.get());
   codegen->GenerateFunctionNamesHashCode();
   scoped_ptr<LlvmCodeGen> codegen_double;
   ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
-      fragment_state_, NULL, "test_double", &codegen_double));
+      fragment_state_, NULL, "test_double", false, &codegen_double));
   AddLlvmCodegenDouble(codegen_double.get());
   codegen_double->GenerateFunctionNamesHashCode();
 
@@ -347,12 +349,13 @@ void LlvmCodeGenCacheTest::TestAtCapacity(TCodeGenCacheMode::type mode) {
 void LlvmCodeGenCacheTest::TestSkipCache() {
   // Initial a LlvmCodeGen object with a normal function.
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, NULL, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, NULL, "test", false, &codegen));
   AddLlvmCodegenEcho(codegen.get());
   // Create an empty function from other LlvmCodeGen to create the failure later.
   scoped_ptr<LlvmCodeGen> codegen_empty;
   ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
-      fragment_state_, NULL, "test_empty", &codegen_empty));
+      fragment_state_, NULL, "test_empty", false, &codegen_empty));
   llvm::Function* empty_func;
   GetLlvmEmptyFunction(codegen_empty.get(), &empty_func);
 
@@ -465,7 +468,8 @@ void LlvmCodeGenCacheTest::TestSwitchModeHelper(TCodeGenCacheMode::type mode, st
     llvm::ExecutionEngine** engine = nullptr) {
   // Create a LlvmCodeGen containing a codegen function Echo.
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, NULL, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, NULL, "test", false &codegen));
   AddLlvmCodegenEcho(codegen.get());
 
   CodeGenCacheKey cache_key;
@@ -542,7 +546,8 @@ TEST_F(LlvmCodeGenCacheTest, SwitchMode) {
 void LlvmCodeGenCacheTest::StoreHelper(TCodeGenCacheMode::type mode, string key) {
   // Create a LlvmCodeGen containing a codegen function Echo.
   scoped_ptr<LlvmCodeGen> codegen;
-  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, NULL, "test", &codegen));
+  ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(
+      fragment_state_, NULL, "test", false, &codegen));
   AddLlvmCodegenEcho(codegen.get());
   CodeGenCacheKey cache_key;
   CodeGenCacheEntry entry;

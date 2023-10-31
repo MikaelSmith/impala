@@ -72,13 +72,14 @@ Status TupleIsNullPredicate::GetCodegendComputeFnImpl(LlvmCodeGen* codegen,
   DCHECK_EQ(0, GetNumChildren());
 
   llvm::Value* args[2];
+  LlvmBuilder builder(codegen->context());
   llvm::Function* function = CreateIrFunctionPrototype(
-      "TupleIsNullPredicate", codegen, &args);
+      builder, "TupleIsNullPredicate", codegen, &args);
 
   if (tuple_idxs_.size() < tuple_ids_.size()) {
-    FillCodegendComputeFnConstantFalse(codegen, function);
+    FillCodegendComputeFnConstantFalse(builder, codegen, function);
   } else {
-    FillCodegendComputeFnNonConstant(codegen, function, args);
+    FillCodegendComputeFnNonConstant(builder, codegen, function, args);
   }
 
   *fn = codegen->FinalizeFunction(function);
@@ -95,9 +96,8 @@ Status TupleIsNullPredicate::GetCodegendComputeFnImpl(LlvmCodeGen* codegen,
 ///   ret i16 0
 /// }
 void TupleIsNullPredicate::FillCodegendComputeFnConstantFalse(
-    LlvmCodeGen* codegen, llvm::Function* function) const {
+    LlvmBuilder& builder, LlvmCodeGen* codegen, llvm::Function* function) const {
   llvm::LLVMContext& context = codegen->context();
-  LlvmBuilder builder(context);
 
   llvm::BasicBlock* return_false_block =
       llvm::BasicBlock::Create(context, "return_false", function);
@@ -137,13 +137,8 @@ void TupleIsNullPredicate::FillCodegendComputeFnConstantFalse(
 ///   ret i16 %ret_val
 /// }
 void TupleIsNullPredicate::FillCodegendComputeFnNonConstant(
-    LlvmCodeGen* codegen, llvm::Function* function, llvm::Value* args[2]) const {
+    LlvmBuilder& builder, LlvmCodeGen* codegen, llvm::Function* function, llvm::Value* args[2]) const {
   llvm::LLVMContext& context = codegen->context();
-  LlvmBuilder builder(context);
-
-  llvm::BasicBlock* entry_block =
-      llvm::BasicBlock::Create(context, "entry", function);
-  builder.SetInsertPoint(entry_block);
 
   // Signature:
   // bool TupleRowTupleIsNull(const TupleRow* row, int index);

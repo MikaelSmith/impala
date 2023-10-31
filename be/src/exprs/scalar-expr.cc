@@ -345,7 +345,7 @@ int ScalarExpr::GetSlotIds(vector<SlotId>* slot_ids) const {
   return n;
 }
 
-llvm::Function* ScalarExpr::CreateIrFunctionPrototype(
+llvm::Function* ScalarExpr::CreateIrFunctionPrototype(LlvmBuilder& builder,
     const string& name, LlvmCodeGen* codegen, llvm::Value* (*args)[2]) {
   llvm::Type* return_type = CodegenAnyVal::GetLoweredType(codegen, type());
   LlvmCodeGen::FnPrototype prototype(codegen, name, return_type);
@@ -354,7 +354,7 @@ llvm::Function* ScalarExpr::CreateIrFunctionPrototype(
           "eval", codegen->GetStructPtrType<ScalarExprEvaluator>()));
   prototype.AddArgument(LlvmCodeGen::NamedVariable(
       "row", codegen->GetStructPtrType<TupleRow>()));
-  llvm::Function* function = prototype.GeneratePrototype(NULL, args[0]);
+  llvm::Function* function = prototype.GeneratePrototype(&builder, args[0]);
   DCHECK(function != NULL);
   return function;
 }

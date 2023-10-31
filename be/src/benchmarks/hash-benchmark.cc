@@ -499,12 +499,11 @@ int main(int argc, char **argv) {
   DataProvider mixed_provider(&mem_pool, mixed_profile);
 
   scoped_ptr<LlvmCodeGen> codegen;
-  status = LlvmCodeGen::CreateImpalaCodegen(fragment_state, NULL, "test", &codegen);
+  status = LlvmCodeGen::CreateImpalaCodegen(fragment_state, NULL, "test", true, &codegen);
   if (!status.ok()) {
     cout << "Could not start codegen.";
     return -1;
   }
-  codegen->EnableOptimizations(true);
 
   llvm::Function* hash_ints = CodegenCrcHash(codegen.get(), false);
   CodegenFnPtr<CodegenHashFn> jitted_hash_ints;

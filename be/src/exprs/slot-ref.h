@@ -86,7 +86,7 @@ class SlotRef : public ScalarExpr {
  private:
   CodegenAnyVal CodegenValue(LlvmCodeGen* codegen, LlvmBuilder* builder,
       llvm::Function* fn, llvm::Value* eval_ptr, llvm::Value* row_ptr,
-      llvm::BasicBlock* entry_block = nullptr);
+      llvm::BasicBlock* entry_block);
   void CodegenNullChecking(LlvmCodeGen* codegen, LlvmBuilder* builder, llvm::Function* fn,
       llvm::BasicBlock* next_block_if_null, llvm::BasicBlock* next_block_if_not_null,
       llvm::Value* tuple_ptr);
@@ -105,7 +105,7 @@ class SlotRef : public ScalarExpr {
       llvm::Function* fn,
       llvm::Value* eval_ptr,
       llvm::Value* row_ptr,
-      llvm::BasicBlock* entry_block = nullptr);
+      llvm::BasicBlock* entry_block);
   CodegenAnyValReadWriteInfo CodegenReadSlot(LlvmCodeGen* codegen, LlvmBuilder* builder,
       llvm::Value* eval_ptr, llvm::Value* row_ptr, llvm::BasicBlock* entry_block,
       llvm::BasicBlock* null_block, llvm::BasicBlock* read_slot_block,

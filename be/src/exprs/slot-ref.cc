@@ -217,12 +217,13 @@ Status SlotRef::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Function** 
   }
 
   llvm::Value* args[2];
-  *fn = CreateIrFunctionPrototype("GetSlotRef", codegen, &args);
+  LlvmBuilder builder(codegen->context());
+  *fn = CreateIrFunctionPrototype(builder, "GetSlotRef", codegen, &args);
   llvm::Value* eval_ptr = args[0];
   llvm::Value* row_ptr = args[1];
 
-  LlvmBuilder builder(codegen->context());
-  CodegenAnyVal result_value = CodegenValue(codegen, &builder, *fn, eval_ptr, row_ptr);
+  CodegenAnyVal result_value = CodegenValue(
+      codegen, &builder, *fn, eval_ptr, row_ptr, &((*fn)->getEntryBlock()));
   builder.CreateRet(result_value.GetLoweredValue());
 
   *fn = codegen->FinalizeFunction(*fn);
@@ -428,9 +429,7 @@ CodegenAnyValReadWriteInfo SlotRef::CreateCodegenAnyValReadWriteInfo(
   llvm::LLVMContext& context = codegen->context();
 
   // Create the necessary basic blocks.
-  if (entry_block == nullptr) {
-    entry_block = llvm::BasicBlock::Create(context, "entry", fn);
-  }
+  DCHECK_NE(entry_block, nullptr);
 
   llvm::BasicBlock* read_slot_block = llvm::BasicBlock::Create(context, "read_slot", fn);
 

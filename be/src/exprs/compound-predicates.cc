@@ -132,10 +132,7 @@ Status CompoundPredicate::CodegenComputeFn(
   LlvmBuilder builder(context);
   llvm::Value* args[2];
   llvm::Function* function =
-      CreateIrFunctionPrototype("CompoundPredicate", codegen, &args);
-
-  llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(context, "entry", function);
-  builder.SetInsertPoint(entry_block);
+      CreateIrFunctionPrototype(builder, "CompoundPredicate", codegen, &args);
 
   // Control blocks for aggregating results
   llvm::BasicBlock* lhs_null_block =

@@ -119,10 +119,9 @@ Status ValidTupleIdExpr::GetCodegendComputeFnImpl(
     LlvmCodeGen* codegen, llvm::Function** fn) {
   // Create a method with the expected signature.
   llvm::Value* args[2];
-  llvm::Function* new_fn = CreateIrFunctionPrototype("ValidTupleId", codegen, &args);
+  LlvmBuilder builder(codegen->context());
+  llvm::Function* new_fn = CreateIrFunctionPrototype(builder, "ValidTupleId", codegen, &args);
   llvm::LLVMContext& context = codegen->context();
-  llvm::BasicBlock* entry_block = llvm::BasicBlock::Create(context, "entry", new_fn);
-  LlvmBuilder builder(entry_block);
   llvm::Value* row_ptr = args[1];
 
   // Unroll the loop.
