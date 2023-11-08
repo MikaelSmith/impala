@@ -147,24 +147,30 @@ export IMPALA_LIBEV_VERSION=4.20-p1
 unset IMPALA_LIBEV_URL
 export IMPALA_LIBUNWIND_VERSION=1.7.2-p1
 unset IMPALA_LIBUNWIND_URL
-export IMPALA_LLVM_VERSION=15.0.7-p1
+
+export IMPALA_USE_NEW_LLVM=${IMPALA_USE_NEW_LLVM:-false}
+if $IMPALA_USE_NEW_LLVM; then
+  export IMPALA_LLVM_VERSION=15.0.7-p1
+else
+  export IMPALA_LLVM_VERSION=5.0.1-p7
+fi
 unset IMPALA_LLVM_URL
-export IMPALA_LLVM_ASAN_VERSION=15.0.7-p1
+export IMPALA_LLVM_ASAN_VERSION=${IMPALA_LLVM_VERSION}
 unset IMPALA_LLVM_ASAN_URL
+# LLVM stores some files in subdirectories that are named after what
+# version it thinks it is. We might think it is X.Y.Z-pN, based on a
+# patch we have applied, but LLVM thinks its version is X.Y.Z.
+export IMPALA_LLVM_UBSAN_BASE_VERSION=${IMPALA_LLVM_VERSION%-p*}
+# Debug builds should use the release+asserts build to get additional coverage.
+# Don't use the LLVM debug build because the binaries are too large to distribute.
+export IMPALA_LLVM_DEBUG_VERSION=\
+${IMPALA_LLVM_VERSION%-p*}-asserts${IMPALA_LLVM_VERSION#*.*.*[0-9]}
+unset IMPALA_LLVM_DEBUG_URL
 
 # To limit maximum memory available for the mini-cluster and CDH cluster, add the
 # following in $IMPALA_HOME/bin/impala-config-local.sh
 #   export IMPALA_CLUSTER_MAX_MEM_GB=<value>
 
-# LLVM stores some files in subdirectories that are named after what
-# version it thinks it is. We might think it is 15.0.7-p1, based on a
-# patch we have applied, but LLVM thinks its version is 15.0.7.
-export IMPALA_LLVM_UBSAN_BASE_VERSION=15.0.7
-
-# Debug builds should use the release+asserts build to get additional coverage.
-# Don't use the LLVM debug build because the binaries are too large to distribute.
-export IMPALA_LLVM_DEBUG_VERSION=15.0.7-asserts-p1
-unset IMPALA_LLVM_DEBUG_URL
 export IMPALA_LZ4_VERSION=1.9.3
 unset IMPALA_LZ4_URL
 export IMPALA_ZSTD_VERSION=1.5.2

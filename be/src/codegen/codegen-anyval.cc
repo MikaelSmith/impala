@@ -180,8 +180,12 @@ llvm::Value* CodegenAnyVal::CreateCall(LlvmCodeGen* cg, LlvmBuilder* builder,
     llvm::Function::arg_iterator ret_arg = fn->arg_begin();
     DCHECK(ret_arg->getType()->isPointerTy());
     llvm::Type* ret_type = cg->GetNamedType(LLVM_DECIMALVAL_NAME);
-    DCHECK(llvm::cast<llvm::PointerType>(ret_arg->getType()
-        )->isOpaqueOrPointeeTypeMatches(ret_type));
+    DCHECK(llvm::cast<llvm::PointerType>(ret_arg->getType())
+#ifdef IMPALA_USE_NEW_LLVM
+        ->isOpaqueOrPointeeTypeMatches(ret_type));
+#else
+        ->getPointerElementType() == ret_type);
+#endif
 
     // We need to pass a DecimalVal pointer to 'fn' that will be populated with the result
     // value. Use 'result_ptr' if specified, otherwise alloca one.

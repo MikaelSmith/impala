@@ -495,9 +495,11 @@ Status Tuple::CodegenCopyStrings(
       slot_offsets_type, slot_offset_ir_constants, "slot_offsets");
   llvm::Constant* num_string_slots = codegen->GetI32Constant(desc.string_slots().size());
   // Get SlotOffsets* pointer to the first element of the constant array.
-  llvm::ArrayType* array_type = llvm::ArrayType::get(slot_offsets_type, slot_offset_ir_constants.size());
-  llvm::Value* constant_slot_offsets_first_element_ptr =
-      builder.CreateConstGEP2_64(array_type, constant_slot_offsets, 0, 0);
+  llvm::Value* constant_slot_offsets_first_element_ptr =builder.CreateConstGEP2_64(
+#ifdef IMPALA_USE_NEW_LLVM
+    llvm::ArrayType::get(slot_offsets_type, slot_offset_ir_constants.size()),
+#endif
+    constant_slot_offsets, 0, 0);
 
   llvm::Value* result_val = builder.CreateCall(cross_compiled_fn,
       {opaque_tuple_arg, err_ctx_arg, state_arg, constant_slot_offsets_first_element_ptr,

@@ -300,8 +300,8 @@ add_definitions(-DKUDU_HEADERS_USE_RICH_SLICE -DKUDU_HEADERS_NO_STUBS)
 set(CLANG_IR_CXX_FLAGS "-emit-llvm" "-c" "-std=c++17" "-DIR_COMPILE" "-DHAVE_INTTYPES_H"
   "-DHAVE_NETINET_IN_H" "-DBOOST_DATE_TIME_POSIX_TIME_STD_CONFIG" "-DBOOST_NO_EXCEPTIONS"
   "-DBOOST_BIND_GLOBAL_PLACEHOLDERS" "-DBOOST_ALLOW_DEPRECATED_HEADERS"
-  "-DKUDU_HEADERS_NO_STUBS" "-fcolor-diagnostics" "-Xclang" "-no-opaque-pointers"
-  "-Wno-return-type-c-linkage" "-fsigned-char" "-Wno-implicit-const-int-float-conversion")
+  "-DKUDU_HEADERS_NO_STUBS" "-fcolor-diagnostics"
+  "-Wno-return-type-c-linkage" "-fsigned-char")
 #  -Wno-deprecated-declarations: OpenSSL3 deprecated various APIs currently used by
 #      Impala, so this disables those warnings when using OpenSSL3 until they can be
 #      addressed. See IMPALA-12226.
@@ -335,6 +335,12 @@ IF($ENV{ENABLE_IMPALA_IR_DEBUG_INFO} STREQUAL "true")
   #     are useful for debugging codegened code and interpreting codegen disassembly
   #     dumps.
   SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-g")
+endif()
+
+if($ENV{IMPALA_USE_NEW_LLVM} STREQUAL "true")
+  set(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Xclang" "-no-opaque-pointers"
+    "-Wno-implicit-const-int-float-conversion")
+  add_definitions(-DIMPALA_USE_NEW_LLVM)
 endif()
 
 # Flags to pass to LLVM's opt to further optimize cross-compiled IR.

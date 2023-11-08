@@ -37,8 +37,10 @@
 #include <llvm/IR/Function.h>
 #include <llvm/IR/GlobalVariable.h>
 #include <llvm/IR/InstIterator.h>
+#ifdef IMPALA_USE_NEW_LLVM
 #include <llvm/IR/IntrinsicsX86.h>
 #include <llvm/IR/IntrinsicsAArch64.h>
+#endif
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/Passes/PassBuilder.h>
@@ -149,8 +151,27 @@ const map<int64_t, std::string> LlvmCodeGen::cpu_flag_mappings_{
     {~(CpuInfo::AVX), "-avx"}, {~(CpuInfo::AVX2), "-avx2"},
     {~(CpuInfo::PCLMULQDQ), "-pclmul"}};
 
-[[noreturn]] static void LlvmCodegenHandleError(
-    void* user_data, const char* reason, bool gen_crash_diag) {
+#ifdef IMPALA_USE_NEW_LLVM
+  #ifdef __aarch64__
+    using Intrinsic=llvm::Intrinsic::AARCH64Intrinsics;
+  #else
+    using Intrinsic=llvm::Intrinsic::X86Intrinsics;
+  #endif
+  using llvm::OptimizationLevel;
+  using llvm::Align;
+#else
+  using Intrinsic=llvm::Intrinsic;
+  using llvm::PassBuilder::OptimizationLevel;
+  using Align=unsigned int;
+#endif
+
+[[noreturn]] static void LlvmCodegenHandleError(void* user_data,
+#ifdef IMPALA_USE_NEW_LLVM
+    const char*
+#else
+    const string&
+#endif
+    reason, bool gen_crash_diag) {
   LOG(FATAL) << "LLVM hit fatal error: " << reason;
 }
 
@@ -228,8 +249,12 @@ LlvmCodeGen::LlvmCodeGen(FragmentState* state, ObjectPool* pool,
     cross_compiled_functions_(IRFunction::FN_END, nullptr) {
   DCHECK(llvm_initialized_) << "Must call LlvmCodeGen::InitializeLlvm first.";
 
+#ifdef IMPALA_USE_NEW_LLVM
   context_->setDiagnosticHandlerCallBack(&DiagnosticHandler::DiagnosticHandlerFn, this);
   context_->setOpaquePointers(false);
+#else
+  context_->setDiagnosticHandler(&DiagnosticHandler::DiagnosticHandlerFn, this);
+#endif
   load_module_timer_ = ADD_TIMER(profile_, "LoadTime");
   prepare_module_timer_ = ADD_TIMER(profile_, "PrepareTime");
   codegen_cache_lookup_timer_ = ADD_TIMER(profile_, "CodegenCacheLookupTime");
@@ -622,7 +647,12 @@ llvm::PointerType* LlvmCodeGen::GetSlotPtrType(const ColumnType& type) {
 }
 
 llvm::Type* LlvmCodeGen::GetNamedType(const string& name) {
-  llvm::Type* type = llvm::StructType::getTypeByName(context(), name);
+  llvm::Type* type =
+#ifdef IMPALA_USE_NEW_LLVM
+      llvm::StructType::getTypeByName(context(), name);
+#else
+      module_->getTypeByName(name);
+#endif
   DCHECK(type != NULL) << name;
   return type;
 }
@@ -673,7 +703,7 @@ llvm::AllocaInst* LlvmCodeGen::CreateEntryBlockAlloca(
     // Generated functions may manipulate DecimalVal arguments via SIMD instructions such
     // as 'movaps' that require 16-byte memory alignment. LLVM uses 8-byte alignment by
     // default, so explicitly set the alignment for DecimalVals.
-    alloca->setAlignment(llvm::Align(16));
+    alloca->setAlignment(Align(16));
   }
   return alloca;
 }
@@ -684,13 +714,14 @@ llvm::AllocaInst* LlvmCodeGen::CreateEntryBlockAlloca(
       builder.GetInsertBlock()->getParent(), NamedVariable(name, type));
 }
 
+
 llvm::AllocaInst* LlvmCodeGen::CreateEntryBlockAlloca(const LlvmBuilder& builder,
     llvm::Type* type, int num_entries, int alignment, const char* name) {
   llvm::Function* fn = builder.GetInsertBlock()->getParent();
   llvm::IRBuilder<> tmp(&fn->getEntryBlock(), fn->getEntryBlock().begin());
   llvm::AllocaInst* alloca =
       tmp.CreateAlloca(type, GetI32Constant(num_entries), name);
-  alloca->setAlignment(llvm::Align(alignment));
+  alloca->setAlignment(Align(alignment));
   return alloca;
 }
 
@@ -1318,7 +1349,13 @@ Status LlvmCodeGen::FinalizeModule() {
     {
       SCOPED_TIMER(module_bitcode_gen_timer_);
       llvm::raw_string_ostream bitcode_stream(bitcode);
-      llvm::WriteBitcodeToFile(*module_, bitcode_stream);
+      llvm::WriteBitcodeToFile(
+#ifdef IMPALA_USE_NEW_LLVM
+          *module_
+#else
+          module_
+#endif
+          , bitcode_stream);
       bitcode_stream.flush();
     }
     CodeGenCacheKeyConstructor::construct(bitcode, &cache_key);
@@ -1434,23 +1471,23 @@ Status LlvmCodeGen::OptimizeModule() {
   pass_builder.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
   TCodeGenOptLevel::type opt_level = state_->query_options().codegen_opt_level;
-  llvm::PassBuilder::OptimizationLevel opt;
+  OptimizationLevel opt;
   // GCC's -Werror=switch errors if a case is not covered.
   switch (opt_level) {
     case TCodeGenOptLevel::O0:
       // Default optimization pipeline requires O1 or greater, so for O0 we skip.
       return Status::OK();
     case TCodeGenOptLevel::O1:
-      opt = llvm::PassBuilder::OptimizationLevel::O1;
+      opt = OptimizationLevel::O1;
       break;
     case TCodeGenOptLevel::Os:
-      opt = llvm::PassBuilder::OptimizationLevel::Os;
+      opt = OptimizationLevel::Os;
       break;
     case TCodeGenOptLevel::O2:
-      opt = llvm::PassBuilder::OptimizationLevel::O2;
+      opt = OptimizationLevel::O2;
       break;
     case TCodeGenOptLevel::O3:
-      opt = llvm::PassBuilder::OptimizationLevel::O3;
+      opt = OptimizationLevel::O3;
       break;
   }
   llvm::ModulePassManager pass_manager = pass_builder.buildPerModuleDefaultPipeline(opt);
@@ -1504,7 +1541,7 @@ bool LlvmCodeGen::SetFunctionPointers(CodeGenCache* cache,
       // upgrade llvm. But because we already checked the names hashcode for key collision
       // cases, we expect all the functions should be in the cached execution engine.
       jitted_function = reinterpret_cast<void*>(
-          cached_execution_engine->getFunctionAddress(function_name));
+          cached_execution_engine->getFunctionAddress(function_name.str()));
       if (jitted_function == nullptr) {
         LOG(WARNING) << "Failed to get a jitted function from cache: "
                      << function_name.data()
@@ -1715,15 +1752,15 @@ Status LlvmCodeGen::LoadIntrinsics() {
     const char* error;
   } non_overloaded_intrinsics[] = {
 #ifdef __aarch64__
-      {llvm::Intrinsic::AARCH64Intrinsics::aarch64_crc32cb, "aarch64 crc32_u8"},
-      {llvm::Intrinsic::AARCH64Intrinsics::aarch64_crc32ch, "aarch64 crc32_u16"},
-      {llvm::Intrinsic::AARCH64Intrinsics::aarch64_crc32cw, "aarch64 crc32_u32"},
-      {llvm::Intrinsic::AARCH64Intrinsics::aarch64_crc32cx, "aarch64 crc32_u64"},
+      {Intrinsic::aarch64_crc32cb, "aarch64 crc32_u8"},
+      {Intrinsic::aarch64_crc32ch, "aarch64 crc32_u16"},
+      {Intrinsic::aarch64_crc32cw, "aarch64 crc32_u32"},
+      {Intrinsic::aarch64_crc32cx, "aarch64 crc32_u64"},
 #else
-      {llvm::Intrinsic::X86Intrinsics::x86_sse42_crc32_32_8, "sse4.2 crc32_u8"},
-      {llvm::Intrinsic::X86Intrinsics::x86_sse42_crc32_32_16, "sse4.2 crc32_u16"},
-      {llvm::Intrinsic::X86Intrinsics::x86_sse42_crc32_32_32, "sse4.2 crc32_u32"},
-      {llvm::Intrinsic::X86Intrinsics::x86_sse42_crc32_64_64, "sse4.2 crc32_u64"},
+      {Intrinsic::x86_sse42_crc32_32_8, "sse4.2 crc32_u8"},
+      {Intrinsic::x86_sse42_crc32_32_16, "sse4.2 crc32_u16"},
+      {Intrinsic::x86_sse42_crc32_32_32, "sse4.2 crc32_u32"},
+      {Intrinsic::x86_sse42_crc32_64_64, "sse4.2 crc32_u64"},
 #endif
   };
   const int num_intrinsics =
@@ -1755,8 +1792,13 @@ void LlvmCodeGen::CodegenMemcpy(
     LlvmBuilder* builder, llvm::Value* dst, llvm::Value* src, llvm::Value* size) {
   DCHECK(dst->getType()->isPointerTy()) << Print(dst);
   DCHECK(src->getType()->isPointerTy()) << Print(src);
-  builder->CreateMemCpy(dst, /* no alignment for dst */ llvm::MaybeAlign(0),
-                        src, /* no alignment for src */ llvm::MaybeAlign(0), size);
+  builder->CreateMemCpy(
+#ifdef IMPALA_USE_NEW_LLVM
+      dst, /* no alignment for dst */ llvm::MaybeAlign(0),
+      src, /* no alignment for src */ llvm::MaybeAlign(0), size);
+#else
+      dst, src, size, /* no alignment */ 0);
+#endif
 }
 
 void LlvmCodeGen::CodegenMemset(
@@ -1765,7 +1807,12 @@ void LlvmCodeGen::CodegenMemset(
   DCHECK_GE(size, 0);
   if (size == 0) return;
   llvm::Value* value_const = GetI8Constant(value);
-  builder->CreateMemSet(dst, value_const, size, /* no alignment */ llvm::MaybeAlign(0));
+  builder->CreateMemSet(dst, value_const, size, /* no alignment */
+#ifdef IMPALA_USE_NEW_LLVM
+      llvm::MaybeAlign(0));
+#else
+      0);
+#endif
 }
 
 void LlvmCodeGen::CodegenClearNullBits(
@@ -1797,8 +1844,12 @@ llvm::Value* LlvmCodeGen::CodegenArrayAt(LlvmBuilder* builder, llvm::Value* arra
     llvm::Type* elementType, int idx, const char* name) {
   DCHECK(array->getType()->isPointerTy() || array->getType()->isArrayTy())
       << Print(array->getType());
-  DCHECK(llvm::cast<llvm::PointerType>(array->getType()->getScalarType()
-      )->isOpaqueOrPointeeTypeMatches(elementType))
+  DCHECK(llvm::cast<llvm::PointerType>(array->getType()->getScalarType())
+#ifdef IMPALA_USE_NEW_LLVM
+      ->isOpaqueOrPointeeTypeMatches(elementType))
+#else
+      ->getPointerElementType() == elementType)
+#endif
       << LlvmCodeGen::Print(array->getType()->getScalarType())
       << " pointer to " << LlvmCodeGen::Print(elementType);
   llvm::Value* ptr = builder->CreateConstGEP1_32(elementType, array, idx);
@@ -1866,23 +1917,15 @@ llvm::Function* LlvmCodeGen::GetHashFunction(int num_bytes) {
     llvm::Value* data = args[0];
     llvm::Value* result = args[2];
 #ifdef __aarch64__
-    llvm::Function* crc8_fn =
-        llvm_intrinsics_[llvm::Intrinsic::AARCH64Intrinsics::aarch64_crc32cb];
-    llvm::Function* crc16_fn =
-        llvm_intrinsics_[llvm::Intrinsic::AARCH64Intrinsics::aarch64_crc32ch];
-    llvm::Function* crc32_fn =
-        llvm_intrinsics_[llvm::Intrinsic::AARCH64Intrinsics::aarch64_crc32cw];
-    llvm::Function* crc64_fn =
-        llvm_intrinsics_[llvm::Intrinsic::AARCH64Intrinsics::aarch64_crc32cx];
+    llvm::Function* crc8_fn = llvm_intrinsics_[Intrinsic::aarch64_crc32cb];
+    llvm::Function* crc16_fn = llvm_intrinsics_[Intrinsic::aarch64_crc32ch];
+    llvm::Function* crc32_fn = llvm_intrinsics_[Intrinsic::aarch64_crc32cw];
+    llvm::Function* crc64_fn = llvm_intrinsics_[Intrinsic::aarch64_crc32cx];
 #else
-    llvm::Function* crc8_fn =
-        llvm_intrinsics_[llvm::Intrinsic::X86Intrinsics::x86_sse42_crc32_32_8];
-    llvm::Function* crc16_fn =
-        llvm_intrinsics_[llvm::Intrinsic::X86Intrinsics::x86_sse42_crc32_32_16];
-    llvm::Function* crc32_fn =
-        llvm_intrinsics_[llvm::Intrinsic::X86Intrinsics::x86_sse42_crc32_32_32];
-    llvm::Function* crc64_fn =
-        llvm_intrinsics_[llvm::Intrinsic::X86Intrinsics::x86_sse42_crc32_64_64];
+    llvm::Function* crc8_fn = llvm_intrinsics_[Intrinsic::x86_sse42_crc32_32_8];
+    llvm::Function* crc16_fn = llvm_intrinsics_[Intrinsic::x86_sse42_crc32_32_16];
+    llvm::Function* crc32_fn = llvm_intrinsics_[Intrinsic::x86_sse42_crc32_32_32];
+    llvm::Function* crc64_fn = llvm_intrinsics_[Intrinsic::x86_sse42_crc32_64_64];
 #endif
 
     // Generate the crc instructions starting with the highest number of bytes

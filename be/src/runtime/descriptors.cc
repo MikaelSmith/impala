@@ -690,8 +690,12 @@ void SlotDescriptor::CodegenLoadAnyVal(CodegenAnyVal* any_val, llvm::Value* raw_
   LlvmBuilder* const builder = any_val->builder();
   const ColumnType& type = any_val->type();
   llvm::Type* raw_val_type = codegen->GetSlotType(type);
-  DCHECK(llvm::cast<llvm::PointerType>(raw_val_ptr->getType()
-      )->isOpaqueOrPointeeTypeMatches(raw_val_type))
+  DCHECK(llvm::cast<llvm::PointerType>(raw_val_ptr->getType())
+#ifdef IMPALA_USE_NEW_LLVM
+      ->isOpaqueOrPointeeTypeMatches(raw_val_type))
+#else
+      ->getPointerElementType() == raw_val_type)
+#endif
       << endl
       << LlvmCodeGen::Print(raw_val_ptr) << endl
       << type << " => " << LlvmCodeGen::Print(raw_val_type);
@@ -909,8 +913,12 @@ void SlotDescriptor::CodegenWriteToSlotHelper(
 
   // Non-null block: write slot
   builder->SetInsertPoint(read_write_info.non_null_block());
-  DCHECK(llvm::cast<llvm::PointerType>(tuple_llvm_struct_ptr->getType()->getScalarType()
-      )->isOpaqueOrPointeeTypeMatches(tuple_llvm_struct_type))
+  DCHECK(llvm::cast<llvm::PointerType>(tuple_llvm_struct_ptr->getType()->getScalarType())
+#ifdef IMPALA_USE_NEW_LLVM
+      ->isOpaqueOrPointeeTypeMatches(tuple_llvm_struct_type))
+#else
+      ->getPointerElementType() == tuple_llvm_struct_type)
+#endif
       << LlvmCodeGen::Print(tuple_llvm_struct_ptr->getType()->getScalarType())
       << " pointer to " << LlvmCodeGen::Print(tuple_llvm_struct_type);
   llvm::Value* slot = builder->CreateStructGEP(tuple_llvm_struct_type,

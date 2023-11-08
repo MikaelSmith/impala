@@ -82,7 +82,9 @@ void InstructionCounter::visit(const llvm::Instruction& I) {
     case llvm::Instruction::Unreachable:
     case llvm::Instruction::CleanupRet:
     case llvm::Instruction::CatchRet:
+#ifdef IMPALA_USE_NEW_LLVM
     case llvm::Instruction::CallBr:
+#endif
       IncrementCount(TERMINATOR_INSTS);
       break;
     case llvm::Instruction::Add:
@@ -143,8 +145,10 @@ void InstructionCounter::visit(const llvm::Instruction& I) {
     case llvm::Instruction::ExtractValue:
     case llvm::Instruction::InsertValue:
     case llvm::Instruction::LandingPad:
+#ifdef IMPALA_USE_NEW_LLVM
     case llvm::Instruction::Freeze:
     case llvm::Instruction::FNeg:
+#endif
     case llvm::Instruction::CleanupPad:
     case llvm::Instruction::CatchPad:
       IncrementCount(OTHER_INSTS);

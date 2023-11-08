@@ -50,21 +50,37 @@ class CodegenSymbolEmitter : public llvm::JITEventListener {
   static void WritePerfMap();
 
   /// Called whenever MCJIT module code is emitted.
+#ifdef IMPALA_USE_NEW_LLVM
   void notifyObjectLoaded(llvm::JITEventListener::ObjectKey K,
-     const llvm::object::ObjectFile &obj,
-     const llvm::RuntimeDyld::LoadedObjectInfo &loaded_obj) override;
+#else
+  void NotifyObjectEmitted(
+#endif
+      const llvm::object::ObjectFile &obj,
+      const llvm::RuntimeDyld::LoadedObjectInfo &loaded_obj) override;
 
   /// Called whenever MCJIT module code is freed.
+#ifdef IMPALA_USE_NEW_LLVM
   void notifyFreeingObject(llvm::JITEventListener::ObjectKey K) override;
+#else
+  void NotifyFreeingObject(const llvm::object::ObjectFile &obj) override;
+#endif
 
   void set_emit_perf_map(bool emit_perf_map) { emit_perf_map_ = emit_perf_map; }
 
   void set_asm_path(const std::string& asm_path) { asm_path_ = asm_path; }
 
  private:
+#ifdef IMPALA_USE_NEW_LLVM
+  using SectionedAddress=llvm::object::SectionedAddress;
+#else
+  struct SectionedAddress {
+    uint64_t Address;
+  };
+#endif
+
   struct PerfMapEntry {
     std::string symbol;
-    llvm::object::SectionedAddress saddr;
+    SectionedAddress saddr;
     uint64_t size;
   };
 
@@ -72,7 +88,9 @@ class CodegenSymbolEmitter : public llvm::JITEventListener {
   /// 'perf_map_entries' if 'emit_perf_map_' is true and write disassembly to 'asm_file'
   /// if it is open.
   void ProcessSymbol(llvm::DIContext* debug_ctx,
+#ifdef IMPALA_USE_NEW_LLVM
       const llvm::object::ObjectFile& debug_obj,
+#endif
       const llvm::object::SymbolRef& symbol,
       uint64_t size, std::vector<PerfMapEntry>* perf_map_entries,
       std::ofstream& asm_file);
@@ -83,7 +101,7 @@ class CodegenSymbolEmitter : public llvm::JITEventListener {
   /// Emit disassembly for the function. If symbols are present for the code object,
   /// the symbols will be interleaved with the disassembly.
   void EmitFunctionAsm(llvm::DIContext* debug_ctx, const std::string& fn_symbol,
-      llvm::object::SectionedAddress addr, uint64_t size, std::ofstream& asm_file);
+      SectionedAddress addr, uint64_t size, std::ofstream& asm_file);
 
   /// Identifier to append to symbols, e.g. a fragment instance id. The identifier is
   /// passed by the caller when the CodegenSymbolEmitter is constructed. Without this
@@ -101,7 +119,12 @@ class CodegenSymbolEmitter : public llvm::JITEventListener {
 
   /// All current entries that should be emitted into the perf map file.
   /// Maps the address of each ObjectFile's data to the symbols in the object.
-  static boost::unordered_map<llvm::JITEventListener::ObjectKey,
+  static boost::unordered_map<
+#ifdef IMPALA_USE_NEW_LLVM
+    llvm::JITEventListener::ObjectKey,
+#else
+    const void*,
+#endif
     std::vector<PerfMapEntry>> perf_map_;
 };
 

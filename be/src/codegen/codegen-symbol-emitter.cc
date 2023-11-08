@@ -46,10 +46,20 @@ using std::rename;
 namespace impala {
 
 SpinLock CodegenSymbolEmitter::perf_map_lock_;
-unordered_map<llvm::JITEventListener::ObjectKey, vector<CodegenSymbolEmitter::PerfMapEntry>>
-    CodegenSymbolEmitter::perf_map_;
+unordered_map<
+#ifdef IMPALA_USE_NEW_LLVM
+    llvm::JITEventListener::ObjectKey,
+#else
+    const void*,
+#endif
+    vector<CodegenSymbolEmitter::PerfMapEntry>> CodegenSymbolEmitter::perf_map_;
 
-void CodegenSymbolEmitter::notifyObjectLoaded(llvm::JITEventListener::ObjectKey K,
+void CodegenSymbolEmitter::
+#ifdef IMPALA_USE_NEW_LLVM
+notifyObjectLoaded(llvm::JITEventListener::ObjectKey K,
+#else
+NotifyObjectEmitted(
+#endif
     const llvm::object::ObjectFile& obj,
     const llvm::RuntimeDyld::LoadedObjectInfo& loaded_obj) {
   vector<PerfMapEntry> perf_map_entries;
@@ -67,13 +77,22 @@ void CodegenSymbolEmitter::notifyObjectLoaded(llvm::JITEventListener::ObjectKey 
   llvm::object::OwningBinary<llvm::object::ObjectFile> debug_obj_owner =
       loaded_obj.getObjectForDebug(obj);
   const llvm::object::ObjectFile& debug_obj = *debug_obj_owner.getBinary();
+#ifdef IMPALA_USE_NEW_LLVM
   unique_ptr<llvm::DWARFContext> dwarf_ctx = llvm::DWARFContext::create(debug_obj);
+#else
+  llvm::DWARFContextInMemory dwarf_ctx(debug_obj);
+#endif
 
   // Use symbol info to iterate functions in the object.
   for (const std::pair<llvm::object::SymbolRef, uint64_t>& pair :
       computeSymbolSizes(debug_obj)) {
-    ProcessSymbol(dwarf_ctx.get(), debug_obj, pair.first, pair.second,
-                  &perf_map_entries, asm_file);
+    ProcessSymbol(
+#ifdef IMPALA_USE_NEW_LLVM
+      dwarf_ctx.get(), debug_obj,
+#else
+      &dwarf_ctx,
+#endif
+      pair.first, pair.second, &perf_map_entries, asm_file);
   }
 
   if (asm_file.is_open()) {
@@ -84,23 +103,41 @@ void CodegenSymbolEmitter::notifyObjectLoaded(llvm::JITEventListener::ObjectKey 
   ofstream perf_map_file;
   if (emit_perf_map_) {
     lock_guard<SpinLock> perf_map_lock(perf_map_lock_);
-    DCHECK(perf_map_.find(K) == perf_map_.end());
-    perf_map_[K] = std::move(perf_map_entries);
+    auto inserted = perf_map_.emplace(
+#ifdef IMPALA_USE_NEW_LLVM
+        K
+#else
+        obj.getData().data()
+#endif
+        , std::move(perf_map_entries));
+    DCHECK(inserted.second);
     WritePerfMapLocked();
   }
 }
 
-void CodegenSymbolEmitter::notifyFreeingObject(llvm::JITEventListener::ObjectKey K) {
+void CodegenSymbolEmitter::
+#ifdef IMPALA_USE_NEW_LLVM
+notifyFreeingObject(llvm::JITEventListener::ObjectKey K) {
+#else
+NotifyFreeingObject(const llvm::object::ObjectFile& obj) {
+#endif
   if (emit_perf_map_) {
     lock_guard<SpinLock> perf_map_lock(perf_map_lock_);
-    DCHECK(perf_map_.find(K) != perf_map_.end());
-    perf_map_.erase(K);
+    size_t erased = perf_map_.erase(
+#ifdef IMPALA_USE_NEW_LLVM
+        K);
+#else
+        obj.getData().data());
+#endif
+    DCHECK_EQ(erased, 1);
     WritePerfMapLocked();
   }
 }
 
 void CodegenSymbolEmitter::ProcessSymbol(llvm::DIContext* debug_ctx,
+#ifdef IMPALA_USE_NEW_LLVM
     const llvm::object::ObjectFile& debug_obj,
+#endif
     const llvm::object::SymbolRef& symbol, uint64_t size,
     vector<PerfMapEntry>* perf_map_entries, ofstream& asm_file) {
   llvm::Expected<llvm::object::SymbolRef::Type> symType = symbol.getType();
@@ -110,14 +147,14 @@ void CodegenSymbolEmitter::ProcessSymbol(llvm::DIContext* debug_ctx,
   llvm::Expected<uint64_t> addr_or_err = symbol.getAddress();
   if (!name_or_err || !addr_or_err) return;
 
-  llvm::object::SectionedAddress saddr;
+  SectionedAddress saddr;
   saddr.Address = addr_or_err.get();
+#ifdef IMPALA_USE_NEW_LLVM
   auto sect_or_err = symbol.getSection();
-  if (sect_or_err) {
-    if (sect_or_err.get() != debug_obj.section_end()) {
-      saddr.SectionIndex = sect_or_err.get()->getIndex();
-    }
+  if (sect_or_err && sect_or_err.get() != debug_obj.section_end()) {
+    saddr.SectionIndex = sect_or_err.get()->getIndex();
   }
+#endif
 
   // Append id to symbol to disambiguate different instances of jitted functions.
   string fn_symbol = Substitute("$0:$1", name_or_err.get().data(), id_);
@@ -152,8 +189,8 @@ void CodegenSymbolEmitter::WritePerfMapLocked() {
     return;
   }
 
-  for (pair<llvm::JITEventListener::ObjectKey, vector<PerfMapEntry>> entries: perf_map_) {
-    for (PerfMapEntry& entry: entries.second) {
+  for (const auto& entries: perf_map_) {
+    for (const PerfMapEntry& entry: entries.second) {
       // Write perf.map file. Each line has format <address> <size> <label>
       tmp_perf_map_file << hex << entry.saddr.Address << " " << entry.size << " "
                         << entry.symbol << "\n";
@@ -170,10 +207,16 @@ void CodegenSymbolEmitter::WritePerfMapLocked() {
 }
 
 void CodegenSymbolEmitter::EmitFunctionAsm(llvm::DIContext* debug_ctx,
-    const string& fn_symbol, llvm::object::SectionedAddress saddr, uint64_t size,
+    const string& fn_symbol, SectionedAddress saddr, uint64_t size,
     ofstream& asm_file) {
   DCHECK(asm_file.is_open());
-  llvm::DILineInfoTable di_lines = debug_ctx->getLineInfoForAddressRange(saddr, size);
+  llvm::DILineInfoTable di_lines = debug_ctx->getLineInfoForAddressRange(
+#ifdef IMPALA_USE_NEW_LLVM
+      saddr
+#else
+      saddr.Address
+#endif
+      , size);
   auto di_line_it = di_lines.begin();
   int64_t addr = saddr.Address;
 
