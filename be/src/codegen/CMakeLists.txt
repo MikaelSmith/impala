@@ -37,6 +37,7 @@ add_library(CodeGen
   llvm-codegen.cc
   llvm-codegen-cache.cc
   instruction-counter.cc
+  mcjit-mem-mgr.cc
   ${IR_O1_C_FILE}
   ${IR_O2_C_FILE}
   ${IR_Os_C_FILE}

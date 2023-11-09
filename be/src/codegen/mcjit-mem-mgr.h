@@ -19,13 +19,23 @@
 #ifndef IMPALA_CODEGEN_MCJIT_MEM_MGR_H
 #define IMPALA_CODEGEN_MCJIT_MEM_MGR_H
 
-#include <llvm/ExecutionEngine/SectionMemoryManager.h>
+#include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
+#include <llvm/ExecutionEngine/RTDyldMemoryManager.h>
+#include <llvm/Support/Memory.h>
+#include <cstdint>
+#include <string>
+#include <system_error>
 
 extern void *__dso_handle __attribute__ ((__visibility__ ("hidden")));
 
 namespace impala {
 
 /// Custom memory manager. It is needed for a couple of purposes.
+///
+/// We implement reserveAllocationSpace and pre-allocate all memory in a single block.
+/// This is required for ARM where ADRP instructions have a limit of 4GB offsets. Large
+/// memory systems may allocate sections further apart than this unless we pre-allocate.
 ///
 /// We use it as a way to resolve references to __dso_handle in cross-compiled IR.
 /// This uses the same approach as the legacy llvm JIT to handle __dso_handle. MCJIT
@@ -34,43 +44,79 @@ namespace impala {
 /// which come from global variables with destructors.
 ///
 /// We also use it to track how much memory is allocated for compiled code.
-class ImpalaMCJITMemoryManager : public llvm::SectionMemoryManager {
+class ImpalaMCJITMemoryManager : public llvm::RTDyldMemoryManager {
  public:
-  ImpalaMCJITMemoryManager() : bytes_allocated_(0), bytes_tracked_(0){}
+  ImpalaMCJITMemoryManager() = default;
+  ImpalaMCJITMemoryManager(const ImpalaMCJITMemoryManager&) = delete;
+  void operator=(const ImpalaMCJITMemoryManager&) = delete;
+  ~ImpalaMCJITMemoryManager() override;
+
+  bool needsToReserveAllocationSpace() override { return true; }
+
+  void reserveAllocationSpace(uintptr_t CodeSize, uint32_t CodeAlign,
+      uintptr_t RODataSize, uint32_t RODataAlign,
+      uintptr_t RWDataSize, uint32_t RWDataAlign) override;
 
   virtual uint64_t getSymbolAddress(const std::string& name) override {
     if (name == "__dso_handle") return reinterpret_cast<uint64_t>(&__dso_handle);
-    return SectionMemoryManager::getSymbolAddress(name);
+    return llvm::RTDyldMemoryManager::getSymbolAddress(name);
   }
 
   virtual uint8_t* allocateCodeSection(uintptr_t size, unsigned alignment,
-      unsigned section_id, llvm::StringRef section_name) override {
-    bytes_allocated_ += size;
-    return llvm::SectionMemoryManager::allocateCodeSection(
-        size, alignment, section_id, section_name);
-  }
+      unsigned section_id, llvm::StringRef section_name) override;
 
   virtual uint8_t* allocateDataSection(uintptr_t size, unsigned alignment,
-      unsigned section_id, llvm::StringRef section_name, bool is_read_only) override {
-    bytes_allocated_ += size;
-    return llvm::SectionMemoryManager::allocateDataSection(
-        size, alignment, section_id, section_name, is_read_only);
-  }
+      unsigned section_id, llvm::StringRef section_name, bool is_read_only) override;
 
-  int64_t bytes_allocated() const { return bytes_allocated_; }
+  bool finalizeMemory(std::string *ErrMsg = nullptr) override;
+
+  /// This method is called from finalizeMemory.
+  virtual void invalidateInstructionCache();
+
+  int64_t bytes_allocated() const;
+
   int64_t bytes_tracked() const { return bytes_tracked_; }
-  void set_bytes_tracked(int64_t bytes_tracked) {
-    DCHECK_LE(bytes_tracked, bytes_allocated_);
-    bytes_tracked_ = bytes_tracked;
-  }
+
+  void set_bytes_tracked(int64_t bytes_tracked);
 
  private:
-  /// Total bytes allocated for the compiled code.
-  int64_t bytes_allocated_;
+  struct FreeMemBlock {
+    // The actual block of free memory
+    llvm::sys::MemoryBlock Free;
+    // If there is a pending allocation from the same reservation right before
+    // this block, store it's index in PendingMem, to be able to update the
+    // pending region if part of this block is allocated, rather than having to
+    // create a new one
+    unsigned PendingPrefixIndex;
+  };
 
-  /// Total bytes already tracked by MemTrackers. <= 'bytes_allocated_'.
+  struct MemoryGroup {
+    // PendingMem contains all blocks of memory (subblocks of AllocatedMem)
+    // which have not yet had their permissions applied, but have been given
+    // out to the user. FreeMem contains all block of memory, which have
+    // neither had their permissions applied, nor been given out to the user.
+    llvm::SmallVector<llvm::sys::MemoryBlock, 16> PendingMem;
+    llvm::SmallVector<FreeMemBlock, 16> FreeMem;
+
+    // All memory blocks that have been requested from the system
+    llvm::SmallVector<llvm::sys::MemoryBlock, 16> AllocatedMem;
+
+    llvm::sys::MemoryBlock Near;
+  };
+
+  uint8_t *allocateSection(MemoryGroup &MemGroup, uintptr_t Size,
+                           unsigned Alignment);
+
+  std::error_code applyMemoryGroupPermissions(MemoryGroup &MemGroup,
+                                              unsigned Permissions);
+
+  MemoryGroup CodeMem;
+  MemoryGroup RWDataMem;
+  MemoryGroup RODataMem;
+
+  /// Total bytes already tracked by MemTrackers. <= 'bytes_allocated()'.
   /// Needed to release the correct amount from the MemTracker when done.
-  int64_t bytes_tracked_;
+  int64_t bytes_tracked_ = 0;
 };
 }
 
