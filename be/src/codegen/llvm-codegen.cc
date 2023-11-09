@@ -127,6 +127,8 @@ DEFINE_string_hidden(llvm_cpu_attr_whitelist, "adx,aes,avx,avx2,bmi,bmi2,cmov,cx
 #endif
 DEFINE_string_hidden(llvm_ir_opt, "Os",
     "The IR optimization level for pre-generated code; supports O1, O2, and Os.");
+DEFINE_bool_hidden(llvm_reserve_allocation, true, "Reserve allocation for a module in "
+    "one contiguous block. Disable to restore allocating each section separately.");
 DECLARE_bool(enable_legacy_avx_support);
 
 namespace impala {
@@ -470,7 +472,8 @@ Status LlvmCodeGen::Init(unique_ptr<llvm::Module> module) {
   llvm::EngineBuilder builder(move(module));
   builder.setEngineKind(llvm::EngineKind::JIT);
   builder.setOptLevel(opt_level);
-  unique_ptr<ImpalaMCJITMemoryManager> memory_manager(new ImpalaMCJITMemoryManager);
+  unique_ptr<ImpalaMCJITMemoryManager> memory_manager(
+      new ImpalaMCJITMemoryManager(FLAGS_llvm_reserve_allocation));
   memory_manager_ = memory_manager.get();
   builder.setMCJITMemoryManager(move(memory_manager));
   builder.setMCPU(cpu_name_);
