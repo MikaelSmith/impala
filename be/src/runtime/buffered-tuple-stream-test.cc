@@ -1381,7 +1381,6 @@ void StreamStateTest::TestDeferAdvancingReadPage() {
           ASSERT_FALSE(stream.is_pinned());
           ASSERT_EQ(stream.bytes_unpinned(), 0);
           ASSERT_EQ(stream.pages_.size(), 2);
-          ASSERT_EQ(stream.num_pages_, 2);
           // Retry inserting this row by decreasing the index.
           // After stream get into unpinned mode, further inserts should be successful,
           // even if we're not immediately cleaning up the read_batch.
@@ -1650,7 +1649,7 @@ TEST_F(SimpleTupleStreamTest, ConcurrentReaders) {
     workers.add_thread(new thread([&] () {
       for (int j = 0; j < READ_ITERS; ++j) {
         BufferedTupleStream::ReadIterator it;
-        ASSERT_OK(stream.PrepareForPinnedRead(&it));
+        ASSERT_OK(stream.PrepareForConcurrentRead(&it));
 
         // Read all the rows back
         vector<int> results;
@@ -1674,6 +1673,69 @@ TEST_F(SimpleTupleStreamTest, ConcurrentReaders) {
     // Verify result
     VerifyResults<int>(*int_desc_, results, ROWS_PER_BATCH * NUM_BATCHES, false);
   }
+  workers.join_all();
+  stream.Close(nullptr, RowBatch::FlushMode::NO_FLUSH_RESOURCES);
+}
+
+/// Test multiple threads reading from an unpinned stream using separate read iterators.
+TEST_F(SimpleTupleStreamTest, ConcurrentUnpinnedReaders) {
+  const int BUFFER_SIZE = 1024;
+  // Each tuple is an integer plus a null indicator byte.
+  const int VALS_PER_BUFFER = BUFFER_SIZE / (sizeof(int32_t) + 1);
+  const int NUM_BUFFERS = 100;
+  const int TOTAL_MEM = NUM_BUFFERS * BUFFER_SIZE;
+  Init(TOTAL_MEM);
+  BufferedTupleStream stream(
+      runtime_state_, int_desc_, &client_, BUFFER_SIZE, BUFFER_SIZE);
+  ASSERT_OK(stream.Init("ConcurrentReaders", false));
+  bool got_write_reservation;
+  ASSERT_OK(stream.PrepareForWrite(&got_write_reservation));
+  ASSERT_TRUE(got_write_reservation);
+
+  // Add rows to the stream.
+  int offset = 0;
+  const int NUM_BATCHES = NUM_BUFFERS;
+  const int ROWS_PER_BATCH = VALS_PER_BUFFER;
+  for (int i = 0; i < NUM_BATCHES; ++i) {
+    RowBatch* batch = nullptr;
+    Status status;
+    batch = CreateBatch(int_desc_, offset, ROWS_PER_BATCH, false);
+    for (int j = 0; j < batch->num_rows(); ++j) {
+      bool b = stream.AddRow(batch->GetRow(j), &status);
+      ASSERT_OK(status);
+      ASSERT_TRUE(b);
+    }
+    offset += batch->num_rows();
+    // Reset the batch to make sure the stream handles the memory correctly.
+    batch->Reset();
+  }
+  // Invalidate the write iterator explicitly so that we can read concurrently.
+  stream.DoneWriting();
+
+  const int READ_ITERS = 10; // Do multiple read passes per thread.
+  const int NUM_THREADS = 4;
+
+  // Read from the main thread with the built-in iterator and other threads with
+  // external iterators.
+  thread_group workers;
+  for (int i = 0; i < NUM_THREADS; ++i) {
+    workers.add_thread(new thread([&] () {
+      for (int j = 0; j < READ_ITERS; ++j) {
+        BufferedTupleStream::ReadIterator it;
+        ASSERT_OK(stream.PrepareForConcurrentRead(&it));
+
+        // Read all the rows back
+        vector<int> results;
+        ReadValues(&stream, &it, int_desc_, &results);
+
+        // Verify result
+        VerifyResults<int>(*int_desc_, results, ROWS_PER_BATCH * NUM_BATCHES, false);
+      }
+    }));
+  }
+
+  // Don't mix with PrepareForRead. Currently messes with ref counting on pinned pages because
+  // we only use the ref count with PrepareForConcurrentRead.
   workers.join_all();
   stream.Close(nullptr, RowBatch::FlushMode::NO_FLUSH_RESOURCES);
 }
@@ -1725,9 +1787,9 @@ void StreamStateTest::TestShortDebugString() {
 
   // Verify that stream contains more than MAX_PAGE_ITER_DEBUG pages and only subset of
   // pages are included in DebugString().
-  DCHECK_GT(stream.num_pages_, BufferedTupleStream::MAX_PAGE_ITER_DEBUG);
+  DCHECK_GT(stream.pages_.size(), BufferedTupleStream::MAX_PAGE_ITER_DEBUG);
   string page_count_substr = Substitute(
-      "$0 out of $1 pages=", BufferedTupleStream::MAX_PAGE_ITER_DEBUG, stream.num_pages_);
+      "$0 out of $1 pages=", BufferedTupleStream::MAX_PAGE_ITER_DEBUG, stream.pages_.size());
   string debug_string = stream.DebugString();
   ASSERT_NE(debug_string.find(page_count_substr), string::npos)
       << page_count_substr << " not found at BufferedTupleStream::DebugString(). "
@@ -2206,7 +2268,6 @@ Status StreamStateTest::ReadOutStream(
 void StreamStateTest::VerifyStreamState(BufferedTupleStream* stream, int num_page,
     int num_pinned_page, int num_unpinned_page, int buffer_size) {
   ASSERT_EQ(stream->pages_.size(), num_page);
-  ASSERT_EQ(stream->num_pages_, num_page);
   ASSERT_EQ(stream->BytesPinned(false), buffer_size * num_pinned_page);
   ASSERT_EQ(stream->bytes_unpinned(), buffer_size * num_unpinned_page);
   stream->CheckConsistencyFull(stream->read_it_);

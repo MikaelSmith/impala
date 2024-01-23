@@ -949,7 +949,7 @@ Status PartitionedHashJoinNode::OutputNullAwareProbeRows(
         builder_->null_aware_partition()->build_rows();
     DCHECK(null_build_stream->is_pinned());
     BufferedTupleStream::ReadIterator build_itr;
-    RETURN_IF_ERROR(null_build_stream->PrepareForPinnedRead(&build_itr));
+    RETURN_IF_ERROR(null_build_stream->PrepareForConcurrentRead(&build_itr));
     bool eos;
     do {
       RETURN_IF_ERROR(null_build_stream->GetNext(&build_itr, &null_build_batch, &eos));
@@ -1105,7 +1105,7 @@ Status PartitionedHashJoinNode::EvaluateNullProbe(
       RETURN_IF_CANCELLED(state);
       if (matched_null_probe_[probe_row_idx]) continue;
       BufferedTupleStream::ReadIterator build_itr;
-      RETURN_IF_ERROR(build->PrepareForPinnedRead(&build_itr));
+      RETURN_IF_ERROR(build->PrepareForConcurrentRead(&build_itr));
       bool build_eos;
       do {
         RETURN_IF_ERROR(build->GetNext(&build_itr, &build_batch, &build_eos));

@@ -18,6 +18,7 @@
 #ifndef IMPALA_RUNTIME_BUFFERED_TUPLE_STREAM_H
 #define IMPALA_RUNTIME_BUFFERED_TUPLE_STREAM_H
 
+#include <mutex>
 #include <set>
 #include <vector>
 #include <boost/function.hpp>
@@ -59,7 +60,7 @@ class TupleRow;
 /// Once the stream is fully written, it can be read back by calling PrepareForRead()
 /// then GetNext() repeatedly to advance a read iterator through the stream. If the
 /// stream is pinned, external read iterators can be created with
-/// PrepareForPinnedRead(). Multiple external read iterators can be active at the same
+/// PrepareForConcurrentRead(). Multiple external read iterators can be active at the same
 /// time, reading from different positions in the stream. External read iterators are
 /// thread-safe, which allows safe concurrent access to the stream from different threads.
 ///
@@ -250,6 +251,7 @@ class BufferedTupleStream {
 
   /// Explicitly finishes writing the stream, invalidating the write iterator (if
   /// there is one). Must be called after the last AddRow() or AddRowCustomEnd().
+  /// Initializes locking for pin operations to support concurrent reads.
   void DoneWriting();
 
   /// Prepares the stream for reading, invalidating the write iterator (if there is one).
@@ -263,12 +265,12 @@ class BufferedTupleStream {
   ///     error was encountered. Undefined if an error status is returned.
   Status PrepareForRead(bool attach_on_read, bool* got_reservation);
 
-  /// Prepares 'iter' for reading a pinned stream. The stream must not have a write
-  /// iterator and stream must be pinned. This does not attach pages on read.
+  /// Prepares 'iter' for reading a stream concurrently. The stream must not have a write
+  /// iterator. This does not attach pages on read.
   ///
-  /// This method is safe to call concurrently from different threads, as long as the
-  /// stream remains pinned and 'iter' is not shared between threads.
-  Status PrepareForPinnedRead(ReadIterator* iter);
+  /// This method is safe to call concurrently from different threads, as long as 'iter'
+  /// is not shared between threads.
+  Status PrepareForConcurrentRead(ReadIterator* iter);
 
   /// Adds a single row to the stream. There are three possible outcomes:
   /// a) The append succeeds. True is returned.
@@ -355,7 +357,7 @@ class BufferedTupleStream {
   Status GetNext(RowBatch* batch, bool* eos);
 
   /// Get the next batch of output rows from 'read_iter', which are backed by the
-  /// pinned stream's memory. The memory backing the rows is valid as long as the
+  /// stream's memory. The memory backing the rows is valid as long as the
   /// stream remains pinned.
   ///
   /// This method is safe to call concurrently from different threads, as long as the
@@ -417,7 +419,7 @@ class BufferedTupleStream {
 
   std::string DebugString() const;
 
-  static constexpr int64_t MAX_PAGE_ITER_DEBUG = 100;
+  static constexpr size_t MAX_PAGE_ITER_DEBUG = 100;
 
  private:
   /// Wrapper around BufferPool::PageHandle that tracks additional info about the page.
@@ -596,9 +598,12 @@ class BufferedTupleStream {
   /// * before the first row has been added with AddRow() or AddRowCustom().
   /// * after the stream has been destructively read in 'attach_on_read' mode
   std::list<Page> pages_;
-  // IMPALA-5629: avoid O(n) list.size() call by explicitly tracking the number of pages.
-  // TODO: remove when we switch to GCC5+, where list.size() is O(1). See GCC bug #49561.
-  int64_t num_pages_ = 0;
+
+  /// Lock for pinning/unpinning pages. Only initialized by DoneWriting to enable
+  /// concurrent readers without pinning the whole stream. Also requires tracking
+  /// all read iterators so we can identify any pages currently being read, and only
+  /// unpin pages if no iterators are reading them.
+  std::unique_ptr<std::mutex> pages_lock_;
 
   /// Total size of pages_, including any pages already deleted in 'attach_on_read'
   /// mode.
@@ -722,6 +727,13 @@ class BufferedTupleStream {
       const std::vector<SlotDescriptor*>& collection_slots, uint8_t** data,
       const uint8_t* data_end);
 
+  /// Return movable lock. It will have acquired the lock if we have configured one.
+  /// Acquire any time we need to pin/unpin pages.
+  std::unique_lock<std::mutex> Lock() {
+    return (pages_lock_ && !pinned_) ?
+        std::unique_lock(*pages_lock_) : std::unique_lock<std::mutex>();
+  }
+
   /// Gets a new page of 'page_len' bytes from buffer_pool_, updating write_page_,
   /// write_ptr_ and write_end_ptr_. The caller must ensure there is 'page_len' unused
   /// reservation. The caller must reset the write page (if there is one) before calling.
@@ -748,7 +760,7 @@ class BufferedTupleStream {
   /// calling this, no more rows can be appended to the stream.
   void InvalidateWriteIterator();
 
-  /// Helper for PrepareForRead() and PrepareForPinnedRead(). Sets up 'read_iter' for
+  /// Helper for PrepareForRead() and PrepareForConcurrentRead(). Sets up 'read_iter' for
   /// reading from the start of the stream. Does not invalidate any existing iterators.
   /// The caller must ensure there is sufficient unused reservation.
   Status PrepareForReadInternal(bool attach_on_read, ReadIterator* read_iter);
@@ -763,26 +775,18 @@ class BufferedTupleStream {
   /// but it is invalid to read or write from in future.
   void InvalidateReadIterator();
 
-  /// Pins page and updates tracking stats.
+  /// Pins page and updates tracking stats. The caller is responsible for ensuring
+  /// sufficient reservation is available.
   Status PinPage(Page* page);
 
-  /// Increment the page's pin count if this page needs a higher pin count given the
-  /// current read and write iterator positions and whether the stream will be pinned
-  /// ('stream_pinned'). Assumes that no scenarios occur when the pin count needs to
-  /// be incremented multiple times. The caller is responsible for ensuring sufficient
-  /// reservation is available.
-  Status PinPageIfNeeded(Page* page, bool stream_pinned);
+  /// Unpins page and updates tracking stats.
+  void UnpinPage(Page* page);
 
-  /// Decrement the page's pin count if this page needs a lower pin count given the
-  /// current read and write iterator positions and whether the stream will be pinned
-  /// ('stream_pinned'). Assumes that no scenarios occur when the pin count needs to
-  /// be decremented multiple times.
-  void UnpinPageIfNeeded(Page* page, bool stream_pinned);
-
-  /// Return the expected pin count for 'page' in the current stream based on the current
-  /// read and write pages and whether the stream is pinned. Not valid to call if
-  /// the page was just deleted, i.e. page->attached_to_output_batch == false.
-  int ExpectedPinCount(bool stream_pinned, const Page* page) const;
+  /// If using internal read or write iterator, we don't want to PinPage multiple times
+  /// because it increases the reservation.
+  bool SkipPageRefCount(const Page& page) {
+    return is_read_page(&page) || is_write_page(&page);
+  }
 
   /// Return true if the stream in its current state needs to have a reservation for
   /// a write page stored in 'write_page_reservation_'.
