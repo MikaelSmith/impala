@@ -17,9 +17,13 @@
 
 package org.apache.impala.calcite.rel.node;
 
+import java.util.Map;
+
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.impala.planner.PlannerContext;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * ParentPlanRelContext is passed into each layer of the Impala
@@ -39,6 +43,9 @@ public class ParentPlanRelContext {
 
   public ImpalaAggRel parentAggregate_;
 
+  // Maps CTE names to their producers
+  public final Map<String, NodeWithExprs> cteProducers_;
+
   /**
    * Constructor meant for root node.
    */
@@ -47,6 +54,7 @@ public class ParentPlanRelContext {
     this.filterCondition_ = null;
     this.inputRefs_ = null;
     this.parentAggregate_ = null;
+    this.cteProducers_ = ImmutableMap.of();
   }
 
   private ParentPlanRelContext(Builder builder) {
@@ -54,6 +62,7 @@ public class ParentPlanRelContext {
     this.filterCondition_ = builder.filterCondition_;
     this.inputRefs_ = builder.inputRefs_;
     this.parentAggregate_ = builder.parentAggregate_;
+    this.cteProducers_ = builder.cteProducers_.build();
   }
 
   public static class Builder {
@@ -61,12 +70,14 @@ public class ParentPlanRelContext {
     private RexNode filterCondition_;
     private ImmutableBitSet inputRefs_;
     private ImpalaAggRel parentAggregate_;
+    private ImmutableMap.Builder<String, NodeWithExprs> cteProducers_;
 
     /**
      * Should only be called from root level.
      */
     public Builder(PlannerContext plannerContext) {
       this.context_ = plannerContext;
+      this.cteProducers_ = ImmutableMap.builder();
     }
 
     public Builder(ParentPlanRelContext planRelContext, ImpalaPlanRel planRel) {
@@ -75,6 +86,8 @@ public class ParentPlanRelContext {
       this.parentAggregate_ = ImpalaPlanRel.canPassThroughParentAggregate(planRel)
           ? planRelContext.parentAggregate_
           : null;
+      this.cteProducers_ = ImmutableMap.<String, NodeWithExprs>builder()
+          .putAll(planRelContext.cteProducers_);
     }
 
     public void setFilterCondition(RexNode filterCondition) {
@@ -87,6 +100,10 @@ public class ParentPlanRelContext {
 
     public void setParentAggregate(ImpalaAggRel parentAggregate) {
       this.parentAggregate_ = parentAggregate;
+    }
+
+    public void addCTEProducer(String name, NodeWithExprs cteProducer) {
+      this.cteProducers_.put(name, cteProducer);
     }
 
     public ParentPlanRelContext build() {

@@ -373,4 +373,6 @@ struct TBackendGflags {
   172: required i64 hbo_in_memory_backend_cache_size_bytes
 
   173: required i32 unregistration_thread_pool_size
+
+  174: required string cte_suggester_class
 }
