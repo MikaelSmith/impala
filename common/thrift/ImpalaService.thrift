@@ -1099,6 +1099,10 @@ enum TImpalaQueryOptions {
 
   // When true, store historical execution stats asynchronously after the query finishes.
   STORE_HBO_STATS = 203
+
+  // Occurence threshold for using CTEs. CTEs are only used if occurences are greater
+  // than the threshold. Defaults to -1; negative values disable CTE planning.
+  CTE_THRESHOLD = 204
 }
 
 // The summary of a DML statement.

@@ -60,6 +60,9 @@ enum TPlanNodeType {
   ICEBERG_MERGE_NODE = 22
   PAIMON_SCAN_NODE=23
   UNPIVOT_NODE=24
+  SEQUENCE_NODE = 25
+  CTE_CONSUMER_NODE = 26
+  CTE_PRODUCER_NODE = 27
 }
 
 // phases of an execution node
@@ -825,6 +828,16 @@ struct TIcebergMergeNode {
   6: required Types.TTupleId target_tuple_id
 }
 
+struct TCTEProducer {
+  1: required string name
+}
+
+struct TCTEConsumer {
+  1: required string name
+  2: required list<Types.TTupleId> input_row_tuples
+  3: required list<Exprs.TExpr> result_exprs
+}
+
 // See PipelineMembership in the frontend for details.
 struct TPipelineMembership {
   1: required Types.TPlanNodeId pipe_id
@@ -907,6 +920,10 @@ struct TPlanNode {
 
   // Execution stats with some input info that will be stored as historical stats for HBO.
   34: optional HBO.TPlanNodeRun exec_stats
+
+  // CTE plan nodes
+  35: optional TCTEProducer cte_producer
+  36: optional TCTEConsumer cte_consumer
 }
 
 // A flattened representation of a tree of PlanNodes, obtained by depth-first

@@ -110,14 +110,17 @@ public class CoerceNodes{
         return processJoinNode(relNode, newInputs, rexBuilder, isInputChanged);
       case PROJECT:
         return processProjectNode(relNode, newInputs, rexBuilder, isInputChanged);
+      case CTEPRODUCER:
+      case SEQUENCE:
       case SORT:
-        return processSortNode(relNode, newInputs, rexBuilder, isInputChanged);
+        return processSimpleNode(relNode, newInputs, rexBuilder, isInputChanged);
       case UNION:
         return processUnionNode(relNode, newInputs, rexBuilder, isInputChanged);
       case VALUES:
         return processValuesNode(relNode, newInputs, rexBuilder, isInputChanged);
+      case CTECONSUMER:
       case HDFSSCAN:
-        // HDFS Scan node will never need coercing.
+        // Some leaf types don't need coercing.
         return relNode;
     }
 
@@ -202,9 +205,9 @@ public class CoerceNodes{
   }
 
   /**
-   * processSortNode: recreates sort node if an input was changed.
+   * processSimpleNode: recreates the node if an input was changed.
    */
-  private static RelNode processSortNode(RelNode relNode, List<RelNode> inputs,
+  private static RelNode processSimpleNode(RelNode relNode, List<RelNode> inputs,
       RexBuilder rexBuilder, boolean isInputChanged) {
     return isInputChanged ? relNode.copy(relNode.getTraitSet(), inputs) : relNode;
   }

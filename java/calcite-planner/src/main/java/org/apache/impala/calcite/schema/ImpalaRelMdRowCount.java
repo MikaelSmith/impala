@@ -17,7 +17,6 @@
  */
 package org.apache.impala.calcite.schema;
 
-import org.apache.calcite.plan.hep.HepRelVertex;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
@@ -56,7 +55,6 @@ public class ImpalaRelMdRowCount extends RelMdRowCount {
   @Override
   public Double getRowCount(Filter filter, RelMetadataQuery mq) {
     RelNode input = filter.getInput();
-    CalciteTable table = getTable(input);
     RexNode condition = filter.getCondition();
 
     Double inputRowCount = mq.getRowCount(input);
@@ -84,12 +82,6 @@ public class ImpalaRelMdRowCount extends RelMdRowCount {
 
   @Override
   public Double getRowCount(TableScan ts, RelMetadataQuery mq) {
-    return ts.getTable().getRowCount();
-  }
-
-  private CalciteTable getTable(RelNode input) {
-    return (input instanceof HepRelVertex)
-        ? (CalciteTable) ((HepRelVertex)input).getCurrentRel().getTable()
-        : (CalciteTable) input.getTable();
+    return ts.estimateRowCount(mq);
   }
 }
