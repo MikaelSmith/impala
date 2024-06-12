@@ -236,7 +236,8 @@ ubuntu apt-get --yes install ccache curl file gawk g++ gcc apt-utils git libffi-
         python3-dev python3-setuptools python3-venv postgresql \
         ssh wget vim-common psmisc lsof net-tools language-pack-en libxml2-dev \
         libxslt-dev openjdk-${UBUNTU_JAVA_VERSION}-jdk \
-        openjdk-${UBUNTU_JAVA_VERSION}-source openjdk-${UBUNTU_JAVA_VERSION}-dbg
+        openjdk-${UBUNTU_JAVA_VERSION}-source openjdk-${UBUNTU_JAVA_VERSION}-dbg \
+        openjdk-17-jdk
 
 # Regular python packages don't exist on Ubuntu 22. Everything is Python 3.
 ubuntu16 apt-get --yes install python python-dev python-setuptools

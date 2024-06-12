@@ -305,6 +305,11 @@ def perf_ab_test(options, args):
     sh.git.checkout("--", "testdata/workloads")
     build(hash_b, options)
     restore_workloads(workload_dir)
+    # Ensure minicluster is running
+    if options.start_minicluster:
+      start_minicluster()
+    # Use Java 17 for 2nd run
+    os.environ['IMPALA_JDK_VERSION'] = '17'
     start_impala(options.num_impalads, options)
     run_workload(temp_dir, workloads, options)
     compare(temp_dir, hash_a, hash_b, options)
