@@ -27,7 +27,10 @@ export OZONE_CONF_DIR="$NODE_DIR/etc/hadoop/conf"
 # Mark each process so they can be killed if needed. This is a safety mechanism for
 # stopping the processes if the pid file has been removed for whatever reason.
 export HADOOP_OPTS+=" -D${KILL_CLUSTER_MARKER}"
-export YARN_OPTS+=" -D${KILL_CLUSTER_MARKER}"
+if $JAVA -version 2>&1 | grep -q -E ' version "(9|[1-9][0-9])\.'; then
+  # If running with Java 9+, add-opens to JAVA_OPTS.
+  HADOOP_OPTS+=" --add-opens=java.base/java.lang=ALL-UNNAMED"
+fi
 
 # This is for KMS.
 export CATALINA_OPTS+=" -D${KILL_CLUSTER_MARKER}"

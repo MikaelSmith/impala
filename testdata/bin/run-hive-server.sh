@@ -189,6 +189,19 @@ fi
 
 export HIVESERVER2_HADOOP_OPTS="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,\
 suspend=n,address=30020"
+if $JAVA -version 2>&1 | grep -q -E ' version "(9|[1-9][0-9])\.'; then
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.net=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.util=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.util.concurrent=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.util.regex=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.lang=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.time=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.io=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-opens java.base/java.nio=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-exports java.base/sun.net.dns=ALL-UNNAMED"
+  export HIVESERVER2_HADOOP_OPTS+=" --add-exports java.base/sun.net.util=ALL-UNNAMED"
+fi
 export HIVE_CLUSTER_ID="hive-test-cluster"
 if [[ ${START_HIVESERVER} -eq 1 && -z $HS2_PID ]]; then
   # Starts a HiveServer2 instance on the port specified by the HIVE_SERVER2_THRIFT_PORT
