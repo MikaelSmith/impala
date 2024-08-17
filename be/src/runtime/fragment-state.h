@@ -139,7 +139,8 @@ class FragmentState {
   /// Note that this internal flag is advisory and it may be ignored if the fragment has
   /// any UDF which cannot be interpreted. See ScalarExpr::Prepare() for details.
   inline bool CodegenHasDisableHint() const {
-    return query_state_->query_ctx().disable_codegen_hint;
+    return query_state_->query_ctx().disable_codegen_hint ||
+        fragment_.disable_codegen_hint;
   }
 
   /// Returns true iff there is a hint to disable codegen and all expressions in the

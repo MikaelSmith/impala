@@ -447,4 +447,19 @@ public class DataSourceScanNode extends ScanNode {
 
   @Override
   public boolean hasStorageLayerConjuncts() { return !acceptedConjuncts_.isEmpty(); }
+
+  /**
+   * Gets the number of rows processed by this node. Returns -1 if unknown.
+   * Operations on DataSourceScanNode are processed on the coordinator.
+   */
+  @Override
+  public long getRowsProcessed() {
+    PlanFragment fragment = getFragment();
+    int numNodes = fragment == null ? getNumNodes() : fragment.getNumNodes();
+    Preconditions.checkState(numNodes == 1);
+    if (numNodes != 1) {
+      return -1;
+    }
+    return 0;
+  }
 }

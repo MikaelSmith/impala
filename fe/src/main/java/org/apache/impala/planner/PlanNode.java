@@ -1351,4 +1351,21 @@ abstract public class PlanNode extends TreeNode<PlanNode> {
    * need to explicitly enable it.
    */
   public boolean isTupleCachingImplemented() { return false; }
+
+  /**
+   * Gets the number of rows processed by this node. Returns -1 if unknown.
+   */
+  public long getRowsProcessed() {
+    long in = getInputCardinality();
+    long out = getCardinality();
+    if ((in == -1) || (out == -1)) {
+      return -1;
+    }
+    return Math.max(in, out);
+  }
+
+  @Override
+  public String toString() {
+    return String.format("%s:%s", id_, displayName_);
+  }
 }

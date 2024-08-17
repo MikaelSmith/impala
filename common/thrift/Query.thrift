@@ -314,9 +314,10 @@ struct TQueryOptions {
   56: optional TJoinDistributionMode default_join_distribution_mode =
     TJoinDistributionMode.BROADCAST
 
-  // If the number of rows processed per node is below the threshold codegen will be
-  // automatically disabled by the planner.
-  57: optional i32 disable_codegen_rows_threshold = 50000
+  // If the number of rows processed per compute node in a plan node is below the
+  // threshold, the planner will disable codegen for that plan node. If all plan nodes in
+  // a fragment have codegen disabled, the fragment will skip codegen.
+  57: optional i32 disable_codegen_rows_threshold = 10000
 
   // The default spillable buffer size in bytes, which may be overridden by the planner.
   // Defaults to 2MB.

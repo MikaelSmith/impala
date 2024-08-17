@@ -99,6 +99,10 @@ struct TPlanFragment {
   // COMPUTE_PROCESSING_COST=true. Otherwise, always false.
   // See PlanFragment.java for definition of dominant fragment.
   16: optional bool is_dominant = false
+
+  // Per-fragment hint to disable codegen because codegen is disabled on all plan nodes
+  // in the fragment.
+  17: optional bool disable_codegen_hint = false
 }
 
 // location information for a single scan range

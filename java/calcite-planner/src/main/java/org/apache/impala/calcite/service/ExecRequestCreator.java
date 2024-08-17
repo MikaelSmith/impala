@@ -247,7 +247,7 @@ public class ExecRequestCreator implements CompilerStep {
     List<Expr> resultExprs = outputExprs;
     rootFragment.setSink(new PlanRootSink(resultExprs));
 
-    Planner.checkForDisableCodegen(rootFragment.getPlanRoot(), ctx);
+    Planner.checkForCodegen(rootFragment.getPlanRoot(), ctx);
     // finalize exchanges: this ensures that for hash partitioned joins, the partitioning
     // keys on both sides of the join have compatible data types
     for (PlanFragment fragment: fragments) {

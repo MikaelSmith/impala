@@ -83,7 +83,9 @@ public class ParallelPlanner {
     collectJoins(fragment.getPlanRoot(), joins);
     if (!joins.isEmpty()) {
       if (buildCohortId == null) buildCohortId = cohortIdGenerator_.getNextId();
-      for (JoinNode join: joins) createBuildPlan(join, buildCohortId);
+      for (JoinNode join: joins) {
+        createBuildPlan(join, buildCohortId, fragment.hasCodegen());
+      }
     }
 
     for (PlanFragment child: fragment.getChildren()) {
@@ -134,7 +136,7 @@ public class ParallelPlanner {
    * rooted at 'join's fragment into the new plan.
    * Also assigns the new plan a plan id.
    */
-  private void createBuildPlan(JoinNode join, CohortId cohortId) {
+  private void createBuildPlan(JoinNode join, CohortId cohortId, boolean hasCodegen) {
     Preconditions.checkNotNull(cohortId);
     // collect all ExchangeNodes on the build side and their corresponding input
     // fragments
@@ -171,6 +173,7 @@ public class ParallelPlanner {
     PlanFragment buildFragment = new PlanFragment(ctx_.getNextFragmentId(),
         join.getChild(1), join.getFragment().getDataPartition());
     buildFragment.setSink(buildSink);
+    if (hasCodegen) buildFragment.markHasCodegen();
 
     // Fix up the child/parent relationships in the PlanFragment tree.
     for (int i = 0; i < exchNodes.size(); ++i) {

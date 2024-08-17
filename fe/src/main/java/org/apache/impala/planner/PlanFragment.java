@@ -180,6 +180,9 @@ public class PlanFragment extends TreeNode<PlanFragment> {
   // A fragment is dominant if it contribute towards the final CoreCount.
   private boolean isDominantFragment_ = false;
 
+  // True if any PlanNodes in the fragment have codegen enabled.
+  private boolean hasCodegen_ = false;
+
   public long getProducedRuntimeFiltersMemReservationBytes() {
     return producedRuntimeFiltersMemReservationBytes_;
   }
@@ -700,6 +703,7 @@ public class PlanFragment extends TreeNode<PlanFragment> {
     }
     result.setIs_coordinator_only(coordinatorOnly_);
     result.setIs_dominant(isDominantFragment_);
+    result.setDisable_codegen_hint(!hasCodegen_);
     return result;
   }
 
@@ -887,6 +891,8 @@ public class PlanFragment extends TreeNode<PlanFragment> {
     setFragmentInPlanTree(planRoot_);
   }
   protected void markDominant() { isDominantFragment_ = true; }
+  public boolean hasCodegen() { return hasCodegen_; }
+  public void markHasCodegen() { hasCodegen_ = true; }
 
   /**
    * Set the destination node of this fragment's sink, i.e. an ExchangeNode or a JoinNode.
@@ -1438,5 +1444,10 @@ public class PlanFragment extends TreeNode<PlanFragment> {
     // passedthrough any row. From CPU costing perspective, treat both final aggregation
     // and preaggregation as a blocking node. Otherwise, follow PlanNode.isBlockingNode().
     return node.isBlockingNode() || node instanceof AggregationNode;
+  }
+
+  @Override
+  public String toString() {
+    return String.format("%s:PLAN FRAGMENT", fragmentId_);
   }
 }

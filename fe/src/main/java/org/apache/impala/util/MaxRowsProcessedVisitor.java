@@ -36,53 +36,17 @@ public class MaxRowsProcessedVisitor implements Visitor<PlanNode> {
   // Max number of rows processed across all instances of a plan node.
   private long maxRowsProcessed_ = 0;
 
-  // Max number of rows processed per backend impala daemon for a plan node.
-  private long maxRowsProcessedPerNode_ = 0;
-
   @Override
   public void visit(PlanNode caller) {
     if (!valid_) return;
 
-    PlanFragment fragment = caller.getFragment();
-    int numNodes = fragment == null ? 1 : fragment.getNumNodes();
-    if (caller instanceof DataSourceScanNode) {
-      // Operations on DataSourceScanNode are processed on coordinator.
-      if (fragment == null) {
-        numNodes = ((DataSourceScanNode)caller).getNumNodes();
-      }
-      Preconditions.checkState(numNodes == 1);
-      if (numNodes != 1) {
-        valid_ = false;
-        return;
-      }
-    } else if (caller instanceof ScanNode) {
-      long numRows = caller.getInputCardinality();
-      ScanNode scan = (ScanNode) caller;
-      boolean missingStats = scan.isTableMissingStats() || scan.hasCorruptTableStats();
-      // In the absence of collection stats, treat scans on collections as if they
-      // have no limit.
-      if (scan.isAccessingCollectionType() || (missingStats && !scan.hasSimpleLimit())) {
-        valid_ = false;
-        return;
-      }
-      Preconditions.checkState(numRows > -1);
-      maxRowsProcessed_ = Math.max(maxRowsProcessed_, numRows);
-      maxRowsProcessedPerNode_ = Math.max(maxRowsProcessedPerNode_,
-          (long)Math.ceil(numRows / (double)numNodes));
-    } else {
-      long in = caller.getInputCardinality();
-      long out = caller.getCardinality();
-      if ((in == -1) || (out == -1)) {
-        valid_ = false;
-        return;
-      }
-      long numRows = Math.max(in, out);
-      maxRowsProcessed_ = Math.max(maxRowsProcessed_, numRows);
-      maxRowsProcessedPerNode_ = Math.max(maxRowsProcessedPerNode_,
-          (long)Math.ceil(numRows / (double)numNodes));
+    long numRows = caller.getRowsProcessed();
+    if (numRows < 0) {
+      valid_ = false;
+      return;
     }
+    maxRowsProcessed_ = Math.max(maxRowsProcessed_, numRows);
     Preconditions.checkState(maxRowsProcessed_ >= 0);
-    Preconditions.checkState(maxRowsProcessedPerNode_ >= 0);
   }
 
   public boolean valid() { return valid_; }
@@ -90,11 +54,6 @@ public class MaxRowsProcessedVisitor implements Visitor<PlanNode> {
   public long getMaxRowsProcessed() {
     Preconditions.checkState(valid_);
     return maxRowsProcessed_;
-  }
-
-  public long getMaxRowsProcessedPerNode() {
-    Preconditions.checkState(valid_);
-    return maxRowsProcessedPerNode_;
   }
 
 }

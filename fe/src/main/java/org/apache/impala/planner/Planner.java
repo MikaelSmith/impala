@@ -60,6 +60,7 @@ import org.apache.impala.thrift.TTableName;
 import org.apache.impala.util.EventSequence;
 import org.apache.impala.util.KuduUtil;
 import org.apache.impala.util.MathUtil;
+import org.apache.impala.util.PlanNodeCodegenVisitor;
 import org.apache.impala.util.MaxRowsProcessedVisitor;
 import org.apache.kudu.Schema;
 import org.slf4j.Logger;
@@ -198,7 +199,7 @@ public class Planner {
 
     // The check for disabling codegen uses estimates of rows per node so must be done
     // on the distributed plan.
-    checkForDisableCodegen(rootFragment.getPlanRoot());
+    checkForCodegen(rootFragment.getPlanRoot());
 
     if (LOG.isTraceEnabled()) {
       LOG.trace("desctbl: " + ctx_.getRootAnalyzer().getDescTbl().debugString());
@@ -915,22 +916,16 @@ public class Planner {
     }
   }
 
-  public static void checkForDisableCodegen(PlanNode distributedPlan,
-      PlannerContext ctx) {
-    MaxRowsProcessedVisitor visitor = new MaxRowsProcessedVisitor();
-    distributedPlan.accept(visitor);
-    if (!visitor.valid()) return;
-    // This heuristic threshold tries to determine if the per-node codegen time will
-    // reduce per-node execution time enough to justify the cost of codegen. Per-node
-    // execution time is correlated with the number of rows flowing through the plan.
-    if (visitor.getMaxRowsProcessedPerNode()
-        < ctx.getQueryOptions().getDisable_codegen_rows_threshold()) {
-      ctx.getQueryCtx().disable_codegen_hint = true;
-    }
+  public static void checkForCodegen(PlanNode plan, PlannerContext ctx) {
+    // This heuristic threshold tries to determine if the per-instance codegen time will
+    // reduce per-fragment instance execution time enough to justify the cost of codegen.
+    PlanNodeCodegenVisitor visitor = new PlanNodeCodegenVisitor(
+        ctx.getQueryOptions().getDisable_codegen_rows_threshold());
+    plan.accept(visitor);
   }
 
-  private void checkForDisableCodegen(PlanNode distributedPlan) {
-      checkForDisableCodegen(distributedPlan, ctx_);
+  private void checkForCodegen(PlanNode plan) {
+      checkForCodegen(plan, ctx_);
   }
 
   /**

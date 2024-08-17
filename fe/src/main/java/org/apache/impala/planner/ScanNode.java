@@ -644,4 +644,18 @@ abstract public class ScanNode extends PlanNode {
           + " filteredCardinality=" + getFilteredCardinality());
     }
   }
+
+  /**
+   * Gets the number of rows processed by this node. In the absence of collection stats,
+   * treat scans on collections as if they have no limit. Returns -1 if unknown or no
+   * limit.
+   */
+  @Override
+  public long getRowsProcessed() {
+    boolean missingStats = isTableMissingStats() || hasCorruptTableStats();
+    if (isAccessingCollectionType() || (missingStats && !hasSimpleLimit())) {
+      return -1;
+    }
+    return getInputCardinality();
+  }
 }
