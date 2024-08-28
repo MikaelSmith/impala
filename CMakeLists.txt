@@ -33,6 +33,23 @@ endif()
 # Store BUILD_SHARED_LIBS in a variable so it can be read in config.h.in
 set(IMPALA_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 
+set(CMAKE_CXX_STANDARD 17)
+
+find_program(IWYU_PATH NAMES include-what-you-use iwyu)
+if(IWYU_PATH)
+  message(STATUS "Enabling include-what-you-use")
+  # list(APPEND IWYU_PATH "--mapping_file=$IMPALA_HOME/bin/iwyu_mappings.imp")
+  set(CMAKE_CXX_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
+  set(CMAKE_C_INCLUDE_WHAT_YOU_USE ${IWYU_PATH})
+endif()
+
+# find_program(CPPCHECK_PATH NAMES cppcheck)
+# if(CPPCHECK_PATH)
+#   message(STATUS "Enabling cppcheck")
+#   set(CMAKE_CXX_CPPCHECK ${CPPCHECK_PATH})
+#   set(CMAKE_C_CPPCHECK ${CPPCHECK_PATH})
+# endif()
+
 # Build compile commands database
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 

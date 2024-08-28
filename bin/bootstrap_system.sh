@@ -253,11 +253,15 @@ if [[ $ARCH_NAME == 'aarch64' ]]; then
           libncurses5-dev libreadline-dev
 fi
 
+# Add static analysis tools
+ubuntu20 apt-get --yes install cppcheck iwyu
+ubuntu22 apt-get --yes install cppcheck iwyu
+
 # Configure the default Java version to be the version we selected.
 ubuntu sudo update-java-alternatives -s \
     java-1.${UBUNTU_JAVA_VERSION}.0-openjdk-${UBUNTU_PACKAGE_ARCH}
 
-redhat sudo yum install -y file gawk gcc gcc-c++ git krb5-devel krb5-server \
+redhat sudo yum install -y file gawk gcc gcc-c++ git iwyu krb5-devel krb5-server \
         krb5-workstation libevent-devel libffi-devel make openssl-devel cyrus-sasl \
         cyrus-sasl-gssapi cyrus-sasl-devel cyrus-sasl-plain \
         postgresql postgresql-server rpm-build \
