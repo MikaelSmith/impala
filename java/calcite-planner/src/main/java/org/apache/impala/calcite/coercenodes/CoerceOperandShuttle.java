@@ -31,7 +31,7 @@ import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.fun.SqlDatetimePlusOperator;
+import org.apache.calcite.sql.fun.ImpalaSqlDatetimePlusOperator;
 import org.apache.calcite.sql.fun.SqlDatetimeSubtractionOperator;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
@@ -315,7 +315,7 @@ public class CoerceOperandShuttle extends RexShuttle {
   }
 
   private static boolean isTimestampArithExpr(RexCall rexCall) {
-    return rexCall.getOperator() instanceof SqlDatetimePlusOperator
+    return rexCall.getOperator() instanceof ImpalaSqlDatetimePlusOperator
         || rexCall.getOperator() instanceof SqlDatetimeSubtractionOperator
         || SqlTypeName.INTERVAL_TYPES.contains(rexCall.getType().getSqlTypeName())
         || ((rexCall.getOperator().equals("+") || rexCall.getOperator().equals("-")) &&
