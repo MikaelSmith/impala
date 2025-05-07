@@ -254,9 +254,18 @@ struct TIcebergOperationParam {
   8: optional set<string> replaced_data_files_without_deletes;
 }
 
-// Per-partion info needed by Catalog to handle an INSERT.
+// File details for a partition update.
+struct TUpdatedFile {
+  // Final path of the added/deleted file.
+  1: required string path
+
+  // Checks of an added file.
+  2: optional binary checksum
+}
+
+// Per-partition info needed by Catalog to handle an INSERT.
 struct TUpdatedPartition {
-  1: required list<string> files;
+  1: required list<TUpdatedFile> files;
 }
 
 // Updates the metastore with new partition information and returns a response

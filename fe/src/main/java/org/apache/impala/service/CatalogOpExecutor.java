@@ -247,6 +247,7 @@ import org.apache.impala.thrift.TTruncateParams;
 import org.apache.impala.thrift.TUniqueId;
 import org.apache.impala.thrift.TUpdateCatalogRequest;
 import org.apache.impala.thrift.TUpdateCatalogResponse;
+import org.apache.impala.thrift.TUpdatedFile;
 import org.apache.impala.thrift.TUpdatedPartition;
 import org.apache.impala.util.AcidUtils;
 import org.apache.impala.util.AcidUtils.TblTransaction;
@@ -7759,7 +7760,7 @@ public class CatalogOpExecutor {
       boolean isInsertOverwrite, boolean isPartitioned,
       List<InsertEventRequestData> insertEventReqDatas,
       List<List<String>> insertEventPartVals) throws CatalogException {
-    List<String> newFiles = updatedPartitions.get(partName).getFiles();
+    List<TUpdatedFile> newFiles = updatedPartitions.get(partName).getFiles();
     if (!newFiles.isEmpty() || isInsertOverwrite) {
       LOG.info("{} new files detected for table {}{}",
           newFiles.size(), table.getFullName(),
@@ -7803,7 +7804,7 @@ public class CatalogOpExecutor {
   }
 
   private InsertEventRequestData makeInsertEventData(FeFsTable tbl, List<String> partVals,
-      List<String> newFiles, boolean isInsertOverwrite) throws CatalogException {
+      List<TUpdatedFile> newFiles, boolean isInsertOverwrite) throws CatalogException {
     Preconditions.checkNotNull(newFiles);
     Preconditions.checkNotNull(partVals);
     InsertEventRequestData insertEventRequestData = new InsertEventRequestData(
@@ -7817,22 +7818,22 @@ public class CatalogOpExecutor {
     }
     // Get table file system with table location.
     FileSystem tableFs = tbl.getFileSystem();
-    FileSystem fs;
-    for (String file : newFiles) {
+    for (TUpdatedFile file : newFiles) {
       try {
-        Path filePath = new Path(file);
-        if (!isPartitioned) {
-          fs = tableFs;
-        } else {
-          // Partitions may be in different file systems.
-          fs = FeFsTable.getFileSystem(filePath);
-        }
-        FileChecksum checkSum = fs.getFileChecksum(filePath);
-        String checksumStr = checkSum == null ? ""
-            : StringUtils.byteToHexString(checkSum.getBytes(), 0, checkSum.getLength());
-        insertEventRequestData.addToFilesAdded(file);
+        Path filePath = new Path(file.getPath());
+        byte[] checksum = file.getChecksum();
+        String checksumStr = checksum == null ? ""
+            : StringUtils.byteToHexString(checksum, 0, checksum.length);
+        insertEventRequestData.addToFilesAdded(file.getPath());
         insertEventRequestData.addToFilesAddedChecksum(checksumStr);
         if (isTransactional) {
+          FileSystem fs;
+          if (!isPartitioned) {
+            fs = tableFs;
+          } else {
+            // Partitions may be in different file systems.
+            fs = FeFsTable.getFileSystem(filePath);
+          }
           String acidDirPath = AcidUtils.getFirstLevelAcidDirPath(filePath, fs);
           if (acidDirPath != null) {
             MetastoreShim.addToSubDirectoryList(insertEventRequestData, acidDirPath);

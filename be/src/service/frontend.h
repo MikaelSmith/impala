@@ -19,6 +19,7 @@
 #define IMPALA_SERVICE_FRONTEND_H
 
 #include <jni.h>
+#include <hdfs.h>
 
 #include "common/status.h"
 #include "gen-cpp/CatalogService_types.h"
@@ -256,6 +257,9 @@ class Frontend {
   Status HiveLegacyTimezoneConvert(
       const string& timezone, long utc_time_millis, TCivilTime* local_time);
 
+  /// Calls FileSystem#getFileChecksum() and returns the checksum as a byte array.
+  Status GetFileChecksum(hdfsFS fs, const string& file_name, string* checksum);
+
  private:
   jclass fe_class_; // org.apache.impala.service.JniFrontend class
   jobject fe_;  // instance of org.apache.impala.service.JniFrontend
@@ -301,6 +305,7 @@ class Frontend {
   jmethodID convertTable; // JniFrontend.convertTable
   jmethodID get_secret_from_key_store_; // JniFrontend.getSecretFromKeyStore()
   jmethodID hive_legacy_timezone_convert_; // JniFrontend.hiveLegacyTimezoneConvert()
+  jmethodID get_file_checksum_; // JniFrontend.getFileChecksum()
 
   // Only used for testing.
   jmethodID build_test_descriptor_table_id_; // JniFrontend.buildTestDescriptorTable()

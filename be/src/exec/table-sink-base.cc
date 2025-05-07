@@ -22,10 +22,12 @@
 #include "exec/parquet/hdfs-parquet-table-writer.h"
 #include "exprs/scalar-expr.h"
 #include "exprs/scalar-expr-evaluator.h"
+#include "runtime/exec-env.h"
 #include "runtime/hdfs-fs-cache.h"
 #include "runtime/raw-value.inline.h"
 #include "runtime/row-batch.h"
 #include "runtime/runtime-state.h"
+#include "service/frontend.h"
 #include "util/coding-util.h"
 #include "util/hdfs-util.h"
 #include "util/impalad-metrics.h"
@@ -92,7 +94,9 @@ Status TableSinkBase::ClosePartitionFile(
         GetHdfsErrorMsg("Failed to close HDFS file: ",
         partition->current_file_name)));
   }
-  return Status::OK();
+  return ExecEnv::GetInstance()->frontend()->GetFileChecksum(
+      partition->hdfs_connection, partition->current_file_name,
+      &partition->file_checksum);
 }
 
 string TableSinkBase::GetPartitionName(int i) {

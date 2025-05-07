@@ -159,7 +159,9 @@ Frontend::Frontend() {
 
   JniMethodDescriptor staticMethods[] = {
     {"getSecretFromKeyStore", "([B)Ljava/lang/String;", &get_secret_from_key_store_},
-    {"hiveLegacyTimezoneConvert", "([BJ)[B", &hive_legacy_timezone_convert_}
+    {"hiveLegacyTimezoneConvert", "([BJ)[B", &hive_legacy_timezone_convert_},
+    {"getFileChecksum", "(Lorg/apache/hadoop/fs/FileSystem;[B)[B",
+        &get_file_checksum_}
   };
 
   JNIEnv* jni_env = JniUtil::GetJNIEnv();
@@ -450,4 +452,12 @@ Status Frontend::HiveLegacyTimezoneConvert(
   return JniCall::static_method(fe_class_, hive_legacy_timezone_convert_)
       .with_thrift_arg(timezone_t).with_primitive_arg(utc_time_millis)
       .Call(local_time);
+}
+
+Status Frontend::GetFileChecksum(hdfsFS fs, const string& file_name, string* checksum) {
+  jobject jFS = reinterpret_cast<jobject>(fs);
+  TStringLiteral file_name_t;
+  file_name_t.__set_value(file_name);
+  return JniCall::static_method(fe_class_, get_file_checksum_)
+      .with_primitive_arg(jFS).with_thrift_arg(file_name_t).Call(checksum);
 }

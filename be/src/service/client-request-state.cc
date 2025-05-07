@@ -876,9 +876,14 @@ void ClientRequestState::ExecLoadDataRequestImpl(bool exec_in_worker_thread) {
 
   // We use TUpdateCatalogRequest to refresh the table metadata so that it will
   // fire an insert event just like an insert statement.
+  // TODO: calculate checksums?
   TUpdatedPartition updatedPartition;
-  updatedPartition.files.insert(updatedPartition.files.end(),
-    response.loaded_files.begin(), response.loaded_files.end());
+  updatedPartition.files.reserve(response.loaded_files.size());
+  for (const string& path : response.loaded_files) {
+    TUpdatedFile updated_file;
+    updated_file.path = path;
+    updatedPartition.files.emplace_back(move(updated_file));
+  }
   TUpdateCatalogRequest catalog_update;
   // The partition_name is an empty string for unpartitioned tables.
   catalog_update.updated_partitions[response.partition_name] = updatedPartition;

@@ -67,6 +67,9 @@ message DmlFileStatusPb {
   // Flat buffer encoded Iceberg data file (see FbIcebergDataFile). Contains metadata and
   // stats for the iceberg file.
   optional bytes iceberg_data_file_fb = 5;
+
+  // FileSystem-specific checksum for the file.
+  optional bytes file_checksum = 6;
 }
 
 // Per-partition statistics and metadata resulting from DML statements.

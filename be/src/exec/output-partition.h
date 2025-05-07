@@ -75,6 +75,9 @@ struct OutputPartition {
   /// and values in this variable are not URL encoded.
   std::vector<std::string> raw_partition_names;
 
+  /// The file checksum returned by getFileChecksum.
+  std::string file_checksum;
+
   int32_t iceberg_spec_id = -1;
 
   /// Connection to hdfs.

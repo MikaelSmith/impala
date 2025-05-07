@@ -845,6 +845,20 @@ public class JniFrontend {
     }
   }
 
+  /**
+   * Returns the checksum of a file accessible via fs.
+   */
+  public static byte[] getFileChecksum(FileSystem fs, byte[] filenameT)
+      throws ImpalaException {
+    final TStringLiteral filename = new TStringLiteral();
+    JniUtil.deserializeThrift(protocolFactory_, filename, filenameT);
+    try {
+      return fs.getFileChecksum(new Path(filename.getValue())).getBytes();
+    } catch (IOException e) {
+      throw new InternalException(e.getMessage());
+    }
+  }
+
   public String validateSaml2Bearer(byte[] serializedRequest) throws ImpalaException{
     Preconditions.checkNotNull(frontend_);
     Preconditions.checkNotNull(frontend_.getSaml2Client());

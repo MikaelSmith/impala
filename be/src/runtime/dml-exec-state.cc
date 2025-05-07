@@ -164,11 +164,17 @@ bool DmlExecState::PrepareCatalogUpdate(TUpdateCatalogRequest* catalog_update,
     TUpdatedPartition updatedPartition;
     for (int i = 0; i < partition.second.created_files_size(); ++i) {
       const DmlFileStatusPb& file = partition.second.created_files(i);
-      updatedPartition.files.push_back(file.final_path());
+      TUpdatedFile updatedFile;
+      updatedFile.path = file.final_path();
+      updatedFile.checksum = file.file_checksum();
+      updatedPartition.files.emplace_back(move(updatedFile));
     }
     for (int i = 0; i < partition.second.created_delete_files_size(); ++i) {
       const DmlFileStatusPb& file = partition.second.created_delete_files(i);
-      updatedPartition.files.push_back(file.final_path());
+      DCHECK(file.file_checksum().empty());
+      TUpdatedFile updatedFile;
+      updatedFile.path = file.final_path();
+      updatedPartition.files.emplace_back(move(updatedFile));
     }
     catalog_update->updated_partitions[partition.first] = updatedPartition;
   }
@@ -602,6 +608,9 @@ void DmlExecState::AddFileAux(const OutputPartition& partition, bool is_iceberg,
     file->set_iceberg_data_file_fb(
         createIcebergDataFileString(partition, file->final_path(), file->num_rows(),
         file->size(), insert_stats));
+  }
+  if (!partition.file_checksum.empty()) {
+    file->set_file_checksum(partition.file_checksum);
   }
 }
 

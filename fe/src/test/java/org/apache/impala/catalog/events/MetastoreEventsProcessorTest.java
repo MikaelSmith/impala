@@ -64,6 +64,7 @@ import org.apache.hadoop.hive.metastore.messaging.AlterTableMessage;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.impala.analysis.FunctionName;
 import org.apache.impala.analysis.HdfsUri;
+import org.apache.impala.analysis.TupleDescriptor;
 import org.apache.impala.authorization.AuthorizationConfig;
 import org.apache.impala.authorization.AuthorizationManager;
 import org.apache.impala.authorization.NoopAuthorizationFactory;
@@ -162,6 +163,7 @@ import org.apache.impala.thrift.TTableStats;
 import org.apache.impala.thrift.TTypeNode;
 import org.apache.impala.thrift.TTypeNodeType;
 import org.apache.impala.thrift.TUpdateCatalogRequest;
+import org.apache.impala.thrift.TUpdatedFile;
 import org.apache.impala.thrift.TUpdatedPartition;
 import org.apache.impala.util.DebugUtils;
 import org.apache.impala.util.EventSequence;
@@ -930,20 +932,20 @@ public class MetastoreEventsProcessorTest {
 
     // we copy files from the src tbl and then issue a insert catalogOp to simulate a
     // insert operation
-    List<String> tbl1Part1Files = copyFiles(allTypes.getFileSystem(),
+    List<TUpdatedFile> tbl1Part1Files = copyFiles(allTypes.getFileSystem(),
         new Path(allTypes.getHdfsBaseDir() + "/year=2009/month=1"),
         insertTbl.getFileSystem(),
         new Path(insertTbl.getHdfsBaseDir() + "/year=2009/month=1"), overwrite, "copy_");
-    List<String> tbl1Part2Files = copyFiles(allTypes.getFileSystem(),
+    List<TUpdatedFile> tbl1Part2Files = copyFiles(allTypes.getFileSystem(),
         new Path(allTypes.getHdfsBaseDir() + "/year=2009/month=2"),
         insertTbl.getFileSystem(),
         new Path(insertTbl.getHdfsBaseDir() + "/year=2009/month=2"), overwrite, "copy_");
-    List<String> tbl2Part1Files = copyFiles(allTypes.getFileSystem(),
+    List<TUpdatedFile> tbl2Part1Files = copyFiles(allTypes.getFileSystem(),
         new Path(allTypes.getHdfsBaseDir() + "/year=2009/month=1"),
         multiInsertTbl.getFileSystem(),
         new Path(multiInsertTbl.getHdfsBaseDir() + "/year=2009/month=1"), overwrite,
         "copy_");
-    List<String> tbl2Part2Files = copyFiles(allTypes.getFileSystem(),
+    List<TUpdatedFile> tbl2Part2Files = copyFiles(allTypes.getFileSystem(),
         new Path(allTypes.getHdfsBaseDir() + "/year=2009/month=2"),
         multiInsertTbl.getFileSystem(),
         new Path(multiInsertTbl.getHdfsBaseDir() + "/year=2009/month=2"), overwrite,
@@ -991,7 +993,7 @@ public class MetastoreEventsProcessorTest {
         .getOrLoadTable("functional", "tinytable", "test", null);
     HdfsTable unpartTable =
         (HdfsTable) catalog_.getOrLoadTable(TEST_DB_NAME, unpartitionedTbl, "test", null);
-    List<String> copied_files =
+    List<TUpdatedFile> copied_files =
         copyFiles(tinyTable.getFileSystem(), new Path(tinyTable.getHdfsBaseDir()),
             unpartTable.getFileSystem(), new Path(unpartTable.getHdfsBaseDir()),
             overwrite, "copy_");
@@ -1023,8 +1025,8 @@ public class MetastoreEventsProcessorTest {
 
   private static final Configuration CONF = new Configuration();
 
-  private static List<String> copyFiles(FileSystem srcFs, Path src, FileSystem destFs,
-      Path dest, boolean overwrite, String prefix) throws Exception {
+  private static List<TUpdatedFile> copyFiles(FileSystem srcFs, Path src,
+      FileSystem destFs, Path dest, boolean overwrite, String prefix) throws Exception {
     FSDataOutputStream out = null;
     try {
       if (srcFs.isDirectory(src)) {
@@ -1035,7 +1037,7 @@ public class MetastoreEventsProcessorTest {
           destFs.mkdirs(dest);
         }
       }
-      List<String> filesCopied = new ArrayList<>();
+      List<TUpdatedFile> filesCopied = new ArrayList<>();
       RemoteIterator<? extends FileStatus> it = FileSystemUtil
           .listStatus(srcFs, src, true, null);
       while (it.hasNext()) {
@@ -1045,7 +1047,9 @@ public class MetastoreEventsProcessorTest {
         String copyFileName = (prefix == null ? "" : prefix) + status.getPath().getName();
         out = destFs.create(new Path(dest, copyFileName), false);
         IOUtils.copyBytes(in, out, CONF, true);
-        filesCopied.add(new Path(dest, copyFileName).toString());
+        TUpdatedFile updatedFile = new TUpdatedFile();
+        updatedFile.setPath(new Path(dest, copyFileName).toString());
+        filesCopied.add(updatedFile);
       }
       return filesCopied;
     } catch (IOException ex) {
@@ -4876,13 +4880,14 @@ public class MetastoreEventsProcessorTest {
    * @return
    */
   private void insertFromImpala(String tblName, boolean isPartitioned, String p1val,
-      String p2val, boolean isOverwrite, List<String> files) throws ImpalaException {
+      String p2val, boolean isOverwrite, List<TUpdatedFile> files)
+      throws ImpalaException {
     insertFromImpala(tblName, isPartitioned, p1val, p2val, isOverwrite, files, -1, -1);
   }
 
   private void insertFromImpala(String tblName, boolean isPartitioned, String p1val,
-      String p2val, boolean isOverwrite, List<String> files, long txnId, long writeId)
-      throws ImpalaException {
+      String p2val, boolean isOverwrite, List<TUpdatedFile> files, long txnId,
+      long writeId) throws ImpalaException {
     String partition = String.format("partition (%s, %s)", p1val, p2val);
     String test_insert_tbl = String.format("insert into table %s %s values ('a','aa') ",
         tblName, isPartitioned ? partition : "");
