@@ -599,11 +599,9 @@ chmod 755 "${PYTHON_EGG_CACHE}"
 # If it's 0, Impala will be built with the compiler in the toolchain directory.
 export USE_SYSTEM_GCC=${USE_SYSTEM_GCC-0}
 
-# Allow the linker to be set to gold, mold, or regular ld. Gold is the default
-# as it has been for a long time. Mold is a new linker that is faster than gold.
-# Note: This is validated in the CMake code.
-# TODO: Add support for lld as well
-export IMPALA_LINKER=gold
+# Allow the linker to be set to gold, mold, or regular ld. Mold is the default
+# for its faster performance. Note: This is validated in the CMake code.
+export IMPALA_LINKER=mold
 
 # Override the default compiler by setting a path to the new compiler. The default
 # compiler depends on USE_SYSTEM_GCC and IMPALA_GCC_VERSION. The intended use case
