@@ -113,8 +113,7 @@ public class IcebergMergeQueryGenerator {
 
     FromClause fromClause =
         new FromClause(Lists.newArrayList(targetTableRef, sourceTableRef));
-    SelectStmt queryStmt =
-        new SelectStmt(selectList, fromClause, null, null, null, null, null);
+    SelectStmt queryStmt = new SelectStmt(selectList, fromClause, null);
 
     return new MergeQuery(queryStmt, rowPresentExpression, targetExpressions,
         rowMetaExpressions, partitionMetaExpressions);

@@ -105,8 +105,7 @@ abstract class ModifyImpl {
 
       // Analyze the generated select statement.
       sourceStmt_ = new SelectStmt(new SelectList(selectList), modifyStmt_.fromClause_,
-          modifyStmt_.wherePredicate_,
-          null, null, null, null);
+          modifyStmt_.wherePredicate_);
       sourceStmt_.analyze(analyzer);
       addCastsToAssignmentsInSourceStmt(analyzer);
     } else {

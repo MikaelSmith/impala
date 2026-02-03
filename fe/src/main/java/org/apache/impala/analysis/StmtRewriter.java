@@ -246,7 +246,7 @@ public class StmtRewriter {
             // it's not a UNION and has no other aggregations.
             // This would be best done in a cost based manner during planning.
             sl.setIsDistinct(true);
-            eiSelect = new SelectStmt(sl, null, null, null, null, null, null);
+            eiSelect = new SelectStmt(sl, null, null);
 
             if (i == 1) {
               if (firstOperand.getQueryStmt() instanceof SelectStmt) {
@@ -340,7 +340,7 @@ public class StmtRewriter {
             unionStmt = null;
             SelectList sl =
                 new SelectList(Lists.newArrayList(SelectListItem.createStarItem(null)));
-            uSelect = new SelectStmt(sl, null, null, null, null, null, null);
+            uSelect = new SelectStmt(sl, null, null);
             SetOperationStmt.SetOperand eiOperand = null;
             if (eiSelect != null) {
               eiOperand = new SetOperationStmt.SetOperand(eiSelect, null, null);
@@ -529,7 +529,7 @@ public class StmtRewriter {
       fromList.add(wrapperView);
       SelectStmt rewriteQuery = new SelectStmt(
           new SelectList(Lists.newArrayList(new SelectListItem(wrapperResult, null))),
-          new FromClause(fromList), rewritePredicate, null, null, null, null);
+          new FromClause(fromList), rewritePredicate);
       Subquery newSubquery = new Subquery(rewriteQuery);
       rhsQuery.reset();
 

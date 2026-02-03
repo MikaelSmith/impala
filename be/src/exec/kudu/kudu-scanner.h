@@ -135,6 +135,10 @@ class KuduScanner {
   /// The last time a keepalive request or successful RPC was sent.
   int64_t last_alive_time_micros_;
 
+  /// Start and stop times for a change-history scan. Snapshot scans are handled through
+  /// scan tokens.
+  int64_t scan_start_micros_ = -1, scan_stop_micros_ = -1;
+
   /// The scanner's cloned copy of the conjuncts to apply.
   vector<ScalarExprEvaluator*> conjunct_evals_;
 
