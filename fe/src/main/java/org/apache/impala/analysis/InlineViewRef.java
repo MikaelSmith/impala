@@ -181,8 +181,7 @@ public class InlineViewRef extends TableRef {
     SelectList selectList = new SelectList(items);
     FromClause fromClause = new FromClause(Lists.newArrayList(tableRef));
     Expr wherePredicate = tableMask.createRowFilter(authzCtx);
-    SelectStmt tableMaskStmt = new SelectStmt(selectList, fromClause, wherePredicate,
-        null, null, null, null);
+    SelectStmt tableMaskStmt = new SelectStmt(selectList, fromClause, wherePredicate);
 
     InlineViewRef viewRef = new InlineViewRef(/*alias*/ null, tableMaskStmt,
         (TableSampleClause) null);

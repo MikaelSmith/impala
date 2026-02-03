@@ -41,7 +41,7 @@ import com.google.common.base.Preconditions;
  *         DESCRIBE HISTORY <table> FROM now() - interval 1 days;
  */
 public class DescribeHistoryStmt extends StatementBase implements SingleTableStmt {
-  private final static Logger LOG = LoggerFactory.getLogger(TimeTravelSpec.class);
+  private final static Logger LOG = LoggerFactory.getLogger(DescribeHistoryStmt.class);
 
   // Represents the predicate with which this statement was called.
   public enum Kind {
