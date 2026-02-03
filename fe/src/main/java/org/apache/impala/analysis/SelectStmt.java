@@ -110,6 +110,10 @@ public class SelectStmt extends QueryStmt {
   // Set in analyze().
   protected String sqlString_;
 
+  SelectStmt(SelectList selectList, FromClause fromClause, Expr wherePredicate) {
+    this(selectList, fromClause, wherePredicate, null, null, null, null);
+  }
+
   SelectStmt(SelectList selectList,
              FromClause fromClause,
              Expr wherePredicate, GroupByClause groupByClause,

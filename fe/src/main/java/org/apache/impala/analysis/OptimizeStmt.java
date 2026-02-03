@@ -268,8 +268,7 @@ public class OptimizeStmt extends DmlStatementBase {
               IcebergUtil.createSlotRef(analyzer, tableRef_, col.getName()), null));
     }
     SelectList selectList = new SelectList(selectListItems);
-    sourceStmt_ = new SelectStmt(selectList, new FromClause(tableRefs), null,
-        null, null, null, null);
+    sourceStmt_ = new SelectStmt(selectList, new FromClause(tableRefs), null);
     sourceStmt_.analyze(analyzer);
     sourceStmt_.getSelectList().getItems().addAll(
         ExprUtil.exprsAsSelectList(partitionKeyExprs_));

@@ -3213,14 +3213,14 @@ values_operand_list ::=
   {:
     List<SetOperand> operands = new ArrayList<>();
     operands.add(new SetOperand(
-        new SelectStmt(selectList, null, null, null, null, null, null),
+        new SelectStmt(selectList, null, null),
                        SetOperator.UNION, null));
     RESULT = operands;
   :}
   | values_operand_list:operands COMMA LPAREN select_list:selectList RPAREN
   {:
     operands.add(new SetOperand(
-        new SelectStmt(selectList, null, null, null, null, null, null),
+        new SelectStmt(selectList, null, null),
                        SetOperator.UNION, Qualifier.ALL));
     RESULT = operands;
   :}
@@ -3392,7 +3392,7 @@ describe_output_style ::=
 select_stmt ::=
     select_clause:selectList
   {:
-    RESULT = new SelectStmt(selectList, null, null, null, null, null, null);
+    RESULT = new SelectStmt(selectList, null, null);
   :}
   |
     select_clause:selectList
@@ -3687,7 +3687,9 @@ dotted_path_list ::=
 opt_asof ::=
   KW_FOR KW_SYSTEM_TIME KW_AS KW_OF expr:expr
   {: RESULT = new TimeTravelSpec(TimeTravelSpec.Kind.TIME_AS_OF, expr); :}
-  | KW_FOR KW_SYSTEM_VERSION KW_AS KW_OF numeric_literal:expr
+  | KW_FOR KW_SYSTEM_TIME KW_FROM expr:fromExpr KW_AS KW_OF expr:asOfExpr
+  {: RESULT = new TimeTravelSpec(fromExpr, asOfExpr); :}
+  | KW_FOR KW_SYSTEM_VERSION KW_AS KW_OF expr:expr
   {: RESULT = new TimeTravelSpec(TimeTravelSpec.Kind.VERSION_AS_OF, expr); :}
   | /* empty */
   {: RESULT = null; :}

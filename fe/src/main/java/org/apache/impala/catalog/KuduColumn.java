@@ -50,6 +50,7 @@ public class KuduColumn extends Column {
   private final boolean isPrimaryKeyUnique_;
   private final boolean isNullable_;
   private final boolean isAutoIncrementing_;
+  private final boolean isDiffScanDelete_;
   private final Encoding encoding_;
   private final CompressionAlgorithm compression_;
   private final int blockSize_;
@@ -62,9 +63,9 @@ public class KuduColumn extends Column {
   private final LiteralExpr defaultValue_;
 
   private KuduColumn(String name, Type type, boolean isKey, boolean isPrimaryKeyUnique,
-      boolean isNullable, boolean isAutoIncrementing, Encoding encoding,
-      CompressionAlgorithm compression, LiteralExpr defaultValue, int blockSize,
-      String comment, int position) {
+      boolean isNullable, boolean isAutoIncrementing, boolean isDiffScanDelete,
+      Encoding encoding, CompressionAlgorithm compression, LiteralExpr defaultValue,
+      int blockSize, String comment, int position) {
     super(name.toLowerCase(), type, comment, position);
     Preconditions.checkArgument(defaultValue == null || type == defaultValue.getType()
         || (type.isTimestamp() && defaultValue.getType().isIntegerType()));
@@ -78,6 +79,7 @@ public class KuduColumn extends Column {
     isPrimaryKeyUnique_ = isPrimaryKeyUnique;
     isNullable_ = isNullable;
     isAutoIncrementing_ = isAutoIncrementing;
+    isDiffScanDelete_ = isDiffScanDelete;
     encoding_ = encoding;
     compression_ = compression;
     defaultValue_ = defaultValue;
@@ -103,8 +105,8 @@ public class KuduColumn extends Column {
     String comment = !colSchema.getComment().isEmpty() ? colSchema.getComment() : null;
     return new KuduColumn(colSchema.getName(), type, colSchema.isKey(),
         colSchema.isKeyUnique(), colSchema.isNullable(), colSchema.isAutoIncrementing(),
-        colSchema.getEncoding(), colSchema.getCompressionAlgorithm(), defaultValueExpr,
-        colSchema.getDesiredBlockSize(), comment, position);
+        false, colSchema.getEncoding(), colSchema.getCompressionAlgorithm(),
+        defaultValueExpr, colSchema.getDesiredBlockSize(), comment, position);
   }
 
   public static KuduColumn fromThrift(TColumn column, int position)
@@ -133,7 +135,7 @@ public class KuduColumn extends Column {
         column.getComment() : null;
     return new KuduColumn(column.getKudu_column_name(), columnType, column.isIs_key(),
         column.isIs_primary_key_unique(), isNullable, column.isIs_auto_incrementing(),
-        encoding, compression, defaultValue, blockSize, comment, position);
+        false, encoding, compression, defaultValue, blockSize, comment, position);
   }
 
   // Create KuduColumn for auto-incrementing column in given 'position'.
@@ -147,8 +149,14 @@ public class KuduColumn extends Column {
     Type type = KuduUtil.toImpalaScalarType(kuduType, null);
     return new KuduColumn(Schema.getAutoIncrementingColumnName(), type,
         /* isKey */true, /* isPrimaryKeyUnique */false, /* isNullable */false,
-        /* isAutoIncrementing */true, /* encoding */null, /* compression */null,
+        /* isAutoIncrementing */true, false, /* encoding */null, /* compression */null,
         /* defaultValue */null, /* blockSize */0, /* comment */"", position);
+  }
+
+  public static KuduColumn createIsDeletedColumn(int position) {
+    return new KuduColumn("is_deleted", Type.BOOLEAN, false, false, false,
+        false, true, Encoding.PLAIN_ENCODING, CompressionAlgorithm.NO_COMPRESSION,
+        null, 0, "Whether the row was deleted in the diff scan", position);
   }
 
   public String getKuduName() { return kuduName_; }
@@ -157,6 +165,9 @@ public class KuduColumn extends Column {
   @Override
   public boolean isNullable() { return isNullable_; }
   public boolean isAutoIncrementing() { return isAutoIncrementing_; }
+  public boolean isDiffScanDelete() { return isDiffScanDelete_; }
+  @Override
+  public boolean isHidden() { return isAutoIncrementing() || isDiffScanDelete(); }
   public Encoding getEncoding() { return encoding_; }
   public CompressionAlgorithm getCompression() { return compression_; }
   public int getBlockSize() { return blockSize_; }
