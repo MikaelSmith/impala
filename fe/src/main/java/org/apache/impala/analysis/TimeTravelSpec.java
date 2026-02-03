@@ -55,6 +55,12 @@ public class TimeTravelSpec extends StmtNode {
   // A time string represents the asOfMicros_ for the query option TIMEZONE
   private String timeString_;
 
+  // Expression used in 'FOR SYSTEM_TIME FROM ... AS OF ...' clause.
+  private Expr fromExpr_ = null;
+
+  // Iceberg uses millis, Kudu uses micros for time travel, so using micros here.
+  private long fromMicros_ = -1;
+
   // Flag to show that analysis has been done
   private boolean analyzed_;
 
@@ -66,9 +72,18 @@ public class TimeTravelSpec extends StmtNode {
 
   public long getAsOfMicros() { return asOfMicros_; }
 
+  public long getFromMicros() { return fromMicros_; }
+
   public TimeTravelSpec(Kind kind, Expr asOfExpr) {
     Preconditions.checkNotNull(asOfExpr);
     kind_ = kind;
+    asOfExpr_ = asOfExpr;
+  }
+
+  public TimeTravelSpec(Expr fromExpr, Expr asOfExpr) {
+    Preconditions.checkNotNull(asOfExpr);
+    kind_ = Kind.TIME_AS_OF;
+    fromExpr_ = fromExpr;
     asOfExpr_ = asOfExpr;
   }
 
@@ -78,6 +93,9 @@ public class TimeTravelSpec extends StmtNode {
     asOfVersion_ = other.asOfVersion_;
     asOfMicros_ = other.asOfMicros_;
     timeString_ = other.timeString_;
+    if (other.fromExpr_ != null) {
+      fromExpr_ = other.fromExpr_.clone();
+    }
   }
 
   @Override
@@ -87,16 +105,44 @@ public class TimeTravelSpec extends StmtNode {
   public void analyze(Analyzer analyzer) throws AnalysisException {
     if (analyzed_) return;
     switch (kind_) {
-      case TIME_AS_OF: analyzeTimeBased(analyzer); break;
-      case VERSION_AS_OF: analyzeVersionBased(analyzer); break;
+      case TIME_AS_OF: try {
+        asOfExpr_ = analyzeTimeBased(analyzer, asOfExpr_, "FOR SYSTEM_TIME AS OF");
+        asOfMicros_ = evalTimeBased(analyzer, asOfExpr_, "FOR SYSTEM_TIME AS OF");
+        LOG.debug("FOR SYSTEM_TIME AS OF micros: {}", String.valueOf(asOfMicros_));
+        if (asOfExpr_.getType().isTimestamp()) {
+          timeString_ = ExprUtil.localTimestampToString(analyzer, asOfExpr_);
+        } else {
+          timeString_ = String.valueOf(asOfMicros_);
+        }
+        LOG.debug("FOR SYSTEM_TIME AS OF time: {}, {}", timeString_,
+            analyzer.getQueryCtx().getLocal_time_zone());
+        if (fromExpr_ != null) {
+          fromExpr_ = analyzeTimeBased(analyzer, fromExpr_, "FROM");
+          fromMicros_ = evalTimeBased(analyzer, fromExpr_, "FROM");
+          LOG.debug("FROM micros: {}", String.valueOf(fromMicros_));
+          if (fromMicros_ >= asOfMicros_) {
+            throw new AnalysisException(
+                "FROM time must be less than AS OF time: " + toSql());
+          }
+        }
+        break;
+      } catch (InternalException ie) {
+        throw new AnalysisException(
+            "Invalid TIMESTAMP expression: " + ie.getMessage(), ie);
+      }
+      case VERSION_AS_OF: {
+        analyzeVersionBased(analyzer);
+        break;
+      }
     }
     analyzed_ = true;
   }
 
-  private void analyzeTimeBased(Analyzer analyzer) throws AnalysisException {
-    Preconditions.checkNotNull(asOfExpr_);
+  private Expr analyzeTimeBased(Analyzer analyzer, Expr expr, String desc)
+      throws AnalysisException {
+    Preconditions.checkNotNull(expr);
     try {
-      asOfExpr_.analyze(analyzer);
+      expr.analyze(analyzer);
     } catch (AnalysisException e) {
       if (e.getMessage().contains("Could not resolve column/field reference")) {
         // If the AS_OF expr is not a simple constant it will need table information
@@ -104,48 +150,36 @@ public class TimeTravelSpec extends StmtNode {
         // complete. If this happens we know it is not a constant expr, so construct
         // a better error message.
         throw new AnalysisException(
-            "FOR SYSTEM_TIME AS OF <expression> must be a constant expression: "
-            + toSql());
+            desc + " <expression> must be a constant expression: " + toSql());
       }
       throw e;
     }
-    if (!asOfExpr_.isConstant()) {
+    if (!expr.isConstant()) {
       throw new AnalysisException(
-          "FOR SYSTEM_TIME AS OF <expression> must be a constant expression: " + toSql());
+          desc + " <expression> must be a constant expression: " + toSql());
     }
-    if (asOfExpr_.getType().isStringType()) {
-      asOfExpr_ = CastExpr.createImplicit(Type.TIMESTAMP, asOfExpr_);
-    }
-    if (!asOfExpr_.getType().isTimestamp()) {
+
+    if (expr.getType().isStringType()) {
+      expr = CastExpr.createImplicit(Type.TIMESTAMP, expr);
+    } else if (!expr.getType().isIntegerType() && !expr.getType().isTimestamp()) {
       throw new AnalysisException(
-          "FOR SYSTEM_TIME AS OF <expression> must be a timestamp type but is '" +
-              asOfExpr_.getType() + "': " + asOfExpr_.toSql());
+          desc + " <expression> must be of type TIMESTAMP or BIGINT but is '" +
+              expr.getType() + "': " + toSql());
     }
-    try {
-      asOfMicros_ = ExprUtil.localTimestampToUnixTimeMicros(analyzer, asOfExpr_);
-      LOG.debug("FOR SYSTEM_TIME AS OF micros: " + String.valueOf(asOfMicros_));
-    } catch (InternalException ie) {
-      throw new AnalysisException(
-          "Invalid TIMESTAMP expression: " + ie.getMessage(), ie);
+    return expr;
+  }
+
+  private long evalTimeBased(Analyzer analyzer, Expr expr, String desc)
+      throws AnalysisException, InternalException {
+    if (expr.getType().isIntegerType()) {
+      return expr.evalToInteger(analyzer, desc);
     }
-    try {
-      timeString_ = ExprUtil.localTimestampToString(analyzer, asOfExpr_);
-      LOG.debug("FOR SYSTEM_TIME AS OF time: {}, {}", timeString_,
-          analyzer.getQueryCtx().getLocal_time_zone());
-    } catch (InternalException ie) {
-      throw new AnalysisException(
-          "Invalid TIMESTAMP expression: " + ie.getMessage(), ie);
-    }
+    return ExprUtil.localTimestampToUnixTimeMicros(analyzer, expr);
   }
 
   private void analyzeVersionBased(Analyzer analyzer) throws AnalysisException {
     Preconditions.checkNotNull(asOfExpr_);
     asOfExpr_.analyze(analyzer);
-    if (!(asOfExpr_ instanceof LiteralExpr)) {
-      throw new AnalysisException(
-          "FOR SYSTEM_VERSION AS OF <expression> must be an integer literal: "
-          + toSql());
-    }
     if (!asOfExpr_.getType().isIntegerType()) {
       throw new AnalysisException(
           "FOR SYSTEM_VERSION AS OF <expression> must be an integer type but is '" +
@@ -167,8 +201,9 @@ public class TimeTravelSpec extends StmtNode {
 
   @Override
   public String toSql(ToSqlOptions options) {
-    return String.format("FOR %s AS OF %s",
+    return String.format("FOR %s%s AS OF %s",
         kind_ == Kind.TIME_AS_OF ? "SYSTEM_TIME" : "SYSTEM_VERSION",
+        fromExpr_ != null ? " FROM " + fromExpr_.toSql() : "",
         asOfExpr_.toSql());
   }
 
@@ -180,5 +215,9 @@ public class TimeTravelSpec extends StmtNode {
   public String toTimeString() {
     Preconditions.checkState(Kind.TIME_AS_OF.equals(kind_));
     return timeString_;
+  }
+
+  public boolean isDiffScan() {
+    return fromMicros_ > 0;
   }
 }

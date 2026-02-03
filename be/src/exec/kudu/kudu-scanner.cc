@@ -81,6 +81,16 @@ KuduScanner::KuduScanner(KuduScanNodeBase* scan_node, RuntimeState* state)
     expr_results_pool_(new MemPool(scan_node->expr_mem_tracker())),
     cur_kudu_batch_num_read_(0),
     last_alive_time_micros_(0) {
+  const TKuduScanNode& kudu_scan_node = scan_node->plan_node().tnode_->kudu_scan_node;
+  if (kudu_scan_node.__isset.scan_start_micros) {
+    VLOG_QUERY << "Kudu change-history scan from " << kudu_scan_node.scan_start_micros
+               << " to " << kudu_scan_node.scan_stop_micros;
+    scan_start_micros_ = kudu_scan_node.scan_start_micros;
+    scan_stop_micros_ = kudu_scan_node.scan_stop_micros;
+  } else if (kudu_scan_node.__isset.scan_stop_micros) {
+    VLOG_QUERY << "Kudu time-travel scan as of " << kudu_scan_node.scan_stop_micros;
+    scan_stop_micros_ = kudu_scan_node.scan_stop_micros;
+  }
 }
 
 Status KuduScanner::Open() {
@@ -220,18 +230,36 @@ Status KuduScanner::OpenNextScanToken(const string& scan_token, bool* eos) {
     KUDU_RETURN_IF_ERROR(scanner_->SetSelection(kudu::client::KuduClient::LEADER_ONLY),
         BuildErrorString("Could not set replica selection"));
   }
+
   kudu::client::KuduScanner::ReadMode mode;
-  RETURN_IF_ERROR(StringToKuduReadMode(FLAGS_kudu_read_mode, &mode));
-  if (state_->query_options().kudu_read_mode != TKuduReadMode::DEFAULT) {
-    RETURN_IF_ERROR(StringToKuduReadMode(
-        PrintValue(state_->query_options().kudu_read_mode), &mode));
-  }
-  KUDU_RETURN_IF_ERROR(
-      scanner_->SetReadMode(mode), BuildErrorString("Could not set scanner ReadMode"));
-  if (state_->query_options().kudu_snapshot_read_timestamp_micros > 0) {
-    KUDU_RETURN_IF_ERROR(scanner_->SetSnapshotMicros(
-        state_->query_options().kudu_snapshot_read_timestamp_micros),
+  if (scan_start_micros_ > 0) {
+    // Need to convert them to hybrid-time format.
+    // TODO: Is there a way to detect if they already are?
+    mode = kudu::client::KuduScanner::READ_AT_SNAPSHOT;
+    KUDU_RETURN_IF_ERROR(
+        scanner_->SetReadMode(mode), BuildErrorString("Could not set scanner ReadMode"));
+    KUDU_RETURN_IF_ERROR(
+        scanner_->SetDiffScan(scan_start_micros_ << 12, scan_stop_micros_ << 12),
+        BuildErrorString("Failed to set diff scan"));
+  } else if (scan_stop_micros_ > 0) {
+    mode = kudu::client::KuduScanner::READ_AT_SNAPSHOT;
+    KUDU_RETURN_IF_ERROR(
+        scanner_->SetReadMode(mode), BuildErrorString("Could not set scanner ReadMode"));
+    KUDU_RETURN_IF_ERROR(scanner_->SetSnapshotMicros(scan_stop_micros_),
         BuildErrorString("Could not set snapshot timestamp"));
+  } else {
+    RETURN_IF_ERROR(StringToKuduReadMode(FLAGS_kudu_read_mode, &mode));
+    if (state_->query_options().kudu_read_mode != TKuduReadMode::DEFAULT) {
+      RETURN_IF_ERROR(StringToKuduReadMode(
+          PrintValue(state_->query_options().kudu_read_mode), &mode));
+    }
+    KUDU_RETURN_IF_ERROR(
+        scanner_->SetReadMode(mode), BuildErrorString("Could not set scanner ReadMode"));
+    if (state_->query_options().kudu_snapshot_read_timestamp_micros > 0) {
+      KUDU_RETURN_IF_ERROR(scanner_->SetSnapshotMicros(
+          state_->query_options().kudu_snapshot_read_timestamp_micros),
+          BuildErrorString("Could not set snapshot timestamp"));
+    }
   }
   KUDU_RETURN_IF_ERROR(scanner_->SetTimeoutMillis(FLAGS_kudu_operation_timeout_ms),
       BuildErrorString("Could not set scanner timeout"));
