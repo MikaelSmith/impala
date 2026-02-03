@@ -1062,7 +1062,7 @@ public class InsertStmt extends DmlStatementBase {
         selectListItems.add(new SelectListItem(e, null));
       }
       SelectList selectList = new SelectList(selectListItems);
-      queryStmt_ = new SelectStmt(selectList, null, null, null, null, null, null);
+      queryStmt_ = new SelectStmt(selectList, null, null);
       queryStmt_.analyze(analyzer);
     }
   }

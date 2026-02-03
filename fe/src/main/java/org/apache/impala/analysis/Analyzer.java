@@ -68,6 +68,7 @@ import org.apache.impala.catalog.FeTable;
 import org.apache.impala.catalog.FeView;
 import org.apache.impala.catalog.IcebergTimeTravelTable;
 import org.apache.impala.catalog.KuduTable;
+import org.apache.impala.catalog.KuduTimeTravelTable;
 import org.apache.impala.catalog.MaterializedViewHdfsTable;
 import org.apache.impala.catalog.ScalarType;
 import org.apache.impala.catalog.StructField;
@@ -1533,19 +1534,30 @@ public class Analyzer {
         }
         if (tbl != null) {
           if (timeTravelSpec != null) {
-            if (!(tbl instanceof FeIcebergTable)) {
+            if (tbl instanceof FeIcebergTable) {
+              timeTravelSpec.analyze(this);
+
+              FeIcebergTable rootTable = (FeIcebergTable) tbl;
+              tbl = new IcebergTimeTravelTable(rootTable, timeTravelSpec);
+            } else if (tbl instanceof FeKuduTable) {
+              if (timeTravelSpec.getKind() == TimeTravelSpec.Kind.VERSION_AS_OF) {
+                throw new AnalysisException(
+                    "FOR SYSTEM_VERSION AS OF is not supported for Kudu tables; " +
+                        "only FOR SYSTEM_TIME AS OF is supported.");
+              }
+              timeTravelSpec.analyze(this);
+
+              FeKuduTable rootTable = (FeKuduTable) tbl;
+              tbl = new KuduTimeTravelTable(rootTable, timeTravelSpec);
+            } else {
               throw new AnalysisException(String.format(
-                  "FOR %s AS OF clause is only supported for Iceberg tables. "
-                      + "%s is not an Iceberg table.",
+                  "FOR %s AS OF clause is only supported for Iceberg and Kudu tables; "
+                      + "%s is not one.",
                   timeTravelSpec.getKind() == TimeTravelSpec.Kind.TIME_AS_OF ?
                       "SYSTEM_TIME" :
                       "SYSTEM_VERSION",
                   tbl.getFullName()));
             }
-            timeTravelSpec.analyze(this);
-
-            FeIcebergTable rootTable = (FeIcebergTable) tbl;
-            tbl = new IcebergTimeTravelTable(rootTable, timeTravelSpec);
           }
           int offset = tblNameIdx + (tbl instanceof IcebergMetadataTable ? 2 : 1);
           candidates.add(new Path(tbl, rawPath.subList(offset, rawPath.size())));

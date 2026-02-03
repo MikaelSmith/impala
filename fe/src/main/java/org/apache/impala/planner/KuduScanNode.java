@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 import org.apache.impala.analysis.Analyzer;
 import org.apache.impala.analysis.BinaryPredicate;
@@ -40,6 +41,7 @@ import org.apache.impala.analysis.SlotDescriptor;
 import org.apache.impala.analysis.SlotRef;
 import org.apache.impala.analysis.StringLiteral;
 import org.apache.impala.analysis.TableRef;
+import org.apache.impala.analysis.TimeTravelSpec;
 import org.apache.impala.analysis.TupleDescriptor;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.KuduColumn;
@@ -64,6 +66,7 @@ import org.apache.impala.util.KuduUtil;
 import org.apache.impala.util.ExecutorMembershipSnapshot;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
+import org.apache.kudu.client.AsyncKuduScanner;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduPredicate;
 import org.apache.kudu.client.KuduPredicate.ComparisonOp;
@@ -118,6 +121,9 @@ public class KuduScanNode extends ScanNode {
   // Exprs in kuduConjuncts_ converted to KuduPredicates.
   private final List<KuduPredicate> kuduPredicates_ = new ArrayList<>();
 
+  // Time travel spec for snapshot and diff scans.
+  @Nullable private final TimeTravelSpec timeTravelSpec_;
+
   // Slot that is used to record the Kudu metadata for the count(*) aggregation if
   // this scan node has the count(*) optimization enabled.
   private SlotDescriptor countStarSlot_ = null;
@@ -147,10 +153,40 @@ public class KuduScanNode extends ScanNode {
     conjuncts_ = conjuncts;
     aggInfo_ = aggInfo;
     tableNumRowsHint_ = kuduTblRef.getTableNumRowsHint();
+    timeTravelSpec_ = kuduTblRef.getTimeTravelSpec();
   }
 
   @Override
   public void init(Analyzer analyzer) throws ImpalaRuntimeException {
+    if (timeTravelSpec_ != null && timeTravelSpec_.isDiffScan()) {
+      // Ensure is_deleted is present, and the last column.
+      SlotDescriptor isDeletedSlot = null;
+      for (SlotDescriptor desc: getTupleDesc().getSlots()) {
+        if (!desc.isScanSlot()) continue;
+        KuduColumn column = (KuduColumn) desc.getColumn();
+        if (column.isDiffScanDelete()) {
+          isDeletedSlot = desc;
+          break;
+        }
+      }
+      if (isDeletedSlot == null) {
+        int lastIndex = kuduTable_.getColumns().size() - 1;
+        KuduColumn last = (KuduColumn) kuduTable_.getColumns().get(lastIndex);
+        Preconditions.checkState(last.isDiffScanDelete(),
+            "The last column of the table should be the is_deleted column");
+        isDeletedSlot = analyzer.addSlotDescriptor(getTupleDesc());
+        isDeletedSlot.setLabel(last.getName());
+        isDeletedSlot.setType(last.getType());
+        isDeletedSlot.setIsNullable(last.isNullable());
+        isDeletedSlot.setIsMaterialized(true);
+      } else if (isDeletedSlot != getTupleDesc().getSlots().get(
+          getTupleDesc().getSlots().size() - 1)) {
+        // TODO: relax this requirement by allowing the is_deleted column to be in any
+        // position in the select list, and handle it specially in the Kudu scan node.
+        throw new ImpalaRuntimeException("The is_deleted column for Kudu diff scan "
+            + "must be the last column in the select list.");
+      }
+    }
     conjuncts_ = orderConjunctsByCost(conjuncts_);
 
     KuduClient client = KuduUtil.getKuduClient(kuduTable_.getKuduMasterHosts());
@@ -193,8 +229,10 @@ public class KuduScanNode extends ScanNode {
     Schema tableSchema = rpcTable.getSchema();
     for (SlotDescriptor desc: getTupleDesc().getSlots()) {
       if (!desc.isScanSlot()) continue;
-      String colName = ((KuduColumn) desc.getColumn()).getKuduName();
-      Type colType = desc.getColumn().getType();
+      KuduColumn column = (KuduColumn) desc.getColumn();
+      if (column.isDiffScanDelete()) continue;
+      String colName = column.getKuduName();
+      Type colType = column.getType();
       ColumnSchema kuduCol = null;
       try {
         kuduCol = tableSchema.getColumn(colName);
@@ -288,9 +326,10 @@ public class KuduScanNode extends ScanNode {
       org.apache.kudu.client.KuduTable rpcTable) {
     List<String> projectedCols = new ArrayList<>();
     for (SlotDescriptor desc: getTupleDesc().getSlotsOrderedByOffset()) {
-      if (!isCountStarOptimizationDescriptor(desc)) {
-        projectedCols.add(((KuduColumn) desc.getColumn()).getKuduName());
-      }
+      if (isCountStarOptimizationDescriptor(desc) || !desc.isScanSlot()) continue;
+      KuduColumn column = (KuduColumn) desc.getColumn();
+      if (column.isDiffScanDelete()) continue;
+      projectedCols.add(column.getKuduName());
     }
     KuduScanTokenBuilder tokenBuilder = client.newScanTokenBuilder(rpcTable);
     tokenBuilder.setProjectedColumnNames(projectedCols);
@@ -298,6 +337,12 @@ public class KuduScanNode extends ScanNode {
         .getTargeted_kudu_scan_range_length();
     if (split_size_hint > 0) tokenBuilder.setSplitSizeBytes(split_size_hint);
     for (KuduPredicate predicate: kuduPredicates_) tokenBuilder.addPredicate(predicate);
+    if (timeTravelSpec_ != null) {
+      LOG.debug("Setting Kudu time travel scan to AS OF {}",
+          timeTravelSpec_.getAsOfMicros());
+      tokenBuilder.readMode(AsyncKuduScanner.ReadMode.READ_AT_SNAPSHOT);
+      tokenBuilder.snapshotTimestampMicros(timeTravelSpec_.getAsOfMicros());
+    }
     return tokenBuilder.build();
   }
 
@@ -479,6 +524,18 @@ public class KuduScanNode extends ScanNode {
     Preconditions.checkState((optimizedAggSmap_ == null) == (countStarSlot_ == null));
     if (countStarSlot_ != null) {
       node.kudu_scan_node.setCount_star_slot_offset(countStarSlot_.getByteOffset());
+    }
+
+    if (timeTravelSpec_ != null) {
+      Preconditions.checkArgument(
+          timeTravelSpec_.getKind() == TimeTravelSpec.Kind.TIME_AS_OF,
+          "Kudu only supports SYSTEM_TIME for time travel scans");
+      if (timeTravelSpec_.getFromMicros() > 0) {
+        node.kudu_scan_node.setScan_start_micros(timeTravelSpec_.getFromMicros());
+      }
+      if (timeTravelSpec_.getAsOfMicros() > 0) {
+        node.kudu_scan_node.setScan_stop_micros(timeTravelSpec_.getAsOfMicros());
+      }
     }
   }
 

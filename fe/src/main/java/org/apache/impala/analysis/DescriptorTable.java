@@ -27,7 +27,7 @@ import java.util.Set;
 import org.apache.impala.catalog.ArrayType;
 import org.apache.impala.catalog.FeTable;
 import org.apache.impala.catalog.FeView;
-import org.apache.impala.catalog.IcebergTimeTravelTable;
+import org.apache.impala.catalog.ForwardingFeTable;
 import org.apache.impala.catalog.StructField;
 import org.apache.impala.catalog.StructType;
 import org.apache.impala.catalog.Type;
@@ -245,11 +245,11 @@ public class DescriptorTable {
    * For Iceberg Time Travel tables we compare the underlying base table.
    */
   private boolean isSameTableRef(FeTable first, FeTable second) {
-    if (first instanceof IcebergTimeTravelTable) {
-      first = ((IcebergTimeTravelTable) first).getBase();
+    if (first instanceof ForwardingFeTable) {
+      first = ((ForwardingFeTable) first).getBase();
     }
-    if (second instanceof IcebergTimeTravelTable) {
-      second = ((IcebergTimeTravelTable) second).getBase();
+    if (second instanceof ForwardingFeTable) {
+      second = ((ForwardingFeTable) second).getBase();
     }
     return first == second;
   }

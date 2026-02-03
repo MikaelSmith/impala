@@ -424,6 +424,12 @@ struct TKuduScanNode {
 
   // The byte offset of the slot for Kudu metadata if count star optimization is enabled.
   3: optional i32 count_star_slot_offset
+
+  // Start of a change-history scan.
+  4: optional i64 scan_start_micros;
+
+  // Time of a snapshot scan or end of a change-history scan.
+  5: optional i64 scan_stop_micros;
 }
 
 struct TSystemTableScanNode {

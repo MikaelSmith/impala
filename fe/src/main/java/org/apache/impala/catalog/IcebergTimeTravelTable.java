@@ -24,8 +24,6 @@ import com.google.common.base.Preconditions;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.ValidWriteIdList;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.impala.analysis.IcebergPartitionSpec;
@@ -68,11 +66,7 @@ import java.util.stream.Collectors;
  * This is implemented by embedding a reference to the base Iceberg Table.
  * All methods that are not Time Travel delegated are delegated to the base table.
  */
-public class IcebergTimeTravelTable
-    extends ForwardingFeIcebergTable implements FeIcebergTable {
-  // The base table to which non-Time Travel related methods are delegated
-  private final FeIcebergTable base_;
-
+public class IcebergTimeTravelTable extends ForwardingFeIcebergTable {
   // The Time Travel parameters that control the schema for the table.
   private final TimeTravelSpec timeTravelSpec_;
 
@@ -88,12 +82,9 @@ public class IcebergTimeTravelTable
   public IcebergTimeTravelTable(FeIcebergTable base, TimeTravelSpec timeTravelSpec)
       throws AnalysisException {
     super(base);
-    base_ = base;
     timeTravelSpec_ = timeTravelSpec;
     this.readSchema();
   }
-
-  public FeIcebergTable getBase() { return base_; }
 
   /**
    * Initialize the columns from the schema corresponding to the time travel
@@ -135,7 +126,7 @@ public class IcebergTimeTravelTable
 
   @Override
   public List<Column> getColumnsInHiveOrder() {
-    Preconditions.checkState(base_.getNumClusteringCols() == 0);
+    Preconditions.checkState(getNumClusteringCols() == 0);
     if (getFormatVersion() < 3) {
       return colsByPos_;
     } else {
@@ -198,12 +189,6 @@ public class IcebergTimeTravelTable
         .addField(new IcebergStructField(
             col.getName(), col.getType(), col.getComment(), iCol.getFieldId()));
   }
-
-  @Override
-  public THdfsTable transformToTHdfsTable(boolean updatePartitionFlag,
-      ThriftObjectType type) {
-    return base_.transformToTHdfsTable(updatePartitionFlag, type);
-  }
 }
 
 /**
@@ -211,10 +196,13 @@ public class IcebergTimeTravelTable
  * This is just boilerplate code that delegates all methods to base.
  * See Effective Java: "Favor composition over inheritance."
  */
-class ForwardingFeIcebergTable implements FeIcebergTable {
+class ForwardingFeIcebergTable extends ForwardingFeTable implements FeIcebergTable {
   private final FeIcebergTable base;
 
-  public ForwardingFeIcebergTable(FeIcebergTable base) { this.base = base; }
+  public ForwardingFeIcebergTable(FeIcebergTable base) {
+    super(base);
+    this.base = base;
+  }
 
   @Override
   public FileSystem getFileSystem() throws CatalogException {
@@ -470,141 +458,4 @@ class ForwardingFeIcebergTable implements FeIcebergTable {
   public void setIcebergTableStats() {
     FeIcebergTable.super.setIcebergTableStats();
   }
-
-  @Override
-  public boolean isLoaded() {
-    return base.isLoaded();
-  }
-
-  @Override
-  public Table getMetaStoreTable() {
-    return base.getMetaStoreTable();
-  }
-
-  @Override
-  public String getStorageHandlerClassName() {
-    return base.getStorageHandlerClassName();
-  }
-
-  @Override
-  public TCatalogObjectType getCatalogObjectType() {
-    return base.getCatalogObjectType();
-  }
-
-  @Override
-  public String getName() {
-    return base.getName();
-  }
-
-  @Override
-  public String getFullName() {
-    return base.getFullName();
-  }
-
-  @Override
-  public TableName getTableName() {
-    return base.getTableName();
-  }
-
-  @Override
-  public TImpalaTableType getTableType() {
-    return base.getTableType();
-  }
-
-  @Override
-  public String getTableComment() {
-    return base.getTableComment();
-  }
-
-  @Override
-  public List<Column> getColumns() {
-    return base.getColumns();
-  }
-
-  @Override
-  public List<VirtualColumn> getVirtualColumns() {
-    return base.getVirtualColumns();
-  }
-
-  @Override
-  public List<Column> getColumnsInHiveOrder() {
-    return base.getColumnsInHiveOrder();
-  }
-
-  @Override
-  public List<String> getColumnNames() {
-    return base.getColumnNames();
-  }
-
-  @Override
-  public List<Column> getClusteringColumns() {
-    return base.getClusteringColumns();
-  }
-
-  @Override
-  public List<Column> getNonClusteringColumns() {
-    return base.getNonClusteringColumns();
-  }
-
-  @Override
-  public int getNumClusteringCols() {
-    return base.getNumClusteringCols();
-  }
-
-  @Override
-  public boolean isClusteringColumn(Column c) {
-    return base.isClusteringColumn(c);
-  }
-
-  @Override
-  public Column getColumn(String name) {
-    return base.getColumn(name);
-  }
-
-  @Override
-  public ArrayType getType() {
-    return base.getType();
-  }
-
-  @Override
-  public FeDb getDb() {
-    return base.getDb();
-  }
-
-  @Override
-  public long getNumRows() {
-    return base.getNumRows();
-  }
-
-  @Override
-  public TTableStats getTTableStats() {
-    return base.getTTableStats();
-  }
-
-  @Override
-  public TTableDescriptor toThriftDescriptor(
-      int tableId, Set<Long> referencedPartitions) {
-    return base.toThriftDescriptor(tableId, referencedPartitions);
-  }
-
-  @Override
-  public long getWriteId() {
-    return base.getWriteId();
-  }
-
-  @Override
-  public ValidWriteIdList getValidWriteIds() {
-    return base.getValidWriteIds();
-  }
-
-  @Override
-  public String getOwnerUser() {
-    return base.getOwnerUser();
-  }
-
-  @Override
-  public long getCatalogVersion() { return 0; }
-
-  @Override
-  public long getLastLoadedTimeMs() { return 0; }
 }
