@@ -44,6 +44,8 @@ class UdfBuiltins {
   static DoubleVal Abs(FunctionContext* context, const DoubleVal& val);
   static DoubleVal Pi(FunctionContext* context);
   static StringVal Lower(FunctionContext* context, const StringVal& str);
+  static BigIntVal KuduLookup(FunctionContext* context, const StringVal& table_name,
+      const StringVal& column_name, const BigIntVal& primary_key);
 
   static IntVal MaxInt(FunctionContext* context);
   static TinyIntVal MaxTinyInt(FunctionContext* context);

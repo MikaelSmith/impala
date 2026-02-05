@@ -45,6 +45,7 @@ def symbol(class_name, fn_name, templated_type = None):
     sym += 'EEPvPNS_4ExprEPNS_8TupleRowE'
   return sym
 
+
 # The format is:
 #   [sql aliases], <return_type>, [<args>], <backend symbol>,
 # With an optional
@@ -60,6 +61,8 @@ visible_functions = [
   [['udf_pi'], 'DOUBLE', [], 'impala::UdfBuiltins::Pi'],
   [['udf_abs'], 'DOUBLE', ['DOUBLE'], 'impala::UdfBuiltins::Abs'],
   [['udf_lower'], 'STRING', ['STRING'], 'impala::UdfBuiltins::Lower'],
+  [['kudu_lookup'], 'BIGINT', ['STRING', 'STRING', 'BIGINT'],
+    'impala::UdfBuiltins::KuduLookup'],
   [['max_int'], 'INT', [],
    '_ZN6impala11UdfBuiltins6MaxIntEPN10impala_udf15FunctionContextE'],
   [['max_tinyint'], 'TINYINT', [],

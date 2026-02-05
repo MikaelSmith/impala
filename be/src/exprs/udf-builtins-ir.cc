@@ -19,6 +19,8 @@
 
 #include <ctype.h>
 #include <gutil/strings/substitute.h>
+#include <kudu/client/client.h>
+#include <kudu/client/value.h>
 #include <iostream>
 #include <math.h>
 #include <sstream>
@@ -31,6 +33,16 @@
 #include "common/names.h"
 
 using namespace impala;
+using kudu::client::KuduClient;
+using kudu::client::KuduClientBuilder;
+using kudu::client::KuduPredicate;
+using kudu::client::KuduScanBatch;
+using kudu::client::KuduScanner;
+using kudu::client::KuduTable;
+using kudu::client::KuduValue;
+template <typename T> using kudu_ptr = kudu::client::sp::shared_ptr<T>;
+
+constexpr const char* KUDU_MASTER_DEFAULT_ADDR = "localhost:7051";
 
 DoubleVal UdfBuiltins::Abs(FunctionContext* context, const DoubleVal& v) {
   if (v.is_null) return v;
@@ -52,6 +64,68 @@ StringVal UdfBuiltins::Lower(FunctionContext* context, const StringVal& v) {
     result.ptr[i] = tolower(v.ptr[i]);
   }
   return result;
+}
+
+BigIntVal UdfBuiltins::KuduLookup(FunctionContext* context, const StringVal& table_name,
+    const StringVal& column_name, const BigIntVal& primary_key) {
+  if (table_name.is_null || primary_key.is_null) return BigIntVal::null();
+
+  auto err = [context](kudu::Status status, const string& msg) {
+    if (!status.ok()) {
+      context->SetError(Substitute("$0: $1", msg, status.ToString()).c_str());
+      return true;
+    }
+    return false;
+  };
+
+  kudu_ptr<KuduClient> client;
+  // Connect to the cluster.
+  if (err(KuduClientBuilder().add_master_server_addr(KUDU_MASTER_DEFAULT_ADDR)
+          .Build(&client), "Failed to create Kudu client")) {
+    return BigIntVal::null();
+  }
+
+  kudu_ptr<KuduTable> table;
+  string table_name_str(
+      reinterpret_cast<const char*>(table_name.ptr), table_name.len);
+  if (err(client->OpenTable(table_name_str, &table), "Failed to open Kudu table")) {
+    return BigIntVal::null();
+  }
+
+  KuduScanner scanner(table.get());
+  string column_name_str(
+      reinterpret_cast<const char*>(column_name.ptr), column_name.len);
+  if (err(scanner.SetProjectedColumnNames({column_name_str}),
+          Substitute("Failed to set projected column name $0", column_name_str))) {
+    return BigIntVal::null();
+  }
+  if (err(scanner.AddConjunctPredicate(table->NewComparisonPredicate(
+          table->schema().Column(0).name(), KuduPredicate::EQUAL,
+          KuduValue::FromInt(primary_key.val))), "Failed to add primary key predicate")) {
+    return BigIntVal::null();
+  }
+  if (err(scanner.Open(),
+          Substitute("Failed to open scanner on Kudu table $0", table_name_str))) {
+    return BigIntVal::null();
+  }
+
+  // Return the first value found in the specified column.
+  KuduScanBatch batch;
+  while (scanner.HasMoreRows()) {
+    if (err(scanner.NextBatch(&batch), "Failed to get next batch")) {
+      return BigIntVal::null();
+    }
+    for (KuduScanBatch::const_iterator it = batch.begin(); it != batch.end(); ++it) {
+      KuduScanBatch::RowPtr row(*it);
+      int64_t value;
+      if (err(row.GetInt64(column_name_str, &value),
+              Substitute("Failed to get value of column $0", column_name_str))) {
+        return BigIntVal::null();
+      }
+      return BigIntVal(value);
+    }
+  }
+  return BigIntVal::null();
 }
 
 IntVal UdfBuiltins::MaxInt(FunctionContext* context) {
