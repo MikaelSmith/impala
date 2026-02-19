@@ -38,6 +38,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.PruneEmptyRules;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexSimplify;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -53,6 +54,7 @@ import org.apache.impala.calcite.rel.node.ImpalaCTEConsumer;
 import org.apache.impala.calcite.rel.node.ImpalaCTEProducer;
 import org.apache.impala.calcite.rel.node.ImpalaPlanRel;
 import org.apache.impala.calcite.rel.node.ImpalaSequence;
+import org.apache.impala.calcite.rules.AggregateFilterToConditionalAggregateRule;
 import org.apache.impala.calcite.rules.CTERuleConfig;
 import org.apache.impala.calcite.rules.IcebergCountStarOptimizer;
 import org.apache.impala.calcite.rules.ImpalaCoreRules;
@@ -157,7 +159,7 @@ public class CalciteOptimizer implements CompilerStep {
     LogUtil.logDebug(postOptimizedJoinPlan, "Optimized plan after a second pass of "
         + "rules applied after join optimization.");
 
-    RelNode optimizedCTEPlan = runCTEProgram(relBuilder, postOptimizedJoinPlan);
+    RelNode optimizedCTEPlan = runCTEProgram(relBuilder, postOptimizedJoinPlan, simplifier);
     timeline_.markEvent("Created optimized CTE plan");
     LogUtil.logDebug(optimizedCTEPlan, "Optimized plan after CTE substitution.");
 
@@ -338,7 +340,7 @@ public class CalciteOptimizer implements CompilerStep {
   }
 
   public RelNode runCTEProgram(RelBuilder relBuilder,
-      RelNode plan) throws ImpalaException {
+      RelNode plan, ImpalaRexSimplify simplifier) throws ImpalaException {
     final int referenceThreshold = queryOptions_.cte_threshold;
     if (referenceThreshold < 0) {
       // Negative values disable CTE planning.
@@ -365,7 +367,7 @@ public class CalciteOptimizer implements CompilerStep {
           consumer, cte, null, consumer.getQualifiedName()));
     }
 
-    final RelNode ctePlan = rewriteUsingViews(plan, cteMVs);
+    final RelNode ctePlan = rewriteUsingViews(plan, cteMVs, simplifier);
 
     // Remove infrequent CTEs.
     Map<List<String>, Integer> tableOccurrences =
@@ -403,8 +405,15 @@ public class CalciteOptimizer implements CompilerStep {
   }
 
   private RelNode rewriteUsingViews(RelNode basePlan,
-      List<RelOptMaterialization> materializations) {
+      List<RelOptMaterialization> materializations, ImpalaRexSimplify simplifier) {
     final RelOptCluster optCluster = basePlan.getCluster();
+
+    HepProgramBuilder program = new HepProgramBuilder();
+    program.addMatchOrder(HepMatchOrder.DEPTH_FIRST);
+    program.addRuleInstance(CoreRules.AGGREGATE_PROJECT_MERGE);
+    program.addRuleInstance(AggregateFilterToConditionalAggregateRule.Config.DEFAULT.toRule());
+    basePlan = runProgram(basePlan, program.build(), simplifier);
+
     RelOptPlanner planner = optCluster.getPlanner();
     if (planner instanceof VolcanoPlanner) {
       // Force calculating costs for logical RelNodes.
