@@ -99,6 +99,8 @@ class KuduTableSink : public DataSink {
   /// The descriptor of the KuduTable being written to. Set on Prepare().
   const KuduTableDescriptor* table_desc_;
 
+  const KuduTableDescriptor* delete_table_desc_ = nullptr;
+
   /// Pointer to the Kudu client, shared among ExecEnv and other actors which hold the
   /// pointer.
   kudu::client::sp::shared_ptr<kudu::client::KuduClient> client_;
@@ -106,6 +108,7 @@ class KuduTableSink : public DataSink {
   kudu::client::sp::shared_ptr<kudu::client::KuduTable> table_;
   kudu::client::sp::shared_ptr<kudu::client::KuduSession> session_;
   kudu::client::sp::shared_ptr<kudu::client::KuduTransaction> txn_;
+  kudu::client::sp::shared_ptr<kudu::client::KuduTable> delete_table_;
 
   /// A cache of the nullability of each Kudu column. The Kudu schema accessor
   /// is not inlined and actually creates a copy (see IMPALA-8284).
@@ -148,6 +151,9 @@ class KuduTableSink : public DataSink {
 
   /// Number of ignored write error operations during the lifetime of 'session_'.
   int64_t total_ignored_errors_ = 0;
+
+  /// Column index of auto-incrementing column if exists, otherwise -1.
+  int auto_incrementing_column_idx_ = -1;
 };
 
 }  // namespace impala

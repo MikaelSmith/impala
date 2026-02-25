@@ -22,13 +22,25 @@ import static org.apache.impala.analysis.ToSqlOptions.DEFAULT;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.impala.analysis.TableRef.ZippingUnnestType;
+import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.FeKuduTable;
+import org.apache.impala.catalog.FeTable;
+import org.apache.impala.catalog.KuduColumn;
+import org.apache.impala.catalog.TableLoadingException;
 import org.apache.impala.catalog.Type;
+import org.apache.impala.catalog.View;
 import org.apache.impala.catalog.iceberg.IcebergMetadataTable;
 import org.apache.impala.common.AnalysisException;
+import org.apache.impala.common.Pair;
 import org.apache.impala.util.AcidUtils;
+import org.apache.impala.util.KuduUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -39,7 +51,11 @@ import com.google.common.collect.Lists;
  * the class it implements the Iterable interface.
  */
 public class FromClause extends StmtNode implements Iterable<TableRef> {
+  private final static Logger LOG = LoggerFactory.getLogger(FromClause.class);
+
   private final List<TableRef> tableRefs_;
+
+  private boolean isModify_ = false;
 
   private boolean analyzed_ = false;
 
@@ -53,6 +69,8 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
 
   public FromClause() { tableRefs_ = new ArrayList<>(); }
   public List<TableRef> getTableRefs() { return tableRefs_; }
+
+  public void setIsModify() { isModify_ = true; }
 
   public boolean isAnalyzed() { return analyzed_; }
 
@@ -76,6 +94,83 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
     return hasChanges;
   }
 
+  private String buildStreamingViewSql(Analyzer analyzer, TableRef tblRef)
+      throws AnalysisException {
+    FeTable baseTable = tblRef.getTable();
+    Map<String, String> params = baseTable.getMetaStoreTable().getParameters();
+    String db = baseTable.getDb().getName();
+
+    // Get kudu masters and primary key columns from Kudu table
+    FeKuduTable kuduTbl = KuduUtil.getKuduTable(
+        analyzer, db, params.get(FeTable.STREAMING_KUDU));
+
+    String selectList = baseTable.getColumnNames().stream()
+        .map(col -> "`%s`".formatted(col)).collect(Collectors.joining(", "));
+    String iceAuto = "", kuduAuto = "";
+    if (isModify_ && !kuduTbl.isPrimaryKeyUnique()) {
+      // We need unique identifiers for the rows in both the Iceberg and Kudu tables to
+      // track deletes. Use auto_incrementing_id for Kudu and _row_id for Iceberg.
+      // auto_incrementing_id is 1-indexed, row_id is 0-indexed. To simplify layout put
+      // both in the same column and use negative numbers for _row_id to avoid collisions.
+      iceAuto = ", -_row_id as auto_incrementing_id";
+      kuduAuto = ", auto_incrementing_id";
+    }
+
+    final String baseAlias = ObjectUtils.firstNonNull(tblRef.getExplicitAlias(), "base");
+    Pair<Long, Long> kuduPIT = baseTable.getPIT();
+    if (kuduPIT == null) {
+      throw new AnalysisException("Failed to retrieve point-in-time for streaming table: " +
+          baseTable.getFullName());
+    }
+    long icebergSnapshot = kuduPIT.first;
+    if (icebergSnapshot > 0) {
+      long kuduMigrationTs = kuduPIT.second;
+      String icebergPath = db + "." + params.get(FeTable.STREAMING_ICEBERG);
+      String delsPath = db + "." + params.get(FeTable.STREAMING_DELS);
+
+      List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames()
+          .stream().map(col -> "`" + col + "`").collect(Collectors.toList());
+      Preconditions.checkState(!primaryKeys.isEmpty(),
+          "Kudu table %s has no primary keys", kuduTbl.getFullName());
+
+      // Build join conditions for primary keys
+      String deletedJoinCondition =
+          KuduUtil.buildJoinCondition(primaryKeys, baseAlias, "deleted");
+
+      if (isModify_ && !kuduTbl.isPrimaryKeyUnique()) {
+        // If the primary key is not unique, we need to include the _row_id column in the
+        // join condition to ensure we can identify unique rows.
+        deletedJoinCondition += " and %s._row_id = deleted._row_id".formatted(baseAlias);
+        primaryKeys.add("`_row_id`");
+      }
+
+      // Build primary key select list for deleted subquery
+      String pkSelectList = String.join(", ", primaryKeys);
+
+      // If the primary key is unique, we want to ignore all Iceberg rows that match keys
+      // in the Kudu table. Otherwise we only omit rows from the delete log.
+      String omitKuduRows = kuduTbl.isPrimaryKeyUnique() ?
+          "union distinct select %1$s from %2$s for system_time from %3$s as of now()"
+          .formatted(pkSelectList, kuduTbl.getFullName(), kuduMigrationTs) : "";
+      return """
+          select %10$s%11$s from %1$s for system_version as of %2$s %3$s
+          left anti join (
+            select %4$s from %5$s for system_time from %7$s as of now()
+            %9$s
+          ) deleted
+          on %8$s
+          union all select %10$s%12$s from %6$s for system_time
+            from %7$s as of now() where not is_deleted
+          """.formatted(icebergPath, icebergSnapshot, baseAlias, pkSelectList, delsPath,
+              kuduTbl.getFullName(), kuduMigrationTs, deletedJoinCondition, omitKuduRows,
+              selectList, iceAuto, kuduAuto);
+    } else {
+      // If no snapshot exists, then no data has been migrated to Iceberg; ignore it.
+      return "select %1$s%4$s from %2$s %3$s".formatted(selectList, kuduTbl.getFullName(),
+          baseAlias, kuduAuto);
+    }
+  }
+
   @Override
   public void analyze(Analyzer analyzer) throws AnalysisException {
     if (analyzed_) return;
@@ -86,6 +181,15 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
     for (int i = 0; i < tableRefs_.size(); ++i) {
       TableRef tblRef = tableRefs_.get(i);
       tblRef = analyzer.resolveTableRef(tblRef);
+
+      if (tblRef.getResolvedPath() != null && tblRef.getTable().isStreaming()) {
+        String sql = buildStreamingViewSql(analyzer, tblRef);
+        LOG.debug("Created streaming view SQL: {}", sql.replace("\n", " "));
+        StatementBase parsed = Parser.parse(sql.toString(), analyzer.getQueryOptions());
+        View streamingView = new View(tblRef.getUniqueAlias(), (QueryStmt) parsed, null);
+        tblRef = new InlineViewRef(streamingView, tblRef);
+      }
+
       tableRefs_.set(i, Preconditions.checkNotNull(tblRef));
       tblRef.setLeftTblRef(leftTblRef);
       tblRef.analyze(analyzer);
@@ -187,7 +291,9 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
   public FromClause clone() {
     List<TableRef> clone = new ArrayList<>();
     for (TableRef tblRef: tableRefs_) clone.add(tblRef.clone());
-    return new FromClause(clone);
+    FromClause result = new FromClause(clone);
+    result.isModify_ = isModify_;
+    return result;
   }
 
   public void reset() {

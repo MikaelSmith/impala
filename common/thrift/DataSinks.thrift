@@ -128,7 +128,7 @@ struct TIcebergDeleteSink {
 // Structure to encapsulate specific options that are passed down to the KuduTableSink
 struct TKuduTableSink {
   // The position in this vector is equal to the position in the output expressions of the
-  // sink and holds the index of the corresponsding column in the Kudu schema,
+  // sink and holds the index of the corresponding column in the Kudu schema,
   // e.g. 'exprs[i]' references 'kudu_table.column(referenced_cols[i])'
   1: optional list<i32> referenced_columns
 
@@ -137,6 +137,12 @@ struct TKuduTableSink {
 
   // Serialized metadata of KuduTransaction object.
   3: optional binary kudu_txn_token
+
+  // Delete table to write to as well.
+  4: optional Types.TTableId delete_table_id
+
+  // Column indices of primary keys from exprs for the delete table.
+  5: optional list<i32> delete_columns
 }
 
 // Sink to create the build side of a JoinNode.
