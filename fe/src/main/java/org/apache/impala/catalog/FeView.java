@@ -17,8 +17,11 @@
 package org.apache.impala.catalog;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.impala.analysis.QueryStmt;
+import org.apache.impala.analysis.StmtMetadataLoader;
+import org.apache.impala.analysis.TableName;
 
 /**
  * Frontend interface for interacting with a view.
@@ -42,4 +45,11 @@ public interface FeView extends FeTable {
    */
   List<String> getColLabels();
 
+  /**
+   * @return tables referenced in the view's query statement
+   */
+  @Override
+  default Set<TableName> getDependentTables(StmtMetadataLoader loader) {
+    return loader.collectTableCandidates(getQueryStmt());
+  }
 }

@@ -2,23 +2,29 @@
 -- inclusion of auto_incrementing_id in the log and merge conditions.
 set var:last_migration_id=1;
 set var:next_migration_id=2;
+drop table foo;
+drop table foo_pit;
+drop table foo_dels;
 drop table foo_iceberg;
 drop table foo_kudu;
-drop table foo_dels;
-drop table foo_pit;
 
-create table foo_iceberg (i int, comm string, ts timestamp) stored as iceberg;
+-- Create the iceberg table, and a kudu table for write caching.
+-- Create ancilary point-in-time and delete log tables for migration.
 create table foo_kudu (i int primary key, comm string, ts timestamp) stored as kudu;
--- Use same table with non-unique primary key and is_delete flag to log deletes.
--- auto_incrementing_id becomes the logical timestamp for the log.
--- Needs to be a log for the same reasons the main table does. We need to include this in
+create table foo_iceberg(i int, comm string, ts timestamp) stored as iceberg;
+-- Use non-unique primary key to log deletes; auto_incrementing_id is the logical timestamp.
+-- Needs to be a log for the same reasons the main table does: we need to include this in
 -- migrating data, and be able to clear them later; new queries can run in-between.
 create table foo_dels (i int non unique primary key) stored as kudu;
 -- Could also use timestamp for migration_ts. Using bigint simplified kudu_lookup.
 create table foo_pit (
-    id int primary key, migration_ts bigint, iceberg_snapshot bigint) stored as kudu;
+    id int primary key, migration_ts bigint, snapshot_id bigint) stored as kudu;
 -- Initialize baseline timestamp to simplify migration code.
 insert into foo_pit values (${var:last_migration_id}, utc_to_unix_micros(utc_timestamp()), 0);
+create table foo(i int, comm string, ts timestamp) stored as iceberg
+    tblproperties('impala.streaming.kudu'='foo_kudu', 'impala.streaming.iceberg'='foo_iceberg',
+                  'impala.streaming.pit'='foo_pit', 'impala.streaming.dels'='foo_dels');
+
 -- Insert initial data to Kudu.
 upsert into foo_kudu values (1, 'a', now()), (2, 'b', now()), (3, 'c', now()), (4, 'd', now()), (5, 'e', now());
 
@@ -72,20 +78,20 @@ select coalesce(kudu_new.i, foo_iceberg.i) as i,
     coalesce(kudu_new.comm, foo_iceberg.comm) as comm,
     coalesce(kudu_new.ts, foo_iceberg.ts) as ts
 from foo_iceberg for system_version
-    AS OF kudu_lookup('impala::default.foo_pit', 'iceberg_snapshot', ${var:last_migration_id})
+    AS OF kudu_lookup('impala::default.foo_pit', 'snapshot_id', ${var:last_migration_id})
 left anti join (
     select i from foo_dels for system_time
         from kudu_lookup('impala::default.foo_pit', 'migration_ts', ${var:last_migration_id})
         as of now()
     union distinct
     select i from foo_kudu for system_time
-        from coalesce(kudu_lookup('impala::default.foo_pit', 'migration_ts', ${var:last_migration_id}), -1)
+        from kudu_lookup('impala::default.foo_pit', 'migration_ts', ${var:last_migration_id})
         as of now() where is_deleted
 ) deleted
 on foo_iceberg.i = deleted.i
 full outer join (
     select i, comm, ts from foo_kudu for system_time
-        from coalesce(kudu_lookup('impala::default.foo_pit', 'migration_ts', ${var:last_migration_id}), -1)
+        from kudu_lookup('impala::default.foo_pit', 'migration_ts', ${var:last_migration_id})
         as of now() where not is_deleted
 ) kudu_new
 on foo_iceberg.i = kudu_new.i;

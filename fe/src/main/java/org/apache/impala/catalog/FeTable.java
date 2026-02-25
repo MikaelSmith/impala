@@ -17,14 +17,17 @@
 package org.apache.impala.catalog;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.impala.analysis.StmtMetadataLoader;
 import org.apache.impala.analysis.TableName;
 import org.apache.impala.thrift.TCatalogObjectType;
 import org.apache.impala.thrift.TColumnDescriptor;
@@ -58,6 +61,11 @@ public interface FeTable {
 
   // Internal table property that specifies the catalog version of the table.
   public static final String CATALOG_VERSION = "impala.events.catalogVersion";
+
+  public static final String STREAMING_KUDU = "impala.streaming.kudu";
+  public static final String STREAMING_ICEBERG = "impala.streaming.iceberg";
+  public static final String STREAMING_PIT = "impala.streaming.pit";
+  public static final String STREAMING_DELS = "impala.streaming.dels";
 
   /** @see CatalogObject#isLoaded() */
   boolean isLoaded();
@@ -93,6 +101,29 @@ public interface FeTable {
    * @return the table name in structured form
    */
   TableName getTableName();
+
+  /**
+   * @return true if this table is a streaming table
+   */
+  default boolean isStreaming() {
+    return getMetaStoreTable() != null
+        && getMetaStoreTable().getParameters().containsKey(STREAMING_KUDU)
+        && getMetaStoreTable().getParameters().containsKey(STREAMING_ICEBERG)
+        && getMetaStoreTable().getParameters().containsKey(STREAMING_DELS)
+        && getMetaStoreTable().getParameters().containsKey(STREAMING_PIT);
+  }
+
+  /**
+   * @return set of tables this table requires are loaded
+   */
+  default Set<TableName> getDependentTables(StmtMetadataLoader loader) {
+    if (!isStreaming()) return Collections.emptySet();
+    String db = getDb().getName();
+    Map<String, String> props = getMetaStoreTable().getParameters();
+    return Set.of(new TableName(db, props.get(STREAMING_KUDU)),
+        new TableName(db, props.get(STREAMING_ICEBERG)),
+        new TableName(db, props.get(STREAMING_DELS)));
+  }
 
   /**
    * @return the general type of this table (e.g. "TABLE" or "VIEW")

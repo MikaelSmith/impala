@@ -127,6 +127,7 @@ public class SelectStmt extends QueryStmt {
     } else {
       fromClause_ = fromClause;
     }
+    fromClause_.markIsSelect();
     whereClause_ = wherePredicate;
     groupByClause_ = groupByClause;
     if (groupByClause != null) {
@@ -1731,6 +1732,7 @@ public class SelectStmt extends QueryStmt {
     super(other);
     selectList_ = other.selectList_.clone();
     fromClause_ = other.fromClause_.clone();
+    fromClause_.markIsSelect();
     whereClause_ = (other.whereClause_ != null) ? other.whereClause_.clone() : null;
     groupingExprs_ =
         (other.groupingExprs_ != null) ? Expr.cloneList(other.groupingExprs_) : null;
