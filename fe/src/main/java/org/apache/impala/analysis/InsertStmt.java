@@ -441,6 +441,21 @@ public class InsertStmt extends DmlStatementBase {
     }
   }
 
+  private void validateStreamingTable(FeKuduTable table) throws AnalysisException {
+    if (isUpsert_ && !table.isPrimaryKeyUnique()) {
+      throw new AnalysisException(
+          "UPSERT is not supported for streaming tables with non-unique primary keys.");
+    } else if (!isUpsert_ && table.isPrimaryKeyUnique()) {
+      throw new AnalysisException(
+          "INSERT is not supported for streaming tables with unique primary keys.");
+    }
+    if (isUpsert_ && columnPermutation_ != null &&
+        columnPermutation_.size() != table.getColumns().size()) {
+      throw new AnalysisException(
+          "All columns must be included for UPSERT into streaming table");
+    }
+  }
+
   /**
    * Sets table_ based on targetTableName_ and performs table-type specific analysis:
    * - Cannot (in|up)sert into a view
@@ -462,6 +477,14 @@ public class InsertStmt extends DmlStatementBase {
             new TableName(analyzer.getDefaultDb(), targetTableName_.getTbl());
       }
       table_ = analyzer.getTable(targetTableName_, privilegeRequired);
+      if (table_.isStreaming()) {
+        String streamingTableName = table_.getParameter(FeTable.STREAMING_KUDU);
+        TableName streamingTable =
+            new TableName(targetTableName_.getDb(), streamingTableName);
+        table_ = analyzer.getTable(streamingTable, privilegeRequired);
+        validateStreamingTable((FeKuduTable) table_);
+        targetTableName_ = streamingTable;
+      }
     } else {
       targetTableName_ = new TableName(table_.getDb().getName(), table_.getName());
       analyzer.registerPrivReq(builder ->

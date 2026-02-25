@@ -1109,6 +1109,9 @@ struct TFinalizeParams {
 
   // Stores params for Iceberg operation
   9: optional TIcebergDmlFinalizeParams iceberg_params;
+
+  // Options for migration of a hybrid table.
+  10: optional CatalogObjects.THybridMergeOpts hybrid_merge;
 }
 
 struct TQueryExecRequestCompressed {

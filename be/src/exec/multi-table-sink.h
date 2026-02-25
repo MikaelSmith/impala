@@ -35,7 +35,7 @@ class MultiTableSinkConfig : public DataSinkConfig {
   DataSink* CreateSink(RuntimeState* state) const override;
 
   /// Returns the table sink configs of the child sinks.
-  const std::vector<TableSinkBaseConfig*> table_sink_configs() const {
+  const std::vector<DataSinkConfig*> table_sink_configs() const {
     return table_sink_configs_;
   }
 
@@ -47,7 +47,7 @@ class MultiTableSinkConfig : public DataSinkConfig {
   Status Init(const TDataSink& tsink, const RowDescriptor* input_row_desc,
       FragmentState* state) override;
  private:
-   std::vector<TableSinkBaseConfig*> table_sink_configs_;
+   std::vector<DataSinkConfig*> table_sink_configs_;
 };
 
 /// MultiTableSink has multiple child table sink objects. It sends the received row
@@ -71,7 +71,7 @@ class MultiTableSink : public DataSink {
   /// END: Methods above just delegate calls to the child sinks in 'table_sinks_'.
   //////////////////////////////////////
  private:
-  std::vector<TableSinkBase*> table_sinks_;
+  std::vector<DataSink*> table_sinks_;
 };
 
 }

@@ -83,6 +83,7 @@ import org.apache.impala.thrift.TGetMetadataTablesParams;
 import org.apache.impala.thrift.TGetTableHistoryResult;
 import org.apache.impala.thrift.TGetTablesParams;
 import org.apache.impala.thrift.TGetTablesResult;
+import org.apache.impala.thrift.THybridMergeOpts;
 import org.apache.impala.thrift.TIcebergDmlFinalizeRequest;
 import org.apache.impala.thrift.TLoadDataReq;
 import org.apache.impala.thrift.TLoadDataResp;
@@ -112,6 +113,7 @@ import org.apache.impala.util.AuthorizationUtil;
 import org.apache.impala.util.ExecutorMembershipSnapshot;
 import org.apache.impala.util.GlogAppender;
 import org.apache.impala.util.JniRequestPoolService;
+import org.apache.impala.util.KuduUtil;
 import org.apache.impala.util.PatternMatcher;
 import org.apache.impala.util.TSessionStateUtil;
 import org.apache.log4j.Appender;
@@ -407,6 +409,14 @@ public class JniFrontend {
       sb.append(upper);
     }
     return sb.toString();
+  }
+
+  public void endPITMigration(byte[] thriftHybridMergeOpts) throws ImpalaException {
+    THybridMergeOpts opts = new THybridMergeOpts();
+    JniUtil.deserializeThrift(protocolFactory_, opts, thriftHybridMergeOpts);
+    String step = opts.isSetSnapshot_id() ? "Completing" : "Cancelling";
+    LOG.debug("{} PIT migration for {}", step, opts.getData_table());
+    KuduUtil.kuduPITEndMigration(opts);
   }
 
   /**
