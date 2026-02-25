@@ -20,6 +20,7 @@ package org.apache.impala.catalog;
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.hive.metastore.IMetaStoreClient;
 import org.apache.impala.analysis.QueryStmt;
+import org.apache.impala.analysis.StmtMetadataLoader;
 import org.apache.impala.analysis.TableName;
 import org.apache.impala.authorization.AuthorizationChecker;
 import org.apache.impala.authorization.TableMask;
@@ -31,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -49,12 +51,12 @@ public class MaterializedViewHdfsTable extends HdfsTable {
   private QueryStmt queryStmt_;
 
   // List of source tables referenced by this materialized view
-  private List<TableName>  srcTblNames_;
+  private Set<TableName> srcTblNames_;
 
   public MaterializedViewHdfsTable(org.apache.hadoop.hive.metastore.api.Table msTable,
       Db db, String name, String owner) {
     super(msTable, db, name, owner);
-    srcTblNames_ = new ArrayList<>();
+    srcTblNames_ = Collections.emptySet();
   }
 
   public QueryStmt getQueryStmt() { return queryStmt_; }
@@ -80,11 +82,11 @@ public class MaterializedViewHdfsTable extends HdfsTable {
     return false;
   }
 
-  public void addSrcTables(Set<TableName> srcTableNames) {
-    srcTblNames_.addAll(srcTableNames);
+  @Override
+  public Set<TableName> getDependentTables(StmtMetadataLoader loader) {
+    srcTblNames_ = loader.collectTableCandidates(getQueryStmt());
+    return srcTblNames_;
   }
-
-  public List<TableName> getSrcTables() { return srcTblNames_; }
 
   @Override
   public void load(boolean reuseMetadata, IMetaStoreClient client,

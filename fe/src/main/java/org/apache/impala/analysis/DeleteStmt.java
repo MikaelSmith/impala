@@ -51,7 +51,9 @@ public class DeleteStmt extends ModifyStmt {
 
   @Override
   protected void createModifyImpl() {
-    if (table_ instanceof FeKuduTable) {
+    if (table_.isStreaming()) {
+      modifyImpl_ = new StreamingDeleteImpl(this);
+    } else if (table_ instanceof FeKuduTable) {
       modifyImpl_ = new KuduDeleteImpl(this);
     } else if (table_ instanceof FeIcebergTable) {
       modifyImpl_ = new IcebergDeleteImpl(this);

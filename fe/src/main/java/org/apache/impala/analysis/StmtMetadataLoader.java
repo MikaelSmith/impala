@@ -450,14 +450,7 @@ public class StmtMetadataLoader {
         continue;
       }
       loadedOrFailedTbls_.put(tblName, tbl);
-      if (tbl instanceof FeView) {
-        viewTbls.addAll(collectTableCandidates(((FeView) tbl).getQueryStmt()));
-      } else if (tbl instanceof MaterializedViewHdfsTable) {
-        Set<TableName> mvSrcTableNames = collectTableCandidates(
-            ((MaterializedViewHdfsTable) tbl).getQueryStmt());
-        ((MaterializedViewHdfsTable) tbl).addSrcTables(mvSrcTableNames);
-        viewTbls.addAll(mvSrcTableNames);
-      }
+      viewTbls.addAll(tbl.getDependentTables(this));
       // Adds tables/views introduced by column-masking/row-filtering policies.
       if (!(tbl instanceof FeIncompleteTable)
           && fe_.getAuthzFactory().getAuthorizationConfig().isEnabled()

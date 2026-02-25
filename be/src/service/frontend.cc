@@ -172,7 +172,8 @@ Frontend::Frontend() {
     {"cancelExecRequest", "([B)V", &cancel_exec_request_id_},
     {"getNonOdbcKeywords", "([B)Ljava/lang/String;", &get_non_odbc_keywords_id_},
     {"storeExecStats", "([B)V", &store_exec_stats_},
-    {"clearHboStats", "()V", &clear_hbo_stats_}
+    {"clearHboStats", "()V", &clear_hbo_stats_},
+    {"endPITMigration", "([B)V", &end_pit_migration_id_}
   };
 
   JniMethodDescriptor staticMethods[] = {
@@ -513,4 +514,9 @@ Status Frontend::StoreExecStats(const THistoricalStatsUpdate& stats) {
 
 Status Frontend::ClearHboStats() {
   return JniUtil::CallJniMethod(fe_, clear_hbo_stats_);
+}
+
+Status Frontend::EndPITMigration(THybridMergeOpts hybrid_merge, long snapshot_id) {
+  if (snapshot_id > 0) hybrid_merge.__set_snapshot_id(snapshot_id);
+  return JniUtil::CallJniMethod(fe_, end_pit_migration_id_, hybrid_merge);
 }

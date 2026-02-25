@@ -282,6 +282,9 @@ class Frontend {
   /// Clears the HBO stats cache held by this coordinator's frontend.
   Status ClearHboStats();
 
+  /// Ends a PIT migration in progress.
+  Status EndPITMigration(THybridMergeOpts hybrid_merge, long snapshot_id = -1);
+
  private:
   jclass fe_class_; // org.apache.impala.service.JniFrontend class
   jobject fe_;  // instance of org.apache.impala.service.JniFrontend
@@ -335,6 +338,7 @@ class Frontend {
   jmethodID get_non_odbc_keywords_id_; // JniFrontend.getNonOdbcKeywords(String)
   jmethodID store_exec_stats_; // JniFrontend.storeExecStats()
   jmethodID clear_hbo_stats_; // JniFrontend.clearHboStats()
+  jmethodID end_pit_migration_id_; // JniFrontend.endPITMigration()
 
   // Only used for testing.
   jmethodID build_test_descriptor_table_id_; // JniFrontend.buildTestDescriptorTable()

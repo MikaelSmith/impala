@@ -33,7 +33,7 @@ Status MultiTableSinkConfig::Init(
     RETURN_IF_ERROR(DataSinkConfig::CreateConfig(child_sink, input_row_desc,
         state, &data_sink_config));
     DCHECK(data_sink_config != nullptr);
-    table_sink_configs_.push_back(static_cast<TableSinkBaseConfig*>(data_sink_config));
+    table_sink_configs_.push_back(static_cast<DataSinkConfig*>(data_sink_config));
   }
   return Status::OK();
 }
@@ -45,7 +45,7 @@ DataSink* MultiTableSinkConfig::CreateSink(RuntimeState* state) const {
 }
 
 void MultiTableSinkConfig::Close() {
-  for (TableSinkBaseConfig* table_sink_config : table_sink_configs_) {
+  for (DataSinkConfig* table_sink_config : table_sink_configs_) {
     table_sink_config->Close();
   }
   DataSinkConfig::Close();
@@ -54,9 +54,9 @@ void MultiTableSinkConfig::Close() {
 MultiTableSink::MultiTableSink(TDataSinkId sink_id,
     const MultiTableSinkConfig& sink_config, const TDataSink& dsink,
     RuntimeState* state) : DataSink(sink_id, sink_config, "MultiTableSink", state) {
-  for (TableSinkBaseConfig* tbl_sink_config : sink_config.table_sink_configs()) {
-    TableSinkBase* tsink_base =
-        DCHECK_NOTNULL(dynamic_cast<TableSinkBase*>(tbl_sink_config->CreateSink(state)));
+  for (DataSinkConfig* tbl_sink_config : sink_config.table_sink_configs()) {
+    DataSink* tsink_base =
+        DCHECK_NOTNULL(dynamic_cast<DataSink*>(tbl_sink_config->CreateSink(state)));
     table_sinks_.push_back(tsink_base);
     profile()->AddChild(tsink_base->profile());
   }
@@ -64,7 +64,7 @@ MultiTableSink::MultiTableSink(TDataSinkId sink_id,
 
 Status MultiTableSink::Prepare(RuntimeState* state, MemTracker* parent_mem_tracker) {
   RETURN_IF_ERROR(DataSink::Prepare(state, parent_mem_tracker));
-  for (TableSinkBase* tsink : table_sinks_) {
+  for (DataSink* tsink : table_sinks_) {
     RETURN_IF_ERROR(tsink->Prepare(state, parent_mem_tracker));
   }
   return Status::OK();
@@ -72,14 +72,14 @@ Status MultiTableSink::Prepare(RuntimeState* state, MemTracker* parent_mem_track
 
 Status MultiTableSink::Open(RuntimeState* state) {
   RETURN_IF_ERROR(DataSink::Open(state));
-  for (TableSinkBase* tsink : table_sinks_) {
+  for (DataSink* tsink : table_sinks_) {
     RETURN_IF_ERROR(tsink->Open(state));
   }
   return Status::OK();
 }
 
 Status MultiTableSink::Send(RuntimeState* state, RowBatch* batch) {
-  for (TableSinkBase* tsink : table_sinks_) {
+  for (DataSink* tsink : table_sinks_) {
     RETURN_IF_ERROR(tsink->Send(state, batch));
   }
   return Status::OK();
@@ -87,14 +87,14 @@ Status MultiTableSink::Send(RuntimeState* state, RowBatch* batch) {
 
 Status MultiTableSink::FlushFinal(RuntimeState* state) {
   DCHECK(!closed_);
-  for (TableSinkBase* tsink : table_sinks_) {
+  for (DataSink* tsink : table_sinks_) {
     RETURN_IF_ERROR(tsink->FlushFinal(state));
   }
   return Status::OK();
 }
 
 void MultiTableSink::Close(RuntimeState* state) {
-  for (TableSinkBase* tsink : table_sinks_) {
+  for (DataSink* tsink : table_sinks_) {
     tsink->Close(state);
   }
   DataSink::Close(state);

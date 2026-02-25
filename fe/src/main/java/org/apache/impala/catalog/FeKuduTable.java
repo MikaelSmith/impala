@@ -20,6 +20,7 @@ package org.apache.impala.catalog;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -72,6 +73,12 @@ public interface FeKuduTable extends FeTable {
    * of this table.
    */
   List<String> getPrimaryKeyColumnNames();
+
+  default List<String> getExplicitPrimaryKeyColumnNames() {
+    return getColumns().stream().map(KuduColumn.class::cast)
+        .filter(col -> col.isKey() && !col.isHidden())
+        .map(Column::getName).collect(Collectors.toList());
+  }
 
   /**
    * Return the Kudu partitioning clause information.
