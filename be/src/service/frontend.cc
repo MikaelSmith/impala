@@ -163,7 +163,8 @@ Frontend::Frontend() {
     {"commitKuduTransaction", "([B)V", &commit_kudu_txn_},
     {"cancelExecRequest", "([B)V", &cancel_exec_request_id_},
     {"getNonOdbcKeywords", "([B)Ljava/lang/String;", &get_non_odbc_keywords_id_},
-    {"storeExecStats", "([B)V", &store_exec_stats_}
+    {"storeExecStats", "([B)V", &store_exec_stats_},
+    {"endPITMigration", "([B)V", &end_pit_migration_id_}
   };
 
   JniMethodDescriptor staticMethods[] = {
@@ -496,4 +497,9 @@ Status Frontend::GetNonOdbcKeywords(const string& odbc_keywords_csv, string* res
 
 Status Frontend::StoreExecStats(const THistoricalStatsUpdate& stats) {
   return JniUtil::CallJniMethod(fe_, store_exec_stats_, stats);
+}
+
+Status Frontend::EndPITMigration(THybridMergeOpts hybrid_merge, long snapshot_id) {
+  if (snapshot_id > 0) hybrid_merge.__set_snapshot_id(snapshot_id);
+  return JniUtil::CallJniMethod(fe_, end_pit_migration_id_, hybrid_merge);
 }

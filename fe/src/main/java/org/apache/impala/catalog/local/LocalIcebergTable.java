@@ -17,6 +17,7 @@
 
 package org.apache.impala.catalog.local;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -40,7 +41,10 @@ import org.apache.impala.catalog.IcebergContentFileStore;
 import org.apache.impala.catalog.TableLoadingException;
 import org.apache.impala.catalog.local.MetaProvider.TableMetaRef;
 import org.apache.impala.common.Credential;
+import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.ImpalaRuntimeException;
+import org.apache.impala.common.Pair;
+import org.apache.impala.service.BackendConfig;
 import org.apache.impala.thrift.TCompressionCodec;
 import org.apache.impala.thrift.THdfsPartition;
 import org.apache.impala.thrift.THdfsTable;
@@ -52,6 +56,7 @@ import org.apache.impala.thrift.TTableDescriptor;
 import org.apache.impala.thrift.TTableType;
 import org.apache.impala.util.IcebergSchemaConverter;
 import org.apache.impala.util.IcebergUtil;
+import org.apache.impala.util.KuduUtil;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.annotations.Immutable;
@@ -78,6 +83,9 @@ public class LocalIcebergTable extends LocalTable implements FeIcebergTable {
   // The snapshot id of the current snapshot stored in the CatalogD.
   long catalogSnapshotId_;
 
+  // Last migration PIT for a streaming table. Init before loading dependent tables.
+  private Pair<Long, Long> lastMigrationPIT_ = null;
+
   // Cached Iceberg API table object.
   private org.apache.iceberg.Table icebergApiTable_;
 
@@ -99,6 +107,8 @@ public class LocalIcebergTable extends LocalTable implements FeIcebergTable {
       TableParams tableParams = new TableParams(msTable);
       TPartialTableInfo tableInfo = db.getCatalog().getMetaProvider()
           .loadIcebergTable(ref);
+      LOG.warn("Loaded Iceberg table {}.{} at {}", db.getName(), msTable.getTableName(),
+          Instant.ofEpochMilli(ref.getLoadedTimeMs()));
       MetaProvider.CachedIcebergFiles cachedFiles =
           db.getCatalog().getMetaProvider().loadIcebergContentFileStore(ref);
 
@@ -277,6 +287,24 @@ public class LocalIcebergTable extends LocalTable implements FeIcebergTable {
   @Override
   public long snapshotId() {
     return catalogSnapshotId_;
+  }
+
+  @Override
+  public void initPIT(String pitName) {
+    if (lastMigrationPIT_ != null) return;
+    String kuduMasters = BackendConfig.INSTANCE.getBackendCfg().kudu_master_hosts;
+    try {
+      String pitTable = KuduUtil.getKuduTableName(getDb().getName(), pitName, kuduMasters);
+      lastMigrationPIT_ =
+          KuduUtil.kuduPITLookup(kuduMasters, pitTable, KuduUtil.LAST_MIGRATION_ID);
+    } catch (ImpalaException e) {
+      LOG.warn("Failed to lookup PIT for streaming table", e);
+    }
+  }
+
+  @Override
+  public Pair<Long, Long> getPIT() {
+    return lastMigrationPIT_;
   }
 
   @Override

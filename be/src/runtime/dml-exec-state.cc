@@ -906,26 +906,22 @@ void DmlExecState::MergeDmlStats(const DmlStatsPB& src, DmlStatsPB* dst) {
   }
 }
 
-void DmlExecState::InitForKuduDml() {
-  // For Kudu, track only one set of DML stats, so use the ROOT_PARTITION_KEY.
-  const string& partition_name = DataSink::ROOT_PARTITION_KEY;
+void DmlExecState::InitForKuduDml(std::string table_name) {
   lock_guard<mutex> l(lock_);
-  DCHECK(per_partition_status_.find(partition_name) == per_partition_status_.end());
+  DCHECK(per_partition_status_.find(table_name) == per_partition_status_.end());
   DmlPartitionStatusPB status;
   status.set_id(-1L);
   status.set_num_modified_rows(0L);
   status.mutable_stats()->set_bytes_written(0L);
   status.mutable_stats()->mutable_kudu_stats()->set_num_row_errors(0L);
   status.set_partition_base_dir("");
-  per_partition_status_.insert(make_pair(partition_name, status));
+  per_partition_status_.insert(make_pair(std::move(table_name), status));
 }
 
-void DmlExecState::SetKuduDmlStats(int64_t num_modified_rows, int64_t num_row_errors,
-    int64_t latest_ts) {
-  // For Kudu, track only one set of DML stats, so use the ROOT_PARTITION_KEY.
-  const string& partition_name = DataSink::ROOT_PARTITION_KEY;
+void DmlExecState::SetKuduDmlStats(const std::string& table_name,
+    int64_t num_modified_rows, int64_t num_row_errors, int64_t latest_ts) {
   lock_guard<mutex> l(lock_);
-  PartitionStatusMap::iterator entry = per_partition_status_.find(partition_name);
+  PartitionStatusMap::iterator entry = per_partition_status_.find(table_name);
   DCHECK(entry != per_partition_status_.end());
   entry->second.set_num_modified_rows(num_modified_rows);
   entry->second.mutable_stats()->mutable_kudu_stats()->set_num_row_errors(num_row_errors);

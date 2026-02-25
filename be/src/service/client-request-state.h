@@ -916,7 +916,8 @@ class ClientRequestState {
   /// but the Kudu transaction is committed by this function.
   /// If an error occurs the transaction gets aborted by this function. Either way
   /// the transaction will be closed when this function returns.
-  Status UpdateCatalog() WARN_UNUSED_RESULT;
+  Status UpdateCatalog(const TFinalizeParams& finalize_params, const string& debug_action,
+      bool sync_ddl, long* end_snapshot_id) WARN_UNUSED_RESULT;
 
   /// Fills 'cat_ice_op' based on 'finalize_params'. Returns false if there is no
   /// need to update the Catalog (no records changed), returns true otherwise.

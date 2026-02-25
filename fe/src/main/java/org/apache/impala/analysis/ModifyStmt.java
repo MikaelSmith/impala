@@ -91,6 +91,7 @@ public abstract class ModifyStmt extends DmlStatementBase {
       List<Pair<SlotRef, Expr>> assignmentExprs, Expr wherePredicate) {
     targetTablePath_ = Preconditions.checkNotNull(targetTablePath);
     fromClause_ = Preconditions.checkNotNull(fromClause);
+    fromClause_.setIsModify();
     assignments_ = Preconditions.checkNotNull(assignmentExprs);
     wherePredicate_ = wherePredicate;
   }
@@ -120,32 +121,47 @@ public abstract class ModifyStmt extends DmlStatementBase {
     super.analyze(analyzer);
     fromClause_.analyze(analyzer);
 
-    List<Path> candidates = analyzer.getTupleDescPaths(targetTablePath_);
-    if (candidates.isEmpty()) {
-      throw new AnalysisException(format("'%s' is not a valid table alias or reference.",
-          Joiner.on(".").join(targetTablePath_)));
-    }
+    TableName targetTableName = targetTablePath_.size() == 1 ?
+        new TableName(analyzer.getDefaultDb(), targetTablePath_.get(0)) :
+        new TableName(targetTablePath_.get(0), targetTablePath_.get(1));
+    FeTable targetTable = analyzer.getTable(targetTableName, Privilege.ALL);
+    if (targetTable != null && targetTable.isStreaming()) {
+      // Use the streaming table while creating StreamingDeleteImpl/StreamingUpdateImpl.
+      table_ = targetTable;
+      createModifyImpl();
+      // Set targetTableRef_ to the underlying Kudu table.
+      targetTableRef_ = TableRef.newTableRef(analyzer, List.of(targetTable.getDb().getName(),
+          targetTable.getParameter(FeTable.STREAMING_KUDU)), null);
+      // Hide the target table while evaluating the where predicate to avoid ambiguity.
+      targetTableRef_.setHidden(true);
+    } else {
+      List<Path> candidates = analyzer.getTupleDescPaths(targetTablePath_);
+      if (candidates.isEmpty()) {
+        throw new AnalysisException(format("'%s' is not a valid table alias or reference.",
+            Joiner.on(".").join(targetTablePath_)));
+      }
 
-    Preconditions.checkState(candidates.size() == 1);
-    Path path = candidates.get(0);
-    path.resolve();
+      Preconditions.checkState(candidates.size() == 1);
+      Path path = candidates.get(0);
+      path.resolve();
 
-    if (!path.isResolved()) {
-      throw new AnalysisException(format("Cannot resolve path '%s' for DML statement.",
-          path.toString()));
-    }
+      if (!path.isResolved()) {
+        throw new AnalysisException(format("Cannot resolve path '%s' for DML statement.",
+            path.toString()));
+      }
 
-    if (path.destTupleDesc() == null) {
-      throw new AnalysisException(format(
-          "'%s' is not a table alias. Using the FROM clause requires the target table " +
-              "to be a table alias.",
-          Joiner.on(".").join(targetTablePath_)));
-    }
+      if (path.destTupleDesc() == null) {
+        throw new AnalysisException(format(
+            "'%s' is not a table alias. Using the FROM clause requires the target table " +
+                "to be a table alias.",
+            Joiner.on(".").join(targetTablePath_)));
+      }
 
-    targetTableRef_ = analyzer.getTableRef(path.getRootDesc().getId());
-    if (targetTableRef_ instanceof InlineViewRef) {
-      throw new AnalysisException(format("Cannot modify view: '%s'",
-          targetTableRef_.toSql()));
+      targetTableRef_ = analyzer.getTableRef(path.getRootDesc().getId());
+      if (targetTableRef_ instanceof InlineViewRef) {
+        throw new AnalysisException(format("Cannot modify view: '%s'",
+            targetTableRef_.toSql()));
+      }
     }
 
     Preconditions.checkNotNull(targetTableRef_);
@@ -170,6 +186,7 @@ public abstract class ModifyStmt extends DmlStatementBase {
     // Create and analyze the source statement.
     modifyImpl_.createSourceStmt(analyzer);
     // Add target table to descriptor table.
+    targetTableRef_.setHidden(false);
     analyzer.getDescTbl().setTargetTable(table_);
 
     analyzer_.addWhereColumns(wherePredicate_);

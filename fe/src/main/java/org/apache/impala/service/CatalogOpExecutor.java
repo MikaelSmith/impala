@@ -7884,6 +7884,9 @@ public class CatalogOpExecutor {
           catalogTimeline);
       addTableToCatalogUpdate(table, update.header.want_minimal_response,
           response.result);
+      if (table instanceof FeIcebergTable) {
+        response.setIceberg_snapshot_id(((FeIcebergTable) table).snapshotId());
+      }
       modification.validateInProgressModificationComplete();
     } catch (ImpalaException ex) {
       if (modification != null) modification.cancelInflightEventIfExist();

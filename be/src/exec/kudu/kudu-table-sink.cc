@@ -82,6 +82,7 @@ using kudu::client::KuduInsert;
 using kudu::client::KuduUpdate;
 using kudu::client::KuduError;
 using kudu::client::ResourceMetrics;
+using kudu::KuduPartialRow;
 
 namespace impala {
 
@@ -118,7 +119,17 @@ Status KuduTableSink::Prepare(RuntimeState* state, MemTracker* parent_mem_tracke
       << "TableDescriptor must be an instance KuduTableDescriptor.";
   table_desc_ = static_cast<const KuduTableDescriptor*>(table_desc);
 
-  state->dml_exec_state()->InitForKuduDml();
+  state->dml_exec_state()->InitForKuduDml(table_desc_->fully_qualified_name());
+
+  if (kudu_table_sink_.delete_table_id > table_id_) {
+    TableDescriptor* delete_table_desc =
+        state->desc_tbl().GetTableDescriptor(kudu_table_sink_.delete_table_id);
+    DCHECK(delete_table_desc != nullptr);
+    DCHECK(dynamic_cast<const KuduTableDescriptor*>(delete_table_desc))
+        << "Delete TableDescriptor must be an instance KuduTableDescriptor.";
+    delete_table_desc_ = static_cast<const KuduTableDescriptor*>(delete_table_desc);
+    state->dml_exec_state()->InitForKuduDml(delete_table_desc_->fully_qualified_name());
+  }
 
   // Add counters
   total_rows_ = ADD_COUNTER(profile(), "TotalNumRows", TUnit::UNIT);
@@ -151,6 +162,11 @@ Status KuduTableSink::Open(RuntimeState* state) {
       table_desc_->kudu_master_addresses(), &client_));
   KUDU_RETURN_IF_ERROR(client_->OpenTable(table_desc_->table_name(), &table_),
       "Unable to open Kudu table");
+  auto_incrementing_column_idx_ = table_->schema().GetAutoIncrementingColumnIndex();
+  if (delete_table_desc_ != nullptr) {
+    KUDU_RETURN_IF_ERROR(client_->OpenTable(delete_table_desc_->table_name(),
+        &delete_table_), "Unable to open Kudu delete table");
+  }
 
   // Verify the KuduTable's schema is what we expect, in case it was modified since
   // analysis. If the underlying schema is changed after this point but before the write
@@ -280,6 +296,8 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
   // Collect all write operations and apply them together so the time in Apply() can be
   // easily timed.
   vector<unique_ptr<kudu::client::KuduWriteOperation>> write_ops;
+  if (delete_table_desc_ != nullptr) write_ops.reserve(batch->num_rows() * 2);
+  else write_ops.reserve(batch->num_rows());
 
   // Count the number of rows with nulls in non-nullable columns, i.e. null constraint
   // violations.
@@ -289,11 +307,14 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
       DebugAction(state->query_options(), "FIS_KUDU_TABLE_SINK_WRITE_BEGIN"));
 
   // Since everything is set up just forward everything to the writer.
+  int64_t row_id;
   for (int i = 0; i < batch->num_rows(); ++i) {
     TupleRow* current_row = batch->GetRow(i);
+    unique_ptr<kudu::client::KuduWriteOperation> del;
+    if (delete_table_desc_ != nullptr) del.reset(delete_table_->NewInsert());
     unique_ptr<kudu::client::KuduWriteOperation> write(
         ignore_conflicts_ ? NewWriteIgnoreOp() : NewWriteOp());
-    bool add_row = true;
+    bool add_row = true, add_delete_row = true;
 
     for (int j = 0; j < output_expr_evals_.size(); ++j) {
       // output_expr_evals_ only contains the columns that the op
@@ -318,6 +339,23 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
           add_row = false;
           break; // skip remaining columns for this row
         }
+      } else if (auto_incrementing_column_idx_ == col
+          && *reinterpret_cast<int64_t*>(value) <= 0) {
+        if (sink_action_ == TSinkAction::UPSERT) {
+          // If auto-incrementing value is invalid and doing Upsert, switch to Insert and
+          // skip writing the value since Kudu will auto-generate it.
+          KuduPartialRow saved_row{std::move(*write->mutable_row())};
+          if (ignore_conflicts_) {
+            write.reset(table_->NewInsertIgnore());
+          } else {
+            write.reset(table_->NewInsert());
+          }
+          *write->mutable_row() = std::move(saved_row);
+          continue;
+        } else {
+          // It's an Iceberg _row_id. Skip modifying this row, but continue to delete.
+          add_row = false;
+        }
       }
 
       const ColumnType& type = output_expr_evals_[j]->root().type();
@@ -329,8 +367,32 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
                      << "' of type '" << type << "': "
                      << s.GetDetail();
       RETURN_IF_ERROR(s);
+      if (del && j < kudu_table_sink_.delete_columns.size()) {
+        int delete_col = kudu_table_sink_.delete_columns[j];
+        if (auto_incrementing_column_idx_ == col) {
+          // If the value is 0 or less, it's an Iceberg _row_id. Convert to positive.
+          row_id = *reinterpret_cast<int64_t*>(value);
+          if (row_id <= 0) {
+            row_id = -row_id;
+            value = &row_id;
+          } else {
+            // Kudu auto_incrementing_id, so no need to add a delete row.
+            add_delete_row = false;
+            continue;
+          }
+        }
+        s = WriteKuduValue(delete_col, type, value, true, del->mutable_row());
+        // This can only fail if we set a col to an incorrect type, which would be a bug in
+        // planning, so we can DCHECK.
+        DCHECK(s.ok()) << "WriteKuduValue (delete) failed for col '"
+                       << delete_table_->schema().Column(delete_col).name()
+                       << "' of type '" << type << "': "
+                       << s.GetDetail();
+        RETURN_IF_ERROR(s);
+      }
     }
     if (add_row) write_ops.push_back(move(write));
+    if (del && add_delete_row) write_ops.push_back(move(del));
   }
 
   {
@@ -433,6 +495,7 @@ Status KuduTableSink::FlushFinal(RuntimeState* state) {
   }
   Status status = CheckForErrors(state);
   state->dml_exec_state()->SetKuduDmlStats(
+      table_desc_->fully_qualified_name(),
       total_rows_->value() - num_row_errors_->value(), num_row_errors_->value(),
       client_->GetLatestObservedTimestamp());
   return status;
