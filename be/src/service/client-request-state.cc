@@ -1721,6 +1721,12 @@ Status ClientRequestState::UpdateCatalog() {
     if (exec_req.query_options.__isset.debug_action) {
       catalog_update.__set_debug_action(exec_req.query_options.debug_action);
     }
+    if (finalize_params.__isset.kudu_masters) {
+      catalog_update.__set_kudu_masters(finalize_params.kudu_masters);
+    }
+    if (finalize_params.__isset.pit_table) {
+      catalog_update.__set_pit_table(finalize_params.pit_table);
+    }
     DmlExecState* dml_exec_state = GetCoordinator()->dml_exec_state();
     if (!dml_exec_state->PrepareCatalogUpdate(&catalog_update, finalize_params)) {
       VLOG_QUERY << "No partitions altered, not updating metastore (query id: "

@@ -1052,7 +1052,12 @@ delete_stmt ::=
   ;
 
 merge_stmt ::=
-  KW_MERGE KW_INTO table_ref:target_table KW_USING table_ref:source
+  KW_MERGE table_ref:table
+  {:
+    // Pre-defined merge for streaming tables.
+    RESULT = new MergeStmt(table);
+  :}
+  | KW_MERGE KW_INTO table_ref:target_table KW_USING table_ref:source
   KW_ON expr:on merge_case_list:cases
   {:
     RESULT = new MergeStmt(target_table, source, on, cases);

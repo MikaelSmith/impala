@@ -7887,6 +7887,17 @@ public class CatalogOpExecutor {
       loadTableMetadata(table, modification.newVersionNumber(), true, false,
           partsToLoadMetadata, partitionToEventId, "INSERT", update.getDebug_action(),
           catalogTimeline);
+      // If this is a streaming table, update the point-in-time table.
+      if (table instanceof FeIcebergTable &&
+          update.isSetKudu_masters() && update.isSetPit_table()) {
+        FeIcebergTable iceTbl = (FeIcebergTable) table;
+        long snapshotId = iceTbl.snapshotId();
+        LOG.debug("Starting PIT migration for {} after Iceberg commit at snapshot {}",
+            table.getFullName(), snapshotId);
+        KuduUtil.kuduPITEndMigration(update.getKudu_masters(), update.getPit_table(),
+            snapshotId);
+        catalogTimeline.markEvent("Completed PIT migration");
+      }
       addTableToCatalogUpdate(table, update.header.want_minimal_response,
           response.result);
       modification.validateInProgressModificationComplete();

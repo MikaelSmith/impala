@@ -23,6 +23,7 @@ import static org.apache.impala.service.KuduCatalogOpExecutor.GOT_KUDU_CLIENT;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +39,9 @@ import org.apache.impala.analysis.KuduPartitionExpr;
 import org.apache.impala.analysis.LiteralExpr;
 import org.apache.impala.catalog.ArrayType;
 import org.apache.impala.catalog.FeKuduTable;
+import org.apache.impala.catalog.FeTable;
 import org.apache.impala.catalog.ScalarType;
+import org.apache.impala.catalog.TableLoadingException;
 import org.apache.impala.catalog.Type;
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.ImpalaRuntimeException;
@@ -57,8 +60,16 @@ import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduClient.KuduClientBuilder;
+import org.apache.kudu.client.KuduException;
+import org.apache.kudu.client.KuduPredicate;
+import org.apache.kudu.client.KuduScanner;
+import org.apache.kudu.client.KuduScanner.KuduScannerBuilder;
+import org.apache.kudu.client.KuduSession;
+import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.RangePartitionBound;
+import org.apache.kudu.client.RowResult;
+import org.apache.kudu.client.RowResultIterator;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -545,5 +556,161 @@ public class KuduUtil {
   // Get auto-incrementing column name of Kudu table
   public static String getAutoIncrementingColumnName() {
     return Schema.getAutoIncrementingColumnName();
+  }
+
+  public static FeKuduTable getKuduTable(Analyzer analyzer, String db, String tbl)
+      throws AnalysisException {
+    try {
+      FeTable kuduTableRef = analyzer.getTable(db, tbl, true);
+      if (!(kuduTableRef instanceof FeKuduTable)) {
+        throw new AnalysisException("Table references a non-Kudu table: " + tbl);
+      }
+      return (FeKuduTable) kuduTableRef;
+    } catch (TableLoadingException e) {
+      throw new AnalysisException(e);
+    }
+  }
+
+  public static final int LAST_MIGRATION_ID = 1;
+  public static final int NEXT_MIGRATION_ID = 2;
+  public static final String SNAPSHOT_ID = "snapshot_id";
+  public static final String MIGRATION_TS = "migration_ts";
+
+  public static String getKuduPITTableName(String db, String tableName,
+      String kuduMasters) throws AnalysisException {
+    try {
+      // Check if Kudu's integration with the Hive Metastore is enabled. Validation
+      // of whether Kudu is configured to use the same Hive Metstore as Impala is skipped
+      // and is not necessary for syntax parsing.
+      return getDefaultKuduTableName(db, tableName,
+          org.apache.impala.catalog.KuduTable.isHMSIntegrationEnabled(kuduMasters));
+    } catch (ImpalaRuntimeException e) {
+      throw new AnalysisException(String.format("Cannot analyze Kudu table '%s.%s': %s",
+          db, tableName, e.getMessage()));
+    }
+  }
+
+  private static RowResult getPITRow(KuduClient client, KuduTable table,
+      List<String> columns, int id) throws KuduException {
+    KuduScannerBuilder scannerBuilder = client.newScannerBuilder(table);
+    scannerBuilder.setProjectedColumnNames(columns);
+    KuduPredicate predicate = KuduPredicate.newComparisonPredicate(
+        table.getSchema().getColumnByIndex(0), KuduPredicate.ComparisonOp.EQUAL, id);
+    scannerBuilder.addPredicate(predicate);
+    KuduScanner scanner = scannerBuilder.build();
+    while (scanner.hasMoreRows()) {
+      RowResultIterator results = scanner.nextRows();
+      while (results.hasNext()) {
+        return results.next();
+      }
+    }
+    return null;
+  }
+
+  public static Pair<Long, Long> kuduPITLookup(String kuduMasters, String tableName,
+      int migrationId) throws AnalysisException {
+    KuduClient client = getKuduClient(kuduMasters);
+    try {
+      RowResult row = getPITRow(client, client.openTable(tableName),
+          List.of(SNAPSHOT_ID, MIGRATION_TS), migrationId);
+      if (row != null) {
+        return new Pair<>(row.getLong(SNAPSHOT_ID), row.getLong(MIGRATION_TS));
+      }
+    } catch (KuduException e) {
+      throw new AnalysisException("KuduPITLookup failed for table " + tableName
+          + " columns=" + SNAPSHOT_ID + ", " + MIGRATION_TS + " key=" + migrationId, e);
+    }
+    return new Pair<>(-1L, -1L);
+  }
+
+  public static void kuduPITStartMigration(String kuduMasters, String tableName)
+      throws AnalysisException {
+    KuduClient client = getKuduClient(kuduMasters);
+    KuduSession session = client.newSession();
+    session.setFlushMode(KuduSession.FlushMode.AUTO_FLUSH_SYNC);
+    try {
+      KuduTable table = client.openTable(tableName);
+      org.apache.kudu.client.Insert insert = table.newInsert();
+      PartialRow row = insert.getRow();
+      row.addInt(0, NEXT_MIGRATION_ID);
+      // TODO: make this an input to allow migrating only older data.
+      Instant now = Instant.now();
+      row.addLong(1, now.getEpochSecond() * 1_000_000 + now.getNano() / 1_000);
+      row.addLong(2, 0);
+      org.apache.kudu.client.OperationResponse response = session.apply(insert);
+      if (response.hasRowError()) {
+        throw new AnalysisException("Could not start streaming migration for table "
+            + tableName + ": " + response.getRowError().toString());
+      }
+    } catch (KuduException e) {
+      throw new AnalysisException("Could not start streaming migration for table "
+          + tableName, e);
+    } finally {
+      try {
+        if (session != null) session.close();
+      } catch (KuduException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+
+  private static void updateLastMigration(KuduClient client, KuduSession session,
+      KuduTable table, long snapshotId, String tableName) throws AnalysisException, KuduException {
+    RowResult lastRow = getPITRow(client, table, List.of(MIGRATION_TS), NEXT_MIGRATION_ID);
+    if (lastRow == null) {
+      throw new AnalysisException("Cannot find last migration for table " + tableName);
+    }
+
+    org.apache.kudu.client.Upsert upsert = table.newUpsert();
+    PartialRow row = upsert.getRow();
+    row.addInt(0, LAST_MIGRATION_ID);
+    row.addLong(1, lastRow.getLong(MIGRATION_TS));
+    row.addLong(2, snapshotId);
+    org.apache.kudu.client.OperationResponse response = session.apply(upsert);
+    if (response.hasRowError()) {
+      throw new AnalysisException("Could not update last migration for table "
+          + tableName + ": " + response.getRowError().toString());
+    }
+  }
+
+  public static void kuduPITEndMigration(String kuduMasters, String tableName,
+      long snapshotId) throws AnalysisException {
+    KuduClient client = getKuduClient(kuduMasters);
+    KuduSession session = client.newSession();
+    session.setFlushMode(KuduSession.FlushMode.AUTO_FLUSH_SYNC);
+    try {
+      KuduTable table = client.openTable(tableName);
+      if (snapshotId > 0) {
+        updateLastMigration(client, session, table, snapshotId, tableName);
+      }
+      org.apache.kudu.client.Delete delete = table.newDelete();
+      PartialRow row = delete.getRow();
+      row.addInt(0, NEXT_MIGRATION_ID);
+      org.apache.kudu.client.OperationResponse response = session.apply(delete);
+      if (response.hasRowError()) {
+        throw new AnalysisException("Could not end streaming migration for table "
+            + tableName + ": " + response.getRowError().toString());
+      }
+    } catch (KuduException e) {
+      throw new AnalysisException("Could not end streaming migration for table "
+          + tableName, e);
+    } finally {
+      try {
+        if (session != null) session.close();
+      } catch (KuduException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+
+  public static String buildJoinCondition(List<String> keys, String left, String right) {
+    StringBuilder joinCondition = new StringBuilder();
+    for (int pkIdx = 0; pkIdx < keys.size(); ++pkIdx) {
+      if (pkIdx > 0) joinCondition.append(" AND ");
+      String pkCol = keys.get(pkIdx);
+      joinCondition.append(left).append(".").append(pkCol)
+          .append(" = ").append(right).append(".").append(pkCol);
+    }
+    return joinCondition.toString();
   }
 }

@@ -1083,6 +1083,9 @@ struct TFinalizeParams {
 
   // Stores params for Iceberg operation
   9: optional TIcebergDmlFinalizeParams iceberg_params;
+
+  10: optional string kudu_masters
+  11: optional string pit_table
 }
 
 struct TQueryExecRequestCompressed {

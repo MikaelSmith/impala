@@ -94,6 +94,7 @@ import org.apache.impala.analysis.DropTableOrViewStmt;
 import org.apache.impala.analysis.GrantRevokePrivStmt;
 import org.apache.impala.analysis.GrantRevokeRoleStmt;
 import org.apache.impala.analysis.InsertStmt;
+import org.apache.impala.analysis.MergeStmt;
 import org.apache.impala.analysis.OptimizeStmt;
 import org.apache.impala.analysis.ParsedStatement;
 import org.apache.impala.analysis.Parser;
@@ -3269,8 +3270,11 @@ public class Frontend {
           addFinalizationParamsForIcebergOptimize(queryCtx, queryExecRequest,
               analysisResult.getOptimizeStmt());
         } else if (analysisResult.isMergeStmt()) {
+          MergeStmt mergeStmt = analysisResult.getMergeStmt();
           addFinalizationParamsForIcebergModify(queryCtx, queryExecRequest,
-              analysisResult.getMergeStmt(), TIcebergOperation.MERGE);
+              mergeStmt, TIcebergOperation.MERGE);
+          queryExecRequest.finalize_params.setKudu_masters(mergeStmt.getKuduMasters());
+          queryExecRequest.finalize_params.setPit_table(mergeStmt.getPitTable());
         }
       }
       return result;
