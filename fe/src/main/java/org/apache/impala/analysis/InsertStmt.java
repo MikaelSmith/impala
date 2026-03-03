@@ -441,6 +441,18 @@ public class InsertStmt extends DmlStatementBase {
     }
   }
 
+  private void validateStreamingTable(FeKuduTable table) throws AnalysisException {
+    if (isUpsert_ && !table.isPrimaryKeyUnique()) {
+      throw new AnalysisException(String.format("UPSERT is not supported for Kudu tables " +
+          "with non-unique primary keys. The streaming table '%s' for target table '%s' has " +
+          "a non-unique primary key.", targetTableName_, targetTableName_));
+    } else if (!isUpsert_ && table.isPrimaryKeyUnique()) {
+      throw new AnalysisException(String.format("INSERT is not supported for Kudu tables " +
+          "with unique primary keys. The streaming table '%s' for target table '%s' has " +
+          "a unique primary key.", targetTableName_, targetTableName_));
+    }
+  }
+
   /**
    * Sets table_ based on targetTableName_ and performs table-type specific analysis:
    * - Cannot (in|up)sert into a view
@@ -462,6 +474,15 @@ public class InsertStmt extends DmlStatementBase {
             new TableName(analyzer.getDefaultDb(), targetTableName_.getTbl());
       }
       table_ = analyzer.getTable(targetTableName_, privilegeRequired);
+      if (table_.isStreaming()) {
+        String streamingTableName =
+            table_.getMetaStoreTable().getParameters().get(FeTable.STREAMING_KUDU);
+        TableName streamingTable =
+            new TableName(targetTableName_.getDb(), streamingTableName);
+        table_ = analyzer.getTable(streamingTable, privilegeRequired);
+        validateStreamingTable((FeKuduTable) table_);
+        targetTableName_ = streamingTable;
+      }
     } else {
       targetTableName_ = new TableName(table_.getDb().getName(), table_.getName());
       analyzer.registerPrivReq(builder ->

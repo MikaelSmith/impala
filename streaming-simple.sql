@@ -24,20 +24,21 @@ create table foo(i int, comm string, ts timestamp) stored as iceberg
                   'impala.streaming.pit'='foo_pit', 'impala.streaming.dels'='foo_dels');
 
 -- Insert initial data to Kudu.
-upsert into foo_kudu values (1, 'a', now()), (2, 'b', now()), (3, 'c', now()), (4, 'd', now()), (5, 'e', now());
+upsert into foo values (1, 'a', now()), (2, 'b', now()), (3, 'c', now()), (4, 'd', now()), (5, 'e', now());
 
 -- Query the main table, which merges Kudu and Iceberg.
 select * from foo order by i;
 
 -- Merge Kudu to Iceberg.
 merge foo;
+-- drop/recreate to simulate aging out old data; in real world this would be done by TTL.
 
 -- Add new and modify existing data after migrate.
-upsert into foo_kudu values (6, 'f', now()), (7, 'g', null);
-upsert into foo_kudu (i, comm) values (1, 'aa');
+upsert into foo values (6, 'f', now()), (7, 'g', null);
+upsert into foo (i, comm) values (1, 'aa');
 insert into foo_dels values (3);
 insert into foo_dels values (3);
-upsert into foo_kudu values (6, 'ff', now());
+upsert into foo values (6, 'ff', now());
 select * from foo;
 merge foo;
 
