@@ -443,13 +443,16 @@ public class InsertStmt extends DmlStatementBase {
 
   private void validateStreamingTable(FeKuduTable table) throws AnalysisException {
     if (isUpsert_ && !table.isPrimaryKeyUnique()) {
-      throw new AnalysisException(String.format("UPSERT is not supported for Kudu tables " +
-          "with non-unique primary keys. The streaming table '%s' for target table '%s' has " +
-          "a non-unique primary key.", targetTableName_, targetTableName_));
+      throw new AnalysisException(
+          "UPSERT is not supported for streaming tables with non-unique primary keys.");
     } else if (!isUpsert_ && table.isPrimaryKeyUnique()) {
-      throw new AnalysisException(String.format("INSERT is not supported for Kudu tables " +
-          "with unique primary keys. The streaming table '%s' for target table '%s' has " +
-          "a unique primary key.", targetTableName_, targetTableName_));
+      throw new AnalysisException(
+          "INSERT is not supported for streaming tables with unique primary keys.");
+    }
+    if (isUpsert_ && columnPermutation_ != null &&
+        columnPermutation_.size() != table.getColumns().size()) {
+      throw new AnalysisException(
+          "All columns must be included for UPSERT into streaming table");
     }
   }
 

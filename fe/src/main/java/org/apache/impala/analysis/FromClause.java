@@ -102,7 +102,7 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
         kuduTbl.getFullName());
 
     final String baseAlias = ObjectUtils.firstNonNull(tblRef.getExplicitAlias(), "base");
-    String kuduSelectList = baseTable.getColumns().stream()
+    String selectList = baseTable.getColumns().stream()
         .map(col -> col.getName())
         .collect(Collectors.joining(", "));
 
@@ -118,44 +118,27 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
       // Build join conditions for primary keys
       String deletedPkJoinCondition =
           KuduUtil.buildJoinCondition(primaryKeys, baseAlias, "deleted");
-      String kuduPkJoinCondition =
-          KuduUtil.buildJoinCondition(primaryKeys, baseAlias, "kudu_new");
 
       // Build primary key select list for deleted subquery
       String pkSelectList = String.join(", ", primaryKeys);
 
-      // Construct select list based on the columns of the base table
-      String selectList = baseTable.getColumns().stream()
-          .map(col -> "coalesce(kudu_new.%1$s, %2$s.%1$s) as %1$s".formatted(
-              col.getName(), baseAlias))
-          .collect(Collectors.joining(", "));
-
       long kuduMigrationTs = kuduPIT.second;
-      // Perform join of Iceberg and Kudu tables, preferring Kudu, to handle upserts that
-      // occurred on data that's aged out of Kudu. Upsert doesn't require specifying all
-      // columns, so use coalesce to pull in values from Iceberg for any columns not
-      // included in the upsert statement. TODO: explore filling in incomplete rows during
-      // upsert instead to avoid query overhead.
       return """
           select %1$s from %2$s for system_version as of %3$s %4$s
           left anti join (
             select %5$s from %6$s for system_time from %8$s as of now()
             union distinct
-            select %5$s from %7$s for system_time from %8$s as of now() where is_deleted
+            select %5$s from %7$s for system_time from %8$s as of now()
           ) deleted
           on %9$s
-          full outer join (
-            select %10$s from %7$s for system_time
+          union all select %1$s from %7$s for system_time
               from %8$s as of now() where not is_deleted
-          ) kudu_new
-          on %11$s
           """.formatted(selectList, icebergPath, icebergSnapshot, baseAlias, pkSelectList,
-              delsPath, kuduTbl.getFullName(), kuduMigrationTs, deletedPkJoinCondition,
-              kuduSelectList, kuduPkJoinCondition);
+              delsPath, kuduTbl.getFullName(), kuduMigrationTs, deletedPkJoinCondition);
     } else {
       // If no snapshot exists, then no data has been migrated to Iceberg; ignore it.
       return "select %1$s from %2$s %3$s".formatted(
-          kuduSelectList, kuduTbl.getFullName(), baseAlias);
+          selectList, kuduTbl.getFullName(), baseAlias);
     }
   }
 

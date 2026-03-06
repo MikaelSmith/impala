@@ -35,7 +35,7 @@ merge foo;
 
 -- Add new and modify existing data after migrate.
 upsert into foo values (6, 'f', now()), (7, 'g', null);
-upsert into foo (i, comm) values (1, 'aa');
+upsert into foo select 1, 'aa', ts from foo where i=1;
 insert into foo_dels values (3);
 insert into foo_dels values (3);
 upsert into foo values (6, 'ff', now());
