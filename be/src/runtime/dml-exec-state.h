@@ -91,11 +91,11 @@ class DmlExecState {
 
   /// Used to initialize this state when execute Kudu DML. Must be called before
   /// SetKuduDmlStats().
-  void InitForKuduDml();
+  void InitForKuduDml(std::string table_name);
 
   /// Update stats for a Kudu DML sink. Requires that InitForKuduDml() was already called.
-  void SetKuduDmlStats(int64_t num_modified_rows, int64_t num_row_errors,
-      int64_t latest_ts);
+  void SetKuduDmlStats(const std::string& table_name, int64_t num_modified_rows,
+      int64_t num_row_errors, int64_t latest_ts);
 
   /// Outputs the partition stats to a string.
   std::string OutputPartitionStats(const std::string& prefix);

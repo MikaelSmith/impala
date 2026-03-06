@@ -9,8 +9,8 @@ drop table foo_kudu;
 
 -- Create the iceberg table, and a kudu table for write caching.
 -- Create ancilary point-in-time and delete log tables for migration.
-create table foo_kudu (i int primary key, comm string, ts timestamp) stored as kudu;
 create table foo_iceberg(i int, comm string, ts timestamp) stored as iceberg;
+create table foo_kudu (i int primary key, comm string, ts timestamp) stored as kudu;
 -- Use non-unique primary key to log deletes; auto_incrementing_id is the logical timestamp.
 -- Needs to be a log for the same reasons the main table does: we need to include this in
 -- migrating data, and be able to clear them later; new queries can run in-between.
@@ -36,16 +36,16 @@ merge foo;
 -- Add new and modify existing data after migrate.
 upsert into foo values (6, 'f', now()), (7, 'g', null);
 upsert into foo select 1, 'aa', ts from foo where i=1;
-insert into foo_dels values (3);
-insert into foo_dels values (3);
+delete from foo where i=1;
+delete from foo where i=3;
 upsert into foo values (6, 'ff', now());
-select * from foo;
-merge foo;
+select * from foo order by i;
 
--- TODO: Impala conditional DMLs collect primary keys from Kudu and call Delete on them,
--- and collect primary keys from Iceberg and insert deletes in foo_dels. Initially support
--- conditional delete, but hybrid clients can support conditional update by adding to
--- foo_dels then inserting a new row to Kudu with the modified old data.
+merge foo;
+select * from foo order by i;
+
+-- TODO: Hybrid clients can support conditional update by adding to foo_dels then
+-- inserting a new row to Kudu with the modified old data.
 
 -- TODO: Think about partitioning.
 

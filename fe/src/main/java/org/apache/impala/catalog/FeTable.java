@@ -77,6 +77,16 @@ public interface FeTable {
   Table getMetaStoreTable();
 
   /**
+   * Returns the value of the given parameter key, or null if the parameter is not set or
+   * the table is not loaded.
+   */
+  default String getParameter(String key) {
+    Table tbl = getMetaStoreTable();
+    if (tbl == null) return null;
+    return tbl.getParameters().get(key);
+  }
+
+  /**
    * @return the Hive StorageHandler class name that should be used for this table,
    * or null if no storage handler is needed.
    */

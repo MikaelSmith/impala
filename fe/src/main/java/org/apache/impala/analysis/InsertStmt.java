@@ -478,8 +478,7 @@ public class InsertStmt extends DmlStatementBase {
       }
       table_ = analyzer.getTable(targetTableName_, privilegeRequired);
       if (table_.isStreaming()) {
-        String streamingTableName =
-            table_.getMetaStoreTable().getParameters().get(FeTable.STREAMING_KUDU);
+        String streamingTableName = table_.getParameter(FeTable.STREAMING_KUDU);
         TableName streamingTable =
             new TableName(targetTableName_.getDb(), streamingTableName);
         table_ = analyzer.getTable(streamingTable, privilegeRequired);

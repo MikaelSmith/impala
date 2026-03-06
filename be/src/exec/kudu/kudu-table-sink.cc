@@ -118,7 +118,7 @@ Status KuduTableSink::Prepare(RuntimeState* state, MemTracker* parent_mem_tracke
       << "TableDescriptor must be an instance KuduTableDescriptor.";
   table_desc_ = static_cast<const KuduTableDescriptor*>(table_desc);
 
-  state->dml_exec_state()->InitForKuduDml();
+  state->dml_exec_state()->InitForKuduDml(table_desc_->fully_qualified_name());
 
   // Add counters
   total_rows_ = ADD_COUNTER(profile(), "TotalNumRows", TUnit::UNIT);
@@ -433,6 +433,7 @@ Status KuduTableSink::FlushFinal(RuntimeState* state) {
   }
   Status status = CheckForErrors(state);
   state->dml_exec_state()->SetKuduDmlStats(
+      table_desc_->fully_qualified_name(),
       total_rows_->value() - num_row_errors_->value(), num_row_errors_->value(),
       client_->GetLatestObservedTimestamp());
   return status;

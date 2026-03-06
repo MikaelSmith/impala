@@ -49,8 +49,6 @@ import com.google.common.collect.Lists;
 public class FromClause extends StmtNode implements Iterable<TableRef> {
   private final List<TableRef> tableRefs_;
 
-  private boolean isSelect_ = false;
-
   private boolean analyzed_ = false;
 
   public FromClause(List<TableRef> tableRefs) {
@@ -63,8 +61,6 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
 
   public FromClause() { tableRefs_ = new ArrayList<>(); }
   public List<TableRef> getTableRefs() { return tableRefs_; }
-
-  public void markIsSelect() { isSelect_ = true; }
 
   public boolean isAnalyzed() { return analyzed_; }
 
@@ -153,7 +149,7 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
       TableRef tblRef = tableRefs_.get(i);
       tblRef = analyzer.resolveTableRef(tblRef);
 
-      if (isSelect_ && tblRef.getResolvedPath() != null && tblRef.getTable().isStreaming()) {
+      if (tblRef.getResolvedPath() != null && tblRef.getTable().isStreaming()) {
         String sql = buildStreamingViewSql(analyzer, tblRef);
         StatementBase parsed = Parser.parse(sql.toString(), analyzer.getQueryOptions());
         View streamingView = new View(tblRef.getUniqueAlias(), (QueryStmt) parsed, null);

@@ -58,8 +58,18 @@ public class KuduTableSink extends TableSink {
   // Indicate whether Kudu cluster supports IGNORE write operations or not.
   private boolean supportsIgnoreOperations_ = false;
 
+  // Table ID for sink table. This is used to distinguish multiple KuduTableSinks in a
+  // MultiDataSink.
+  private int tableId_;
+
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken) {
+    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken,
+        DescriptorTable.TABLE_SINK_ID);
+  }
+
+  public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
+      List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int tableId) {
     super(targetTable, sinkOp, outputExprs);
     targetColIdxs_ = referencedColumns != null
         ? Lists.newArrayList(referencedColumns) : null;
@@ -75,6 +85,7 @@ public class KuduTableSink extends TableSink {
     } catch (Exception e) {
       LOG.error("Unable to check Kudu ignore operation support", e);
     }
+    tableId_ = tableId;
   }
 
   @Override
@@ -115,7 +126,7 @@ public class KuduTableSink extends TableSink {
 
   @Override
   protected void toThriftImpl(TDataSink tsink) {
-    TTableSink tTableSink = new TTableSink(DescriptorTable.TABLE_SINK_ID,
+    TTableSink tTableSink = new TTableSink(tableId_,
         TTableSinkType.KUDU, sinkOp_.toThrift());
     TKuduTableSink tKuduSink = new TKuduTableSink();
     tKuduSink.setReferenced_columns(targetColIdxs_);
