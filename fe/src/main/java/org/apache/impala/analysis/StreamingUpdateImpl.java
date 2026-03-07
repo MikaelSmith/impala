@@ -20,7 +20,9 @@ package org.apache.impala.analysis;
 import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.FeTable;
+import org.apache.impala.catalog.KuduColumn;
 import org.apache.impala.common.AnalysisException;
+import org.apache.impala.common.Pair;
 import org.apache.impala.planner.DataSink;
 import org.apache.impala.planner.KuduTableSink;
 import org.apache.impala.planner.MultiDataSink;
@@ -32,13 +34,15 @@ import com.google.common.base.Preconditions;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class StreamingDeleteImpl extends ModifyImpl {
+public class StreamingUpdateImpl extends ModifyImpl {
   private FeTable baseTable_;
   private FeKuduTable deleteTable_ = null;
   private int deleteTableId_ = -1;
@@ -62,11 +66,9 @@ public class StreamingDeleteImpl extends ModifyImpl {
   // END: Members that are set in buildAndValidateSelectExprs().
   /////////////////////////////////////////
 
-  public StreamingDeleteImpl(ModifyStmt modifyStmt) {
+  public StreamingUpdateImpl(ModifyStmt modifyStmt) {
     super(modifyStmt);
     baseTable_ = modifyStmt.table_;
-    Preconditions.checkState(modifyStmt.assignments_.isEmpty(),
-        "DELETE should not have any assignments.");
   }
 
   @Override
@@ -111,6 +113,73 @@ public class StreamingDeleteImpl extends ModifyImpl {
       referencedColumns_.add(colIndexMap.get(colName));
       deleteTableColumns_.add(deleteTableColIndexMap.get(colName));
     }
+
+    if (modifyStmt_.assignments_.isEmpty()) {
+      return;
+    }
+
+    Set<SlotId> keySlots = resultExprs_.stream()
+        .map(e -> ((SlotRef)e).getSlotId()).collect(Collectors.toSet());
+    Set<SlotId> uniqueSlots = new HashSet<>(keySlots);
+    boolean convertToUtc = analyzer.getQueryOptions().isWrite_kudu_utc_timestamps();
+
+    // Unhide target table to analyze the lhsSlotRef in its context.
+    modifyStmt_.targetTableRef_.setHidden(false);
+    modifyStmt_.fromClause_.getTableRefs().forEach(r -> r.setHidden(true));
+    for (Pair<SlotRef, Expr> valueAssignment : modifyStmt_.assignments_) {
+      valueAssignment.first.analyze(analyzer);
+    }
+    modifyStmt_.fromClause_.getTableRefs().forEach(r -> r.setHidden(false));
+    modifyStmt_.targetTableRef_.setHidden(true);
+
+    for (Pair<SlotRef, Expr> valueAssignment : modifyStmt_.assignments_) {
+      SlotRef lhsSlotRef = valueAssignment.first;
+      Expr rhsExpr = valueAssignment.second;
+      DmlStatementBase.checkSubQuery(lhsSlotRef, rhsExpr);
+      rhsExpr.analyze(analyzer);
+
+      DmlStatementBase.checkCorrectTargetTable(lhsSlotRef, rhsExpr,
+          modifyStmt_.targetTableRef_);
+      // TODO(Kudu) Add test for this code-path when Kudu supports nested types
+      DmlStatementBase.checkLhsIsColumnRef(lhsSlotRef, rhsExpr);
+
+      Column c = lhsSlotRef.getResolvedPath().destColumn();
+
+      if (keySlots.contains(lhsSlotRef.getSlotId())) {
+        boolean isSystemGeneratedColumn =
+            c instanceof KuduColumn && ((KuduColumn)c).isAutoIncrementing();
+        throw new AnalysisException("%s column '%s' cannot be updated.".formatted(
+            isSystemGeneratedColumn ? "System generated key" : "Key",
+            lhsSlotRef.toSql()));
+      }
+
+      if (uniqueSlots.contains(lhsSlotRef.getSlotId())) {
+        throw new AnalysisException(
+            "Duplicate value assignment to column: '%s'".formatted(lhsSlotRef.toSql()));
+      }
+
+      rhsExpr = StatementBase.checkTypeCompatibility(
+          modifyStmt_.targetTableRef_.getDesc().getTable().getFullName(),
+          c, rhsExpr, analyzer, null /*widestTypeSrcExpr*/);
+
+      if (convertToUtc && rhsExpr.getType().isTimestamp()) {
+        rhsExpr = ExprUtil.toUtcTimestampExpr(
+            analyzer, rhsExpr, true /*expectPreIfNonUnique*/);
+      }
+      uniqueSlots.add(lhsSlotRef.getSlotId());
+      selectList.add(new SelectListItem(rhsExpr, null));
+      referencedColumns_.add(colIndexMap.get(c.getName()));
+    }
+    // Add all remaining columns to the select and referenced columns lists to ensure the
+    // upsert contains a complete row.
+    Set<Integer> referencedColumnsSet = new HashSet<>(referencedColumns_);
+    for (Column c : modifyStmt_.table_.getColumnsInHiveOrder()) {
+      Integer colIndex = colIndexMap.get(c.getName());
+      if (!referencedColumnsSet.contains(colIndex)) {
+        selectList.add(new SelectListItem(makeSlotRef(analyzer, c.getName()), null));
+        referencedColumns_.add(colIndex);
+      }
+    }
   }
 
   @Override
@@ -140,18 +209,35 @@ public class StreamingDeleteImpl extends ModifyImpl {
 
   @Override
   public void addCastsToAssignmentsInSourceStmt(Analyzer analyzer)
-      throws AnalysisException {}
+      throws AnalysisException {
+    // cast result expressions to the correct type of the referenced slot of the
+    // target table
+    List<Pair<SlotRef, Expr>> assignments = modifyStmt_.getAssignments();
+    int keyColumnsOffset = getKuduTable().getPrimaryKeyColumnNames().size();
+    for (int i = 0; i < assignments.size(); ++i) {
+      int targetColIndex = i + keyColumnsOffset;
+      sourceStmt_.resultExprs_.set(targetColIndex, sourceStmt_.resultExprs_
+          .get(targetColIndex).castTo(assignments.get(i).first.getType()));
+    }
+  }
 
   @Override
   public DataSink createDataSink() {
-    // analyze() must have been called before.
+    // UPDATE -> select all matching primary keys and missing rows, delete rows, then
+    // upsert new rows into Kudu.
     Preconditions.checkState(modifyStmt_.table_ instanceof FeKuduTable);
+    TableSink tableSink = new KuduTableSink(modifyStmt_.table_, TableSink.Op.UPSERT,
+        referencedColumns_, sourceStmt_.getResultExprs(),
+        modifyStmt_.getKuduTransactionToken());
+    if (getKuduTable().isPrimaryKeyUnique()) {
+      // For tables with unique primary keys we can directly upsert the modified rows
+      // without deleting first.
+      return tableSink;
+    }
+
     TableSink deleteSink = new KuduTableSink(deleteTable_, TableSink.Op.INSERT,
         deleteTableColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken(),
         deleteTableId_);
-    TableSink tableSink = new KuduTableSink(modifyStmt_.table_, TableSink.Op.DELETE,
-        referencedColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken());
-
     MultiDataSink ret = new MultiDataSink();
     ret.addDataSink(deleteSink);
     ret.addDataSink(tableSink);

@@ -31,7 +31,12 @@ select * from foo order by i;
 
 -- Merge Kudu to Iceberg.
 merge foo;
+select * from foo order by i;
 -- drop/recreate to simulate aging out old data; in real world this would be done by TTL.
+drop table foo_dels;
+drop table foo_kudu;
+create table foo_kudu (i int primary key, comm string, ts timestamp) stored as kudu;
+create table foo_dels (i int non unique primary key) stored as kudu;
 
 -- Add new and modify existing data after migrate.
 upsert into foo values (6, 'f', now()), (7, 'g', null);
@@ -44,9 +49,17 @@ select * from foo order by i;
 merge foo;
 select * from foo order by i;
 
--- TODO: Hybrid clients can support conditional update by adding to foo_dels then
--- inserting a new row to Kudu with the modified old data.
+-- Hybrid clients can support conditional update by adding to foo_dels (for non-unique
+-- primary keys) then upserting to Kudu with the modified old data.
+-- WARNING: has a race condition where if another update runs between the select and data
+-- sink, the other update will be lost. i.e. in one session:
+--   set debug_action=FIS_KUDU_TABLE_SINK_CREATE_SESSION:sleep@3000;
+--   update foo set comm='d' where i=4;
+-- and another: "update foo set ts=now() where comm='d'". Setting ts=now() will be lost.
+update foo set comm='oops' where i>=5;
+select * from foo order by i;
 
+-- TODO: Test non-unique primary keys.
 -- TODO: Think about partitioning.
 
 -- On startup, check that foo_pit is consistent. If next_migration_id exists, it means the

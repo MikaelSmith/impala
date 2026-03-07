@@ -59,7 +59,9 @@ public class UpdateStmt extends ModifyStmt {
   @Override
   protected void createModifyImpl() {
     // Currently Kudu and Iceberg tables are supported.
-    if (table_ instanceof FeKuduTable) {
+    if (table_.isStreaming()) {
+      modifyImpl_ = new StreamingUpdateImpl(this);
+    } else if (table_ instanceof FeKuduTable) {
       modifyImpl_ = new KuduUpdateImpl(this);
     } else if (table_ instanceof FeIcebergTable) {
       modifyImpl_ = new IcebergUpdateImpl(this);
