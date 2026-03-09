@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
@@ -704,13 +705,8 @@ public class KuduUtil {
   }
 
   public static String buildJoinCondition(List<String> keys, String left, String right) {
-    StringBuilder joinCondition = new StringBuilder();
-    for (int pkIdx = 0; pkIdx < keys.size(); ++pkIdx) {
-      if (pkIdx > 0) joinCondition.append(" AND ");
-      String pkCol = keys.get(pkIdx);
-      joinCondition.append(left).append(".").append(pkCol)
-          .append(" = ").append(right).append(".").append(pkCol);
-    }
-    return joinCondition.toString();
+    return keys.stream()
+        .map(k -> String.format("%s.%s = %s.%s", left, k, right, k))
+        .collect(Collectors.joining(" AND "));
   }
 }
