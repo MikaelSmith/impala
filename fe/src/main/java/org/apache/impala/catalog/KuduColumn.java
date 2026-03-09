@@ -166,6 +166,8 @@ public class KuduColumn extends Column {
   public boolean isNullable() { return isNullable_; }
   public boolean isAutoIncrementing() { return isAutoIncrementing_; }
   public boolean isDiffScanDelete() { return isDiffScanDelete_; }
+  @Override
+  public boolean isHidden() { return isAutoIncrementing() || isDiffScanDelete(); }
   public Encoding getEncoding() { return encoding_; }
   public CompressionAlgorithm getCompression() { return compression_; }
   public int getBlockSize() { return blockSize_; }

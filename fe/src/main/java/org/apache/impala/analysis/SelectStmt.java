@@ -908,8 +908,6 @@ public class SelectStmt extends QueryStmt {
         FeTable table = tupleDesc.getTable();
         for (Column c: table.getColumnsInHiveOrder()) {
           if (c.isHidden()) continue;
-          // Omit auto-incrementing column for Kudu table since it's a hidden column.
-          if (c instanceof KuduColumn && ((KuduColumn)c).isAutoIncrementing()) continue;
           addStarExpandedPath(selectListItem, resolvedPath, c.getName());
         }
       } else {
