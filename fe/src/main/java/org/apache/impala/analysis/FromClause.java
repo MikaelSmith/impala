@@ -98,10 +98,6 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
         kuduTbl.getFullName());
 
     final String baseAlias = ObjectUtils.firstNonNull(tblRef.getExplicitAlias(), "base");
-    String selectList = baseTable.getColumns().stream()
-        .map(col -> col.getName())
-        .collect(Collectors.joining(", "));
-
     String pitTable = KuduUtil.getKuduPITTableName(
         db, params.get(FeTable.STREAMING_PIT), kuduTbl.getKuduMasterHosts());
     Pair<Long, Long> kuduPIT = KuduUtil.kuduPITLookup(kuduTbl.getKuduMasterHosts(),
@@ -120,21 +116,20 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
 
       long kuduMigrationTs = kuduPIT.second;
       return """
-          select %1$s from %2$s for system_version as of %3$s %4$s
+          select * from %1$s for system_version as of %2$s %3$s
           left anti join (
-            select %5$s from %6$s for system_time from %8$s as of now()
+            select %4$s from %5$s for system_time from %7$s as of now()
             union distinct
-            select %5$s from %7$s for system_time from %8$s as of now()
+            select %4$s from %6$s for system_time from %7$s as of now()
           ) deleted
-          on %9$s
-          union all select %1$s from %7$s for system_time
-              from %8$s as of now() where not is_deleted
-          """.formatted(selectList, icebergPath, icebergSnapshot, baseAlias, pkSelectList,
+          on %8$s
+          union all select * from %6$s for system_time
+              from %7$s as of now() where not is_deleted
+          """.formatted(icebergPath, icebergSnapshot, baseAlias, pkSelectList,
               delsPath, kuduTbl.getFullName(), kuduMigrationTs, deletedPkJoinCondition);
     } else {
       // If no snapshot exists, then no data has been migrated to Iceberg; ignore it.
-      return "select %1$s from %2$s %3$s".formatted(
-          selectList, kuduTbl.getFullName(), baseAlias);
+      return "select * from %1$s %2$s".formatted(kuduTbl.getFullName(), baseAlias);
     }
   }
 
