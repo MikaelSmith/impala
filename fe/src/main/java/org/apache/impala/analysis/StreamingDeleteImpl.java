@@ -17,130 +17,20 @@
 
 package org.apache.impala.analysis;
 
-import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.FeKuduTable;
-import org.apache.impala.catalog.FeTable;
-import org.apache.impala.common.AnalysisException;
 import org.apache.impala.planner.DataSink;
 import org.apache.impala.planner.KuduTableSink;
 import org.apache.impala.planner.MultiDataSink;
 import org.apache.impala.planner.TableSink;
-import org.apache.impala.util.ExprUtil;
-import org.apache.impala.util.KuduUtil;
 
 import com.google.common.base.Preconditions;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
-public class StreamingDeleteImpl extends ModifyImpl {
-  private FeTable baseTable_;
-  private FeKuduTable deleteTable_ = null;
-  private int deleteTableId_ = -1;
-
-  /////////////////////////////////////////
-  // START: Members that are set in buildAndValidateSelectExprs().
-
-  // Output expressions that produce the final results to write to the target table. May
-  // include casts.
-  //
-  // In case of DELETE statements it contains the columns that identify the deleted
-  // rows (Kudu primary keys, Iceberg file_path / position).
-  protected List<Expr> resultExprs_ = new ArrayList<>();
-
-  // Position mapping of output expressions of the sourceStmt_ to column indices in the
-  // target table. The i'th position in this list maps to the referencedColumns_[i]'th
-  // position in the target table.
-  protected List<Integer> referencedColumns_ = new ArrayList<>();
-  protected List<Integer> deleteTableColumns_ = new ArrayList<>();
-
-  // END: Members that are set in buildAndValidateSelectExprs().
-  /////////////////////////////////////////
-
+public class StreamingDeleteImpl extends StreamingModifyImpl {
   public StreamingDeleteImpl(ModifyStmt modifyStmt) {
     super(modifyStmt);
-    baseTable_ = modifyStmt.table_;
     Preconditions.checkState(modifyStmt.assignments_.isEmpty(),
         "DELETE should not have any assignments.");
   }
-
-  @Override
-  public void analyze(Analyzer analyzer) throws AnalysisException {
-    deleteTable_ = KuduUtil.getKuduTable(analyzer, baseTable_.getDb().getName(),
-        baseTable_.getParameter(FeTable.STREAMING_DELS));
-    deleteTableId_ = analyzer.getDescTbl().addTargetTable(deleteTable_);
-  }
-
-  private Map<String, Integer> indexMap(List<Column> columns) {
-    return IntStream.range(0, columns.size()).boxed()
-        .collect(Collectors.toMap(i -> columns.get(i).getName(), Function.identity()));
-  }
-
-  /**
-   * Validates the list of value assignments that should be used to modify the target
-   * table. It verifies that only those columns are referenced that belong to the target
-   * table, no key columns are modified, and that a single column is not modified multiple
-   * times. Analyzes the Exprs and SlotRefs of assignments_ and writes a list of
-   * SelectListItems to the out parameter selectList that is used to build the select list
-   * for sourceStmt_. A list of integers indicating the column position of an entry in the
-   * select list in the target table is written to the field referencedColumns_.
-   *
-   * In addition to the expressions that are generated for each assignment, the
-   * expression list contains an expression for each key column. The key columns
-   * are always prepended to the list of expression representing the assignments.
-   */
-  @Override
-  protected void buildAndValidateSelectExprs(Analyzer analyzer,
-      List<SelectListItem> selectList) throws AnalysisException {
-    // Mapping from column name to index
-    Map<String, Integer> colIndexMap = indexMap(
-        modifyStmt_.table_.getColumnsInHiveOrder());
-    Map<String, Integer> deleteTableColIndexMap = indexMap(
-        deleteTable_.getColumnsInHiveOrder());
-
-    // The order of the referenced columns equals the order of the result expressions
-    for (String colName : getKuduTable().getPrimaryKeyColumnNames()) {
-      Expr ref = makeSlotRef(analyzer, colName);
-      selectList.add(new SelectListItem(ref, null));
-      resultExprs_.add(ref);
-      referencedColumns_.add(colIndexMap.get(colName));
-      deleteTableColumns_.add(deleteTableColIndexMap.get(colName));
-    }
-  }
-
-  @Override
-  public List<Expr> getPartitionKeyExprs() { return Collections.emptyList(); }
-
-  @Override
-  public void substituteResultExprs(ExprSubstitutionMap smap, Analyzer analyzer) {
-    super.substituteResultExprs(smap, analyzer);
-    resultExprs_ = Expr.substituteList(resultExprs_, smap, analyzer, true);
-  }
-
-  private Expr makeSlotRef(Analyzer analyzer, String colName) throws AnalysisException {
-    List<String> path = Path.createRawPath(
-        modifyStmt_.fromClause_.get(0).getUniqueAlias(), colName);
-    SlotRef ref = new SlotRef(path);
-    ref.analyze(analyzer);
-    boolean convertToUtc = analyzer.getQueryOptions().isWrite_kudu_utc_timestamps();
-    if (convertToUtc && ref.getType().isTimestamp()) {
-      return ExprUtil.toUtcTimestampExpr(
-          analyzer, ref, true /*expectPreIfNonUnique*/);
-    } else {
-      return ref;
-    }
-  }
-
-  private FeKuduTable getKuduTable() { return (FeKuduTable)modifyStmt_.table_; }
-
-  @Override
-  public void addCastsToAssignmentsInSourceStmt(Analyzer analyzer)
-      throws AnalysisException {}
 
   @Override
   public DataSink createDataSink() {
