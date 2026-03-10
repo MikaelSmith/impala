@@ -27,8 +27,10 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.impala.analysis.TableRef.ZippingUnnestType;
+import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.FeTable;
+import org.apache.impala.catalog.KuduColumn;
 import org.apache.impala.catalog.TableLoadingException;
 import org.apache.impala.catalog.Type;
 import org.apache.impala.catalog.View;
@@ -49,6 +51,8 @@ import com.google.common.collect.Lists;
 public class FromClause extends StmtNode implements Iterable<TableRef> {
   private final List<TableRef> tableRefs_;
 
+  private boolean isModify_ = false;
+
   private boolean analyzed_ = false;
 
   public FromClause(List<TableRef> tableRefs) {
@@ -61,6 +65,8 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
 
   public FromClause() { tableRefs_ = new ArrayList<>(); }
   public List<TableRef> getTableRefs() { return tableRefs_; }
+
+  public void setIsModify() { isModify_ = true; }
 
   public boolean isAnalyzed() { return analyzed_; }
 
@@ -90,12 +96,17 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
     Map<String, String> params = baseTable.getMetaStoreTable().getParameters();
     String db = baseTable.getDb().getName();
 
-    // Get primary key columns from Kudu table
+    // Get kudu masters and primary key columns from Kudu table
     FeKuduTable kuduTbl = KuduUtil.getKuduTable(
         analyzer, db, params.get(FeTable.STREAMING_KUDU));
-    List<String> primaryKeys = kuduTbl.getPrimaryKeyColumnNames();
-    Preconditions.checkState(!primaryKeys.isEmpty(), "Kudu table %s has no primary keys",
-        kuduTbl.getFullName());
+
+    // For ModifyStmts, build select list based on Kudu/Iceberg schemas, which may have
+    // hidden columns that need to be handled in those statements. Otherwise build based
+    // on the explicitly declared columns from the baseTable.
+    List<Column> selectColumns = isModify_ ?
+        kuduTbl.getColumnsInHiveOrder() : baseTable.getColumns();
+    String selectList = selectColumns.stream()
+        .map(col -> col.getName()).collect(Collectors.joining(", "));
 
     final String baseAlias = ObjectUtils.firstNonNull(tblRef.getExplicitAlias(), "base");
     String pitTable = KuduUtil.getKuduPITTableName(
@@ -104,32 +115,36 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
         pitTable, KuduUtil.LAST_MIGRATION_ID);
     long icebergSnapshot = kuduPIT.first;
     if (icebergSnapshot > 0) {
+      long kuduMigrationTs = kuduPIT.second;
       String icebergPath = db + "." + params.get(FeTable.STREAMING_ICEBERG);
       String delsPath = db + "." + params.get(FeTable.STREAMING_DELS);
 
+      List<String> primaryKeys = kuduTbl.getPrimaryKeyColumnNames();
+      Preconditions.checkState(!primaryKeys.isEmpty(),
+          "Kudu table %s has no primary keys", kuduTbl.getFullName());
+
       // Build join conditions for primary keys
-      String deletedPkJoinCondition =
+      String deletedJoinCondition =
           KuduUtil.buildJoinCondition(primaryKeys, baseAlias, "deleted");
 
       // Build primary key select list for deleted subquery
       String pkSelectList = String.join(", ", primaryKeys);
-
-      long kuduMigrationTs = kuduPIT.second;
       return """
-          select * from %1$s for system_version as of %2$s %3$s
+          select %9$s from %1$s for system_version as of %2$s %3$s
           left anti join (
             select %4$s from %5$s for system_time from %7$s as of now()
             union distinct
             select %4$s from %6$s for system_time from %7$s as of now()
           ) deleted
           on %8$s
-          union all select * from %6$s for system_time
-              from %7$s as of now() where not is_deleted
-          """.formatted(icebergPath, icebergSnapshot, baseAlias, pkSelectList,
-              delsPath, kuduTbl.getFullName(), kuduMigrationTs, deletedPkJoinCondition);
+          union all select %9$s from %6$s for system_time
+            from %7$s as of now() where not is_deleted
+          """.formatted(icebergPath, icebergSnapshot, baseAlias, pkSelectList, delsPath,
+              kuduTbl.getFullName(), kuduMigrationTs, deletedJoinCondition, selectList);
     } else {
       // If no snapshot exists, then no data has been migrated to Iceberg; ignore it.
-      return "select * from %1$s %2$s".formatted(kuduTbl.getFullName(), baseAlias);
+      return "select %1$s from %2$s %3$s".formatted(selectList, kuduTbl.getFullName(),
+          baseAlias);
     }
   }
 
@@ -252,7 +267,9 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
   public FromClause clone() {
     List<TableRef> clone = new ArrayList<>();
     for (TableRef tblRef: tableRefs_) clone.add(tblRef.clone());
-    return new FromClause(clone);
+    FromClause result = new FromClause(clone);
+    result.isModify_ = isModify_;
+    return result;
   }
 
   public void reset() {

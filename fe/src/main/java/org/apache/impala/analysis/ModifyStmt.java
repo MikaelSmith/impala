@@ -91,6 +91,7 @@ public abstract class ModifyStmt extends DmlStatementBase {
       List<Pair<SlotRef, Expr>> assignmentExprs, Expr wherePredicate) {
     targetTablePath_ = Preconditions.checkNotNull(targetTablePath);
     fromClause_ = Preconditions.checkNotNull(fromClause);
+    fromClause_.setIsModify();
     assignments_ = Preconditions.checkNotNull(assignmentExprs);
     wherePredicate_ = wherePredicate;
   }

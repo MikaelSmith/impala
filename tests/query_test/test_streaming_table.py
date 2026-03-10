@@ -35,3 +35,9 @@ class TestStreamingTable(ImpalaTestSuite):
     new_vector = deepcopy(vector)
     new_vector.get_value('exec_option')['test_replan'] = 0
     self.run_test_case('QueryTest/streaming', new_vector, use_db=unique_database)
+
+  def test_streaming_non_unique(self, vector, unique_database):
+    # TODO: allow re-analyze rather than fail because migration already started.
+    new_vector = deepcopy(vector)
+    new_vector.get_value('exec_option')['test_replan'] = 0
+    self.run_test_case('QueryTest/streaming-non-unique', new_vector, use_db=unique_database)

@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 import org.apache.impala.catalog.FeIcebergTable;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.FeTable;
+import org.apache.impala.catalog.KuduColumn;
 import org.apache.impala.catalog.KuduTable;
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.ImpalaException;
@@ -92,14 +93,13 @@ public class MergeStmt extends DmlStatementBase {
     List<String> nonPrimaryKeys = table_.getColumns().stream()
         .map(col -> col.getName()).filter(colName -> !primaryKeys.contains(colName))
         .collect(Collectors.toList());
-    String columnList = table_.getColumns().stream().map(col -> col.getName())
-        .collect(Collectors.joining(", "));
+    String columnList = String.join(", ", kuduTbl.getColumnNames());
 
     String updateList = nonPrimaryKeys.stream()
         .map(col -> "%1$s = coalesce(src.%1$s, tgt.%1$s)".formatted(col))
         .collect(Collectors.joining(", "));
-    String valuesList = table_.getColumns().stream()
-        .map(col -> "src.%s".formatted(col.getName()))
+    String valuesList = kuduTbl.getColumnNames().stream()
+        .map(col -> "src.%s".formatted(col))
         .collect(Collectors.joining(", "));
 
     String delsList = primaryKeys.stream()
@@ -143,7 +143,7 @@ public class MergeStmt extends DmlStatementBase {
       } else {
         return """
             merge into %1$s as tgt
-            using (select * from %2$s for system_time as of %3$s) as src on %4$s
+            using (select %6$s from %2$s for system_time as of %3$s) as src on %4$s
             when matched then update set %5$s
             when not matched then insert (%6$s) values (%7$s);
             """.formatted(icebergTable, kuduTbl.getFullName(), kuduEndMigrationTs,

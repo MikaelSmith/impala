@@ -36,6 +36,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import com.google.common.base.Preconditions;
+
 abstract class StreamingModifyImpl extends ModifyImpl {
   private FeTable baseTable_;
   protected FeKuduTable deleteTable_ = null;
@@ -50,6 +52,7 @@ abstract class StreamingModifyImpl extends ModifyImpl {
   // In case of DELETE statements it contains the columns that identify the deleted
   // rows (Kudu primary keys, Iceberg file_path / position).
   protected List<Expr> resultExprs_ = new ArrayList<>();
+  protected int keyColumnsOffset_ = -1;
 
   // Position mapping of output expressions of the sourceStmt_ to column indices in the
   // target table. The i'th position in this list maps to the referencedColumns_[i]'th
@@ -100,13 +103,19 @@ abstract class StreamingModifyImpl extends ModifyImpl {
         deleteTable_.getColumnsInHiveOrder());
 
     // The order of the referenced columns equals the order of the result expressions
-    for (String colName : getKuduTable().getPrimaryKeyColumnNames()) {
-      Expr ref = makeSlotRef(analyzer, colName);
+    for (Column col : getKuduTable().getColumns()) {
+      KuduColumn kcol = (KuduColumn)col;
+      if (!kcol.isKey()) continue;
+      Expr ref = makeSlotRef(analyzer, kcol.getName());
       selectList.add(new SelectListItem(ref, null));
       resultExprs_.add(ref);
-      referencedColumns_.add(colIndexMap.get(colName));
-      deleteTableColumns_.add(deleteTableColIndexMap.get(colName));
+      referencedColumns_.add(colIndexMap.get(kcol.getName()));
+      // We skip adding auto-incrementing columns to the delete table, so use a
+      // negative index to indicate the sink should ignore them.
+      deleteTableColumns_.add(kcol.isAutoIncrementing() ? -1 :
+          deleteTableColIndexMap.get(kcol.getName()));
     }
+    keyColumnsOffset_ = selectList.size();
 
     if (modifyStmt_.assignments_.isEmpty()) {
       return;
@@ -206,10 +215,10 @@ abstract class StreamingModifyImpl extends ModifyImpl {
       throws AnalysisException {
     // cast result expressions to the correct type of the referenced slot of the
     // target table
+    Preconditions.checkState(keyColumnsOffset_ > 0, "keyColumnsOffset_ is not set");
     List<Pair<SlotRef, Expr>> assignments = modifyStmt_.getAssignments();
-    int keyColumnsOffset = getKuduTable().getPrimaryKeyColumnNames().size();
     for (int i = 0; i < assignments.size(); ++i) {
-      int targetColIndex = i + keyColumnsOffset;
+      int targetColIndex = i + keyColumnsOffset_;
       sourceStmt_.resultExprs_.set(targetColIndex, sourceStmt_.resultExprs_
           .get(targetColIndex).castTo(assignments.get(i).first.getType()));
     }

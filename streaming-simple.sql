@@ -59,7 +59,6 @@ select * from foo order by i;
 update foo set comm='oops' where i>=5;
 select * from foo order by i;
 
--- TODO: Test non-unique primary keys.
 -- TODO: Think about partitioning.
 
 -- On startup, check that foo_pit is consistent. If next_migration_id exists, it means the

@@ -159,6 +159,8 @@ Status KuduTableSink::Open(RuntimeState* state) {
   for (int i = 0; i < output_expr_evals_.size(); ++i) {
     int col_idx = kudu_table_sink_.referenced_columns.empty() ?
         i : kudu_table_sink_.referenced_columns[i];
+    // Negative index means the column is not referenced and thus should be ignored.
+    if (col_idx < 0) continue;
     if (col_idx >= table_->schema().num_columns()) {
       return Status(strings::Substitute(
           "Table $0 has fewer columns than expected.", table_desc_->name()));
@@ -301,6 +303,8 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
       // referenced_columns is then used to map to actual column positions.
       int col = kudu_table_sink_.referenced_columns.empty() ?
           j : kudu_table_sink_.referenced_columns[j];
+      // Skip unused columns.
+      if (col < 0) continue;
 
       void* value = output_expr_evals_[j]->GetValue(current_row);
       if (value == nullptr) {
