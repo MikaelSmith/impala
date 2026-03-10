@@ -1,0 +1,103 @@
+====
+---- QUERY
+# Create tables for managing a streaming table.
+create table test_iceberg(i int, comm string, count bigint) stored as iceberg;
+create table test_kudu (i int primary key, comm string, count bigint) stored as kudu;
+create table test_dels (i int non unique primary key) stored as kudu;
+create table test_pit (
+    id int primary key, migration_ts bigint, snapshot_id bigint) stored as kudu;
+create table test(i int, comm string, count bigint) stored as iceberg
+    tblproperties('impala.streaming.kudu'='test_kudu',
+                  'impala.streaming.iceberg'='test_iceberg',
+                  'impala.streaming.pit'='test_pit',
+                  'impala.streaming.dels'='test_dels');
+====
+---- QUERY
+upsert into test values (1, 'a', 10), (2, 'b', 20),
+    (3, 'c', 30), (4, 'd', 40), (5, 'e', 50);
+delete from test where i=2;
+upsert into test values (2, 'b', 20);
+select * from test order by i;
+---- RESULTS
+1,'a',10
+2,'b',20
+3,'c',30
+4,'d',40
+5,'e',50
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+# Merge Kudu to Iceberg.
+merge test;
+select * from test order by i;
+---- RESULTS
+1,'a',10
+2,'b',20
+3,'c',30
+4,'d',40
+5,'e',50
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+# Drop/recreate to simulate aging out old data; in real world this would be done by TTL.
+drop table test_dels;
+drop table test_kudu;
+create table test_kudu (i int primary key, comm string, count bigint) stored as kudu;
+create table test_dels (i int non unique primary key) stored as kudu;
+====
+---- QUERY
+# Add new and modify existing data after migrate.
+upsert into test values (6, 'f', 60), (7, 'g', null);
+upsert into test select 1, 'aa', count from test where i=1;
+select * from test order by i;
+---- RESULTS
+1,'aa',10
+2,'b',20
+3,'c',30
+4,'d',40
+5,'e',50
+6,'f',60
+7,'g',NULL
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+delete from test where i=1;
+delete from test where i=3;
+upsert into test values (6, 'ff', 61);
+select * from test order by i;
+---- RESULTS
+2,'b',20
+4,'d',40
+5,'e',50
+6,'ff',61
+7,'g',NULL
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+merge test;
+select * from test order by i;
+---- RESULTS
+2,'b',20
+4,'d',40
+5,'e',50
+6,'ff',61
+7,'g',NULL
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+update test set comm='oops' where i>=5;
+select * from test order by i;
+---- RESULTS
+2,'b',20
+4,'d',40
+5,'oops',50
+6,'oops',61
+7,'oops',NULL
+---- TYPES
+INT, STRING, BIGINT
+====
