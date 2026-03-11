@@ -148,6 +148,9 @@ class KuduTableSink : public DataSink {
 
   /// Number of ignored write error operations during the lifetime of 'session_'.
   int64_t total_ignored_errors_ = 0;
+
+  /// Column index of auto-incrementing column if exists, otherwise -1.
+  int auto_incrementing_column_idx_ = -1;
 };
 
 }  // namespace impala

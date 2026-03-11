@@ -100,13 +100,12 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
     FeKuduTable kuduTbl = KuduUtil.getKuduTable(
         analyzer, db, params.get(FeTable.STREAMING_KUDU));
 
-    // For ModifyStmts, build select list based on Kudu/Iceberg schemas, which may have
-    // hidden columns that need to be handled in those statements. Otherwise build based
-    // on the explicitly declared columns from the baseTable.
-    List<Column> selectColumns = isModify_ ?
-        kuduTbl.getColumnsInHiveOrder() : baseTable.getColumns();
-    String selectList = selectColumns.stream()
-        .map(col -> col.getName()).collect(Collectors.joining(", "));
+    String selectList = String.join(", ", baseTable.getColumnNames());
+    String iceAuto = "", kuduAuto = "";
+    if (isModify_ && !kuduTbl.isPrimaryKeyUnique()) {
+      iceAuto = ", -1 as auto_incrementing_id";
+      kuduAuto = ", auto_incrementing_id";
+    }
 
     final String baseAlias = ObjectUtils.firstNonNull(tblRef.getExplicitAlias(), "base");
     String pitTable = KuduUtil.getKuduPITTableName(
@@ -119,7 +118,7 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
       String icebergPath = db + "." + params.get(FeTable.STREAMING_ICEBERG);
       String delsPath = db + "." + params.get(FeTable.STREAMING_DELS);
 
-      List<String> primaryKeys = kuduTbl.getPrimaryKeyColumnNames();
+      List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames();
       Preconditions.checkState(!primaryKeys.isEmpty(),
           "Kudu table %s has no primary keys", kuduTbl.getFullName());
 
@@ -129,22 +128,28 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
 
       // Build primary key select list for deleted subquery
       String pkSelectList = String.join(", ", primaryKeys);
+
+      // If the primary key is unique, we want to ignore all Iceberg rows that match keys
+      // in the Kudu table. Otherwise we only omit rows from the delete log.
+      String omitKuduRows = kuduTbl.isPrimaryKeyUnique() ?
+          "union distinct select %1$s from %2$s for system_time from %3$s as of now()"
+          .formatted(pkSelectList, kuduTbl.getFullName(), kuduMigrationTs) : "";
       return """
-          select %9$s from %1$s for system_version as of %2$s %3$s
+          select %10$s%11$s from %1$s for system_version as of %2$s %3$s
           left anti join (
             select %4$s from %5$s for system_time from %7$s as of now()
-            union distinct
-            select %4$s from %6$s for system_time from %7$s as of now()
+            %9$s
           ) deleted
           on %8$s
-          union all select %9$s from %6$s for system_time
+          union all select %10$s%12$s from %6$s for system_time
             from %7$s as of now() where not is_deleted
           """.formatted(icebergPath, icebergSnapshot, baseAlias, pkSelectList, delsPath,
-              kuduTbl.getFullName(), kuduMigrationTs, deletedJoinCondition, selectList);
+              kuduTbl.getFullName(), kuduMigrationTs, deletedJoinCondition, omitKuduRows,
+              selectList, iceAuto, kuduAuto);
     } else {
       // If no snapshot exists, then no data has been migrated to Iceberg; ignore it.
-      return "select %1$s from %2$s %3$s".formatted(selectList, kuduTbl.getFullName(),
-          baseAlias);
+      return "select %1$s%4$s from %2$s %3$s".formatted(selectList, kuduTbl.getFullName(),
+          baseAlias, kuduAuto);
     }
   }
 

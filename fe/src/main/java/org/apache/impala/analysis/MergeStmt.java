@@ -86,19 +86,20 @@ public class MergeStmt extends DmlStatementBase {
 
     FeKuduTable kuduTbl = KuduUtil.getKuduTable(analyzer, db, props.get(FeTable.STREAMING_KUDU));
     kuduMasters_ = kuduTbl.getKuduMasterHosts();
-    List<String> primaryKeys = kuduTbl.getPrimaryKeyColumnNames();
+    List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames();
     Preconditions.checkState(!primaryKeys.isEmpty(), "Kudu table %s has no primary keys",
         kuduTbl.getFullName());
     String pkJoinCondition = KuduUtil.buildJoinCondition(primaryKeys, "src", "tgt");
     List<String> nonPrimaryKeys = table_.getColumns().stream()
         .map(col -> col.getName()).filter(colName -> !primaryKeys.contains(colName))
         .collect(Collectors.toList());
-    String columnList = String.join(", ", kuduTbl.getColumnNames());
+    List<String> columnNames = table_.getColumnNames();
+    String columnList = String.join(", ", columnNames);
 
     String updateList = nonPrimaryKeys.stream()
         .map(col -> "%1$s = coalesce(src.%1$s, tgt.%1$s)".formatted(col))
         .collect(Collectors.joining(", "));
-    String valuesList = kuduTbl.getColumnNames().stream()
+    String valuesList = columnNames.stream()
         .map(col -> "src.%s".formatted(col))
         .collect(Collectors.joining(", "));
 
@@ -122,13 +123,17 @@ public class MergeStmt extends DmlStatementBase {
       // If migration timestamp is available, use it to construct the MERGE statement to
       // capture changes since last migration. Otherwise, fallback to a full table scan.
       if (kuduStartMigrationTs > 0) {
+        // If the primary key is unique, we want to ignore all Iceberg rows that match
+        // keys in the Kudu table. Otherwise we only omit rows from the delete log.
+        String omitKuduRows = kuduTbl.isPrimaryKeyUnique() ? "" :
+            "where not is_deleted";
         return """
             merge into %1$s as tgt using (
               -- Collect Kudu updates since last migration. If a row is in kudu, use
               -- DiffScan is_deleted; otherwise is_delete=true for rows in delete log.
-              select %2$s, %3$s, coalesce(is_deleted, dels.is_delete) as is_delete
-                from %4$s for system_time from %5$s as of %6$s updates
-              full outer join (
+              select %2$s, %3$s, coalesce(is_deleted, dels.is_delete) as is_delete from (
+                select *, is_deleted from %4$s for system_time from %5$s as of %6$s %14$s
+              ) updates full outer join (
                 select distinct %7$s, true as is_delete
                 from %8$s for system_time from %5$s as of %6$s) dels
               on %9$s
@@ -139,7 +144,7 @@ public class MergeStmt extends DmlStatementBase {
             """.formatted(icebergTable, delsList, String.join(", ", nonPrimaryKeys),
                 kuduTbl.getFullName(), kuduStartMigrationTs, kuduEndMigrationTs,
                 String.join(", ", primaryKeys), delsTable, delsPkJoinCondition,
-                pkJoinCondition, updateList, columnList, valuesList);
+                pkJoinCondition, updateList, columnList, valuesList, omitKuduRows);
       } else {
         return """
             merge into %1$s as tgt

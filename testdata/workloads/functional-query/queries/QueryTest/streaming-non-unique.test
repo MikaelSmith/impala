@@ -1,8 +1,7 @@
 ====
 ---- QUERY
 # Create tables for managing a streaming table.
-create table test_iceberg(
-    i int, comm string, count bigint, auto_incrementing_id bigint) stored as iceberg;
+create table test_iceberg(i int, comm string, count bigint) stored as iceberg;
 create table test_kudu (i int non unique primary key, comm string, count bigint)
     stored as kudu;
 create table test_dels (i int non unique primary key) stored as kudu;

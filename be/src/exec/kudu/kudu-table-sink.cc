@@ -82,6 +82,7 @@ using kudu::client::KuduInsert;
 using kudu::client::KuduUpdate;
 using kudu::client::KuduError;
 using kudu::client::ResourceMetrics;
+using kudu::KuduPartialRow;
 
 namespace impala {
 
@@ -151,6 +152,7 @@ Status KuduTableSink::Open(RuntimeState* state) {
       table_desc_->kudu_master_addresses(), &client_));
   KUDU_RETURN_IF_ERROR(client_->OpenTable(table_desc_->table_name(), &table_),
       "Unable to open Kudu table");
+  auto_incrementing_column_idx_ = table_->schema().GetAutoIncrementingColumnIndex();
 
   // Verify the KuduTable's schema is what we expect, in case it was modified since
   // analysis. If the underlying schema is changed after this point but before the write
@@ -321,6 +323,20 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
               table_desc_->table_name()));
           add_row = false;
           break; // skip remaining columns for this row
+        }
+      } else if (auto_incrementing_column_idx_ == col) {
+        // If auto-incrementing value is -1 and doing Upsert, switch to Insert and skip
+        // writing the value since Kudu will auto-generate it.
+        if (sink_action_ == TSinkAction::UPSERT
+            && *reinterpret_cast<int64_t*>(value) == -1) {
+          KuduPartialRow saved_row{std::move(*write->mutable_row())};
+          if (ignore_conflicts_) {
+            write.reset(table_->NewInsertIgnore());
+          } else {
+            write.reset(table_->NewInsert());
+          }
+          *write->mutable_row() = std::move(saved_row);
+          continue;
         }
       }
 
