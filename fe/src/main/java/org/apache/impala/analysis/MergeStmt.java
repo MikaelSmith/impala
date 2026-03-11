@@ -89,26 +89,20 @@ public class MergeStmt extends DmlStatementBase {
     List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames();
     Preconditions.checkState(!primaryKeys.isEmpty(), "Kudu table %s has no primary keys",
         kuduTbl.getFullName());
-    String pkJoinCondition = KuduUtil.buildJoinCondition(primaryKeys, "src", "tgt");
-    List<String> nonPrimaryKeys = table_.getColumns().stream()
-        .map(col -> col.getName()).filter(colName -> !primaryKeys.contains(colName))
-        .collect(Collectors.toList());
-    List<String> columnNames = table_.getColumnNames();
-    String columnList = String.join(", ", columnNames);
-
+    List<String> quotedPrimaryKeys = primaryKeys.stream()
+        .map(col -> "`" + col + "`").collect(Collectors.toList());
+    List<String> nonPrimaryKeys = table_.getColumnNames().stream()
+        .filter(colName -> !primaryKeys.contains(colName))
+        .map(col -> "`" + col + "`").collect(Collectors.toList());
+    List<String> columnNames = table_.getColumnNames().stream()
+        .map(col -> "`" + col + "`").collect(Collectors.toList());
+    String pkJoinCondition = KuduUtil.buildJoinCondition(quotedPrimaryKeys, "src", "tgt");
     String updateList = nonPrimaryKeys.stream()
         .map(col -> "%1$s = coalesce(src.%1$s, tgt.%1$s)".formatted(col))
         .collect(Collectors.joining(", "));
-    String valuesList = columnNames.stream()
-        .map(col -> "src.%s".formatted(col))
+    String columnList = String.join(", ", columnNames);
+    String valuesList = columnNames.stream().map(col -> "src.%s".formatted(col))
         .collect(Collectors.joining(", "));
-
-    String delsList = primaryKeys.stream()
-        .map(pk -> "coalesce(updates.%1$s, dels.%1$s) as %1$s".formatted(pk))
-        .collect(Collectors.joining(", "));
-    String delsPkJoinCondition = primaryKeys.stream()
-        .map(pk -> "updates.%1$s = dels.%1$s".formatted(pk))
-        .collect(Collectors.joining(" and "));
 
     String pitTable = KuduUtil.getKuduTableName(
         db, props.get(FeTable.STREAMING_PIT), kuduMasters);
@@ -130,6 +124,12 @@ public class MergeStmt extends DmlStatementBase {
         // keys in the Kudu table. Otherwise we only omit rows from the delete log.
         String omitKuduRows = kuduTbl.isPrimaryKeyUnique() ? "" :
             "where not is_deleted";
+        String delsList = quotedPrimaryKeys.stream()
+            .map(pk -> "coalesce(updates.%1$s, dels.%1$s) as %1$s".formatted(pk))
+            .collect(Collectors.joining(", "));
+        String delsPkJoinCondition = quotedPrimaryKeys.stream()
+            .map(pk -> "updates.%1$s = dels.%1$s".formatted(pk))
+            .collect(Collectors.joining(" and "));
         return """
             merge into %1$s as tgt using (
               -- Collect Kudu updates since last migration. If a row is in kudu, use
@@ -146,7 +146,7 @@ public class MergeStmt extends DmlStatementBase {
             when not matched and not src.is_delete then insert (%12$s) values (%13$s);
             """.formatted(icebergTable, delsList, String.join(", ", nonPrimaryKeys),
                 kuduTbl.getFullName(), kuduStartMigrationTs, kuduEndMigrationTs,
-                String.join(", ", primaryKeys), delsTable, delsPkJoinCondition,
+                String.join(", ", quotedPrimaryKeys), delsTable, delsPkJoinCondition,
                 pkJoinCondition, updateList, columnList, valuesList, omitKuduRows);
       } else {
         return """

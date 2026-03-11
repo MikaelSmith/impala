@@ -100,7 +100,8 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
     FeKuduTable kuduTbl = KuduUtil.getKuduTable(
         analyzer, db, params.get(FeTable.STREAMING_KUDU));
 
-    String selectList = String.join(", ", baseTable.getColumnNames());
+    String selectList = baseTable.getColumnNames().stream()
+        .map(col -> "`%s`".formatted(col)).collect(Collectors.joining(", "));
     String iceAuto = "", kuduAuto = "";
     if (isModify_ && !kuduTbl.isPrimaryKeyUnique()) {
       iceAuto = ", -1 as auto_incrementing_id";
@@ -118,7 +119,8 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
       String icebergPath = db + "." + params.get(FeTable.STREAMING_ICEBERG);
       String delsPath = db + "." + params.get(FeTable.STREAMING_DELS);
 
-      List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames();
+      List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames()
+          .stream().map(col -> "`" + col + "`").collect(Collectors.toList());
       Preconditions.checkState(!primaryKeys.isEmpty(),
           "Kudu table %s has no primary keys", kuduTbl.getFullName());
 

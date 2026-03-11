@@ -1,65 +1,55 @@
--- Example with unique primary key. Non-unique primary key is the same with explicit
--- inclusion of auto_incrementing_id in the log and merge conditions.
+-- Example with unique primary key.
 drop table foo;
 drop table foo_pit;
 drop table foo_iceberg;
--- Can drop and recreate these two tables to simulate aging out old data.
 drop table foo_dels;
 drop table foo_kudu;
 
--- Create the iceberg table, and a kudu table for write caching.
--- Create ancilary point-in-time and delete log tables for migration.
-create table foo_iceberg(i int, comm string, ts timestamp) stored as iceberg;
-create table foo_kudu (i int primary key, comm string, ts timestamp) stored as kudu;
--- Use non-unique primary key to log deletes; auto_incrementing_id is the logical timestamp.
--- Needs to be a log for the same reasons the main table does: we need to include this in
--- migrating data, and be able to clear them later; new queries can run in-between.
-create table foo_dels (i int non unique primary key) stored as kudu;
--- Could also use timestamp for migration_ts. Using bigint simplified kudu_lookup.
-create table foo_pit (
-    id int primary key, migration_ts bigint, snapshot_id bigint) stored as kudu;
--- Initialize baseline timestamp to simplify migration code.
-create table foo(i int, comm string, ts timestamp) stored as iceberg
+-- Create the iceberg table for long-term storage, kudu table for write caching,
+-- ancilary point-in-time and delete log tables for migration tracking.
+create table foo_iceberg (`group` int, `user` int, `hired` DATE, `name` string, `salary` int, `updated` timestamp)
+    partitioned by spec (`group`, bucket(5, `user`), month(`hired`), truncate(3, `name`), hour(`updated`))
+    stored as iceberg;
+create table foo_kudu (`group` int, `user` int, `hired` date, `name` string, `salary` int, `updated` timestamp,
+    primary key (`group`, `user`)) partition by hash partitions 4 stored as kudu;
+create table foo_dels (`group` int, `user` int, non unique primary key (`group`, `user`)) stored as kudu;
+create table foo_pit (id int primary key, migration_ts bigint, snapshot_id bigint) stored as kudu;
+create table foo (`group` int, `user` int, `hired` DATE, `name` string, `salary` int, `updated` timestamp) stored as iceberg
     tblproperties('impala.streaming.kudu'='foo_kudu', 'impala.streaming.iceberg'='foo_iceberg',
                   'impala.streaming.pit'='foo_pit', 'impala.streaming.dels'='foo_dels');
 
--- Insert initial data to Kudu.
-upsert into foo values (1, 'a', now()), (2, 'b', now()), (3, 'c', now()), (4, 'd', now()), (5, 'e', now());
-
--- Query the main table, which merges Kudu and Iceberg.
-select * from foo order by i;
+-- Insert initial data to Kudu and query the main table.
+upsert into foo values
+    (1, 101, DATE '2021-01-15', 'Alice', 95000, now()),
+    (1, 102, DATE '2020-06-10', 'Bob', 88000, now()),
+    (2, 201, DATE '2022-03-21', 'Carol', 99000, now()),
+    (2, 202, DATE '2019-11-05', 'David', 105000, now()),
+    (3, 301, DATE '2023-08-01', 'Eve', 91000, now());
+select * from foo order by `group`, `user`;
 
 -- Merge Kudu to Iceberg.
 merge foo;
-select * from foo order by i;
--- drop/recreate to simulate aging out old data; in real world this would be done by TTL.
-drop table foo_dels;
-drop table foo_kudu;
-create table foo_kudu (i int primary key, comm string, ts timestamp) stored as kudu;
-create table foo_dels (i int non unique primary key) stored as kudu;
+select * from foo order by `group`, `user`;
 
 -- Add new and modify existing data after migrate.
-upsert into foo values (6, 'f', now()), (7, 'g', null);
-upsert into foo select 1, 'aa', ts from foo where i=1;
-delete from foo where i=1;
-delete from foo where i=3;
-upsert into foo values (6, 'ff', now());
-select * from foo order by i;
+upsert into foo values
+    (4, 401, DATE '2024-02-14', 'Frank', 97000, now()),
+    (5, 501, DATE '2021-12-01', 'Grace', 93000, now());
+delete from foo where `group`=3;
+delete from foo where `name`='Carol';
+upsert into foo values (2, 201, DATE '2022-03-21', 'Carol', 99500, now());
+select * from foo order by hired;
 
 merge foo;
-select * from foo order by i;
+select * from foo order by hired;
 
--- Hybrid clients can support conditional update by adding to foo_dels (for non-unique
--- primary keys) then upserting to Kudu with the modified old data.
 -- WARNING: has a race condition where if another update runs between the select and data
 -- sink, the other update will be lost. i.e. in one session:
 --   set debug_action=FIS_KUDU_TABLE_SINK_CREATE_SESSION:sleep@3000;
 --   update foo set comm='d' where i=4;
 -- and another: "update foo set ts=now() where comm='d'". Setting ts=now() will be lost.
-update foo set comm='oops' where i>=5;
-select * from foo order by i;
-
--- TODO: Think about partitioning.
+update foo set updated=now() where `group`=1;
+select * from foo order by updated;
 
 -- On startup, check that foo_pit is consistent. If next_migration_id exists, it means the
 -- last migration did not complete. If last_migration_id = next_migration_id, delete
