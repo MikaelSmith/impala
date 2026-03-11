@@ -1721,11 +1721,8 @@ Status ClientRequestState::UpdateCatalog() {
     if (exec_req.query_options.__isset.debug_action) {
       catalog_update.__set_debug_action(exec_req.query_options.debug_action);
     }
-    if (finalize_params.__isset.kudu_masters) {
-      catalog_update.__set_kudu_masters(finalize_params.kudu_masters);
-    }
-    if (finalize_params.__isset.pit_table) {
-      catalog_update.__set_pit_table(finalize_params.pit_table);
+    if (finalize_params.__isset.hybrid_merge) {
+      catalog_update.__set_hybrid_merge(finalize_params.hybrid_merge);
     }
     DmlExecState* dml_exec_state = GetCoordinator()->dml_exec_state();
     if (!dml_exec_state->PrepareCatalogUpdate(&catalog_update, finalize_params)) {
@@ -1757,6 +1754,7 @@ Status ClientRequestState::UpdateCatalog() {
         if (!CreateIcebergCatalogOps(finalize_params, &cat_ice_op)) {
           VLOG_QUERY << "No Iceberg partitions altered, not updating metastore "
                      << "(query id: " << PrintId(query_id()) << ")";
+          // TODO: if hybrid_merge, ensure kuduPITEndMigration is called.
           return Status::OK();
         }
       }

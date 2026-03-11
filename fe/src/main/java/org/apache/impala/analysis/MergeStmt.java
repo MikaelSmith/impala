@@ -35,6 +35,7 @@ import org.apache.impala.planner.PlanNode;
 import org.apache.impala.planner.DataSink;
 import org.apache.impala.planner.PlannerContext;
 import org.apache.impala.rewrite.ExprRewriter;
+import org.apache.impala.thrift.THybridMergeOpts;
 import org.apache.impala.thrift.TMergeCaseType;
 import org.apache.impala.thrift.TMergeMatchType;
 import org.apache.impala.thrift.TSortingOrder;
@@ -58,8 +59,7 @@ public class MergeStmt extends DmlStatementBase {
   private List<MergeCase> cases_;
   private Expr onClause_;
   private MergeImpl impl_;
-  private String kuduMasters_ = null;
-  private String pitTable_ = null;
+  private THybridMergeOpts hybridMerge_ = null;
 
   public MergeStmt(TableRef table) {
     sourceTableRef_ = null;
@@ -85,7 +85,7 @@ public class MergeStmt extends DmlStatementBase {
     String delsTable = db + "." + props.get(FeTable.STREAMING_DELS);
 
     FeKuduTable kuduTbl = KuduUtil.getKuduTable(analyzer, db, props.get(FeTable.STREAMING_KUDU));
-    kuduMasters_ = kuduTbl.getKuduMasterHosts();
+    String kuduMasters = kuduTbl.getKuduMasterHosts();
     List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames();
     Preconditions.checkState(!primaryKeys.isEmpty(), "Kudu table %s has no primary keys",
         kuduTbl.getFullName());
@@ -110,14 +110,17 @@ public class MergeStmt extends DmlStatementBase {
         .map(pk -> "updates.%1$s = dels.%1$s".formatted(pk))
         .collect(Collectors.joining(" and "));
 
-    pitTable_ = KuduUtil.getKuduPITTableName(
-        db, props.get(FeTable.STREAMING_PIT), kuduMasters_);
-    KuduUtil.kuduPITStartMigration(kuduMasters_, pitTable_);
+    String pitTable = KuduUtil.getKuduTableName(
+        db, props.get(FeTable.STREAMING_PIT), kuduMasters);
+    hybridMerge_ = new THybridMergeOpts(kuduMasters, pitTable,
+        KuduUtil.getKuduTableName(db, props.get(FeTable.STREAMING_KUDU), kuduMasters),
+        KuduUtil.getKuduTableName(db, props.get(FeTable.STREAMING_DELS), kuduMasters));
+    KuduUtil.kuduPITStartMigration(kuduMasters, pitTable);
     try {
-      Pair<Long, Long> kuduLastPIT = KuduUtil.kuduPITLookup(kuduMasters_,
-          pitTable_, KuduUtil.LAST_MIGRATION_ID);
-      Pair<Long, Long> kuduNextPIT = KuduUtil.kuduPITLookup(kuduMasters_,
-          pitTable_, KuduUtil.NEXT_MIGRATION_ID);
+      Pair<Long, Long> kuduLastPIT = KuduUtil.kuduPITLookup(kuduMasters,
+          pitTable, KuduUtil.LAST_MIGRATION_ID);
+      Pair<Long, Long> kuduNextPIT = KuduUtil.kuduPITLookup(kuduMasters,
+          pitTable, KuduUtil.NEXT_MIGRATION_ID);
       long kuduStartMigrationTs = kuduLastPIT.second;
       long kuduEndMigrationTs = kuduNextPIT.second;
       // If migration timestamp is available, use it to construct the MERGE statement to
@@ -156,8 +159,10 @@ public class MergeStmt extends DmlStatementBase {
       }
     } catch (Exception e) {
       // Cleanup the PIT entry if there is an error to avoid blocking future migrations.
+      // TODO: need to handle this on failures throughout the merge, and ensure we only
+      // clean up if this coordinator initiated the merge.
       try {
-        KuduUtil.kuduPITEndMigration(kuduMasters_, pitTable_, -1);
+        KuduUtil.kuduPITEndMigration(hybridMerge_, -1);
       } catch (AnalysisException ex) {
         e.addSuppressed(ex);
       }
@@ -192,17 +197,26 @@ public class MergeStmt extends DmlStatementBase {
       }
       // TODO: this should be its own statement, that proxies to the MergeStmt it constructs.
       String sql = getStreamingMergeSql(analyzer);
-      StatementBase parsed = Parser.parse(sql.toString(), analyzer.getQueryOptions());
-      Preconditions.checkState(parsed instanceof MergeStmt);
-      MergeStmt mergeStmt = (MergeStmt) parsed;
-      mergeStmt.analyze(analyzer);
-      table_ = mergeStmt.table_;
-      maxTableSinks_ = mergeStmt.maxTableSinks_;
-      sourceTableRef_ = mergeStmt.sourceTableRef_;
-      targetTableRef_ = mergeStmt.targetTableRef_;
-      onClause_ = mergeStmt.onClause_;
-      cases_ = mergeStmt.cases_;
-      impl_ = mergeStmt.impl_;
+      try {
+        StatementBase parsed = Parser.parse(sql.toString(), analyzer.getQueryOptions());
+        Preconditions.checkState(parsed instanceof MergeStmt);
+        MergeStmt mergeStmt = (MergeStmt) parsed;
+        mergeStmt.analyze(analyzer);
+        table_ = mergeStmt.table_;
+        maxTableSinks_ = mergeStmt.maxTableSinks_;
+        sourceTableRef_ = mergeStmt.sourceTableRef_;
+        targetTableRef_ = mergeStmt.targetTableRef_;
+        onClause_ = mergeStmt.onClause_;
+        cases_ = mergeStmt.cases_;
+        impl_ = mergeStmt.impl_;
+      } catch (Exception e) {
+        try {
+          KuduUtil.kuduPITEndMigration(hybridMerge_, -1);
+        } catch (AnalysisException ex) {
+          e.addSuppressed(ex);
+        }
+        throw e;
+      }
       return;
     }
 
@@ -331,11 +345,7 @@ public class MergeStmt extends DmlStatementBase {
     return sourceTableRef_;
   }
 
-  public String getKuduMasters() {
-    return kuduMasters_;
-  }
-
-  public String getPitTable() {
-    return pitTable_;
+  public THybridMergeOpts getHybridMerge() {
+    return hybridMerge_;
   }
 }

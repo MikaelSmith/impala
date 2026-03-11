@@ -3273,8 +3273,7 @@ public class Frontend {
           MergeStmt mergeStmt = analysisResult.getMergeStmt();
           addFinalizationParamsForIcebergModify(queryCtx, queryExecRequest,
               mergeStmt, TIcebergOperation.MERGE);
-          queryExecRequest.finalize_params.setKudu_masters(mergeStmt.getKuduMasters());
-          queryExecRequest.finalize_params.setPit_table(mergeStmt.getPitTable());
+          queryExecRequest.finalize_params.setHybrid_merge(mergeStmt.getHybridMerge());
         }
       }
       return result;

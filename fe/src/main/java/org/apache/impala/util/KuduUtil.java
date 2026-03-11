@@ -48,17 +48,20 @@ import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.ImpalaRuntimeException;
 import org.apache.impala.common.Pair;
 import org.apache.impala.service.BackendConfig;
+import org.apache.impala.service.CatalogOpExecutor;
 import org.apache.impala.thrift.TColumn;
 import org.apache.impala.thrift.TColumnEncoding;
 import org.apache.impala.thrift.TExpr;
 import org.apache.impala.thrift.TExprNode;
 import org.apache.impala.thrift.TExprNodeType;
 import org.apache.impala.thrift.THdfsCompression;
+import org.apache.impala.thrift.THybridMergeOpts;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnSchema.CompressionAlgorithm;
 import org.apache.kudu.ColumnSchema.Encoding;
 import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
+import org.apache.kudu.client.AlterTableOptions;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduClient.KuduClientBuilder;
 import org.apache.kudu.client.KuduException;
@@ -71,13 +74,19 @@ import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.RangePartitionBound;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
 public class KuduUtil {
+  private static final Logger LOG = LoggerFactory.getLogger(KuduUtil.class);
 
   private static final String KUDU_TABLE_NAME_PREFIX = "impala::";
+
+  private static final String KUDU_TABLE_MIGRATION_TIMESTAMP =
+      "kudu.table.migration_timestamp";
 
   // Number of worker threads created by each KuduClient, regardless of whether or not
   // they're needed. Impala does not share KuduClients between operations, so the number
@@ -577,7 +586,7 @@ public class KuduUtil {
   public static final String SNAPSHOT_ID = "snapshot_id";
   public static final String MIGRATION_TS = "migration_ts";
 
-  public static String getKuduPITTableName(String db, String tableName,
+  public static String getKuduTableName(String db, String tableName,
       String kuduMasters) throws AnalysisException {
     try {
       // Check if Kudu's integration with the Hive Metastore is enabled. Validation
@@ -655,34 +664,51 @@ public class KuduUtil {
     }
   }
 
-  private static void updateLastMigration(KuduClient client, KuduSession session,
-      KuduTable table, long snapshotId, String tableName) throws AnalysisException, KuduException {
-    RowResult lastRow = getPITRow(client, table, List.of(MIGRATION_TS), NEXT_MIGRATION_ID);
-    if (lastRow == null) {
-      throw new AnalysisException("Cannot find last migration for table " + tableName);
-    }
-
+  private static void updateLastMigration(KuduSession session, KuduTable table,
+      long lastTimestamp, long snapshotId) throws AnalysisException, KuduException {
     org.apache.kudu.client.Upsert upsert = table.newUpsert();
     PartialRow row = upsert.getRow();
     row.addInt(0, LAST_MIGRATION_ID);
-    row.addLong(1, lastRow.getLong(MIGRATION_TS));
+    row.addLong(1, lastTimestamp);
     row.addLong(2, snapshotId);
     org.apache.kudu.client.OperationResponse response = session.apply(upsert);
     if (response.hasRowError()) {
       throw new AnalysisException("Could not update last migration for table "
-          + tableName + ": " + response.getRowError().toString());
+          + table.getName() + ": " + response.getRowError().toString());
     }
   }
 
-  public static void kuduPITEndMigration(String kuduMasters, String tableName,
-      long snapshotId) throws AnalysisException {
-    KuduClient client = getKuduClient(kuduMasters);
+  private static long toHybridClockTimestamp(long epochMicros) {
+    // Kudu's HybridClock is encoded with physical microseconds since Unix epoch stored in
+    // the upper 52 bits, and a 12-bit logical counter occupies the lower bits.
+    return epochMicros << 12;
+  }
+
+  public static void kuduPITEndMigration(THybridMergeOpts hybridMerge, long snapshotId)
+      throws AnalysisException {
+    KuduClient client = getKuduClient(hybridMerge.getKudu_masters());
     KuduSession session = client.newSession();
     session.setFlushMode(KuduSession.FlushMode.AUTO_FLUSH_SYNC);
     try {
-      KuduTable table = client.openTable(tableName);
+      KuduTable table = client.openTable(hybridMerge.getPit_table());
       if (snapshotId > 0) {
-        updateLastMigration(client, session, table, snapshotId, tableName);
+        RowResult lastRow = getPITRow(
+            client, table, List.of(MIGRATION_TS), NEXT_MIGRATION_ID);
+        if (lastRow == null) {
+          throw new AnalysisException(
+              "Cannot find last migration in table " + hybridMerge.getPit_table());
+        }
+        long lastMigrationTs = lastRow.getLong(MIGRATION_TS);
+        updateLastMigration(session, table, lastMigrationTs, snapshotId);
+        // Set kudu.table.migration_timestamp to trigger Kudu garbage collection.
+        String hybridTime = String.valueOf(toHybridClockTimestamp(lastMigrationTs));
+        LOG.info("Setting {}={} (last propagated timestamp={}) for tables {} and {} to trigger garbage collection",
+            KUDU_TABLE_MIGRATION_TIMESTAMP, hybridTime, client.getLastPropagatedTimestamp(),
+            hybridMerge.getData_table(), hybridMerge.getDels_table());
+        client.alterTable(hybridMerge.getData_table(), new AlterTableOptions()
+            .alterExtraConfigs(Map.of(KUDU_TABLE_MIGRATION_TIMESTAMP, hybridTime)));
+        client.alterTable(hybridMerge.getDels_table(), new AlterTableOptions()
+            .alterExtraConfigs(Map.of(KUDU_TABLE_MIGRATION_TIMESTAMP, hybridTime)));
       }
       org.apache.kudu.client.Delete delete = table.newDelete();
       PartialRow row = delete.getRow();
@@ -690,11 +716,11 @@ public class KuduUtil {
       org.apache.kudu.client.OperationResponse response = session.apply(delete);
       if (response.hasRowError()) {
         throw new AnalysisException("Could not end streaming migration for table "
-            + tableName + ": " + response.getRowError().toString());
+            + hybridMerge.getPit_table() + ": " + response.getRowError().toString());
       }
     } catch (KuduException e) {
       throw new AnalysisException("Could not end streaming migration for table "
-          + tableName, e);
+          + hybridMerge.getPit_table(), e);
     } finally {
       try {
         if (session != null) session.close();

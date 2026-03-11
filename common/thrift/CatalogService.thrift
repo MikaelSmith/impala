@@ -308,8 +308,7 @@ struct TUpdateCatalogRequest {
   // Passes the debug actions to catalogd if the query option is set.
   11: optional string debug_action
 
-  12: optional string kudu_masters
-  13: optional string pit_table
+  12: optional CatalogObjects.THybridMergeOpts hybrid_merge;
 }
 
 // Response from a TUpdateCatalogRequest

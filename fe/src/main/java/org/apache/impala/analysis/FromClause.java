@@ -108,7 +108,7 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
     }
 
     final String baseAlias = ObjectUtils.firstNonNull(tblRef.getExplicitAlias(), "base");
-    String pitTable = KuduUtil.getKuduPITTableName(
+    String pitTable = KuduUtil.getKuduTableName(
         db, params.get(FeTable.STREAMING_PIT), kuduTbl.getKuduMasterHosts());
     Pair<Long, Long> kuduPIT = KuduUtil.kuduPITLookup(kuduTbl.getKuduMasterHosts(),
         pitTable, KuduUtil.LAST_MIGRATION_ID);

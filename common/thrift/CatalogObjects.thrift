@@ -1001,3 +1001,10 @@ struct TCatalogObject {
   // Timestamp when the catalog version changes in catalogd
   13: optional i64 last_modified_time_ms
 }
+
+struct THybridMergeOpts {
+  1: required string kudu_masters
+  2: required string pit_table
+  3: required string data_table
+  4: required string dels_table
+}
