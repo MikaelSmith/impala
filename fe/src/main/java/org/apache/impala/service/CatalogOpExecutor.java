@@ -7887,20 +7887,24 @@ public class CatalogOpExecutor {
       loadTableMetadata(table, modification.newVersionNumber(), true, false,
           partsToLoadMetadata, partitionToEventId, "INSERT", update.getDebug_action(),
           catalogTimeline);
+      addTableToCatalogUpdate(table, update.header.want_minimal_response,
+          response.result);
+      modification.validateInProgressModificationComplete();
       // If this is a streaming table, update the point-in-time table.
       if (table instanceof FeIcebergTable && update.isSetHybrid_merge()) {
         FeIcebergTable iceTbl = (FeIcebergTable) table;
         long snapshotId = iceTbl.snapshotId();
-        LOG.debug("Starting PIT migration for {} after Iceberg commit at snapshot {}",
+        LOG.debug("Completing PIT migration for {} after Iceberg commit at snapshot {}",
             table.getFullName(), snapshotId);
         KuduUtil.kuduPITEndMigration(update.getHybrid_merge(), snapshotId);
         catalogTimeline.markEvent("Completed PIT migration");
       }
-      addTableToCatalogUpdate(table, update.header.want_minimal_response,
-          response.result);
-      modification.validateInProgressModificationComplete();
     } catch (ImpalaException ex) {
       if (modification != null) modification.cancelInflightEventIfExist();
+      if (update.isSetHybrid_merge()) {
+        LOG.debug("Cancelling PIT migration for {}", table.getFullName());
+        KuduUtil.kuduPITEndMigration(update.getHybrid_merge(), -1);
+      }
       throw ex;
     } finally {
       context.stop();

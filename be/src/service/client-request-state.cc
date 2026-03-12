@@ -1728,6 +1728,9 @@ Status ClientRequestState::UpdateCatalog() {
     if (!dml_exec_state->PrepareCatalogUpdate(&catalog_update, finalize_params)) {
       VLOG_QUERY << "No partitions altered, not updating metastore (query id: "
                  << PrintId(query_id()) << ")";
+      if (finalize_params.__isset.hybrid_merge) {
+        RETURN_IF_ERROR(frontend_->CancelPITMigration(finalize_params.hybrid_merge));
+      }
     } else {
       // TODO: We track partitions written to, not created, which means
       // that we do more work than is necessary, because written-to
@@ -1754,7 +1757,9 @@ Status ClientRequestState::UpdateCatalog() {
         if (!CreateIcebergCatalogOps(finalize_params, &cat_ice_op)) {
           VLOG_QUERY << "No Iceberg partitions altered, not updating metastore "
                      << "(query id: " << PrintId(query_id()) << ")";
-          // TODO: if hybrid_merge, ensure kuduPITEndMigration is called.
+          if (finalize_params.__isset.hybrid_merge) {
+            RETURN_IF_ERROR(frontend_->CancelPITMigration(finalize_params.hybrid_merge));
+          }
           return Status::OK();
         }
       }
