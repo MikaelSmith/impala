@@ -71,7 +71,6 @@ import org.apache.impala.util.AcidUtils;
 import org.apache.impala.util.BucketUtils;
 import org.apache.impala.util.IcebergUtil;
 import org.apache.impala.util.KuduUtil;
-import org.apache.paimon.CoreOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,37 +109,12 @@ public class ToSqlUtils {
       FeTable.LAST_MODIFIED_TIME,
       FeTable.NUM_ROWS);
 
-  // Internal Iceberg metadata table properties to remove from iceberg table
-  @VisibleForTesting
-  protected static final ImmutableSet<String> HIDDEN_ICEBERG_TABLE_PROPERTIES =
-    ImmutableSet.of(
-      IcebergTable.KEY_STORAGE_HANDLER,
-      IcebergTable.METADATA_LOCATION,
-      IcebergTable.PREVIOUS_METADATA_LOCATION,
-      IcebergTable.CURRENT_SCHEMA,
-      IcebergTable.SNAPSHOT_COUNT,
-      IcebergTable.CURRENT_SNAPSHOT_ID,
-      IcebergTable.CURRENT_SNAPSHOT_SUMMARY,
-      IcebergTable.CURRENT_SNAPSHOT_TIMESTAMP_MS,
-      IcebergTable.DEFAULT_PARTITION_SPEC,
-      IcebergTable.UUID
-    );
-
   /**
    * Removes all hidden properties from the given 'tblProperties' map.
    */
   @VisibleForTesting
   protected static void removeHiddenTableProperties(Map<String, String> tblProperties) {
     for (String key: HIDDEN_TABLE_PROPERTIES) tblProperties.remove(key);
-  }
-
-  /**
-   * Removes all hidden Iceberg table properties from the given 'tblProperties' map.
-   */
-  @VisibleForTesting
-  protected static void removeHiddenIcebergTableProperties(
-      Map<String, String> tblProperties) {
-    for (String key: HIDDEN_ICEBERG_TABLE_PROPERTIES) tblProperties.remove(key);
   }
 
   /**
@@ -165,7 +139,6 @@ public class ToSqlUtils {
    * @param alterTableProps Output map for ALTER TABLE properties (less filtered)
    */
   private static void filterTblProperties(Map<String, String> rawProps, FeTable table,
-      org.apache.hadoop.hive.metastore.api.Table msTbl,
       Map<String, String> createTableProps, Map<String, String> alterTableProps) {
     if (rawProps == null || rawProps.isEmpty()) return;
 
@@ -177,43 +150,7 @@ public class ToSqlUtils {
     commonProps.remove(StatsSetupConst.DO_NOT_UPDATE_STATS);
 
     // Table-format specific filtering (applies to both maps)
-    if (table instanceof FeKuduTable) {
-      // Remove storage handler and internal ids
-      commonProps.remove(KuduTable.KEY_STORAGE_HANDLER);
-      String kuduTableName = rawProps.get(KuduTable.KEY_TABLE_NAME);
-      if (kuduTableName != null &&
-        KuduUtil.isDefaultKuduTableName(kuduTableName,
-          table.getDb().getName(), table.getName())) {
-        commonProps.remove(KuduTable.KEY_TABLE_NAME);
-      }
-      commonProps.remove(KuduTable.KEY_TABLE_ID);
-    } else if (table instanceof FeIcebergTable) {
-      FeIcebergTable feIcebergTable = (FeIcebergTable) table;
-      // Add "format-version" property if it's not already present.
-      commonProps.putIfAbsent(IcebergTable.FORMAT_VERSION,
-          Integer.toString(feIcebergTable.getFormatVersion()));
-
-      // Hide Iceberg internal metadata properties
-      removeHiddenIcebergTableProperties(commonProps);
-    } else if (table instanceof FePaimonTable) {
-      // Hide Paimon internals
-      commonProps.remove(CoreOptions.PRIMARY_KEY.key());
-      commonProps.remove(CoreOptions.PARTITION.key());
-      commonProps.remove(PaimonUtil.STORAGE_HANDLER);
-      commonProps.remove(CatalogOpExecutor.CAPABILITIES_KEY);
-      if (msTbl != null && PaimonUtil.isSynchronizedTable(msTbl)) {
-        commonProps.remove("TRANSLATED_TO_EXTERNAL");
-        commonProps.remove(Table.TBL_PROP_EXTERNAL_TABLE_PURGE);
-      }
-    } else if (table instanceof FeDataSourceTable) {
-      // Mask external JDBC sensitive properties (case-insensitively)
-      Set<String> keysToBeMasked = DataSourceTable.getJdbcTblPropertyMaskKeys();
-      for (String key : keysToBeMasked) {
-        if (commonProps.containsKey(key)) commonProps.put(key, "******");
-        String lower = key.toLowerCase();
-        if (commonProps.containsKey(lower)) commonProps.put(lower, "******");
-      }
-    }
+    table.filterTableProperties(commonProps);
 
     // Duplicate the common properties into alterTableProps (less filtered)
     alterTableProps.putAll(commonProps);
@@ -500,7 +437,7 @@ public class ToSqlUtils {
     // Filter properties into two maps: one for CREATE TABLE, one for ALTER TABLE
     Map<String, String> createTableProps = Maps.newLinkedHashMap();
     Map<String, String> alterTableProps = Maps.newLinkedHashMap();
-    filterTblProperties(rawProps, table, msTable, createTableProps, alterTableProps);
+    filterTblProperties(rawProps, table, createTableProps, alterTableProps);
 
     List<String> colsSql = new ArrayList<>();
     List<String> partitionColsSql = new ArrayList<>();

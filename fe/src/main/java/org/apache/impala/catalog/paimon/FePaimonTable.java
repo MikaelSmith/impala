@@ -25,9 +25,11 @@ import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.ColumnStats;
 import org.apache.impala.catalog.FeTable;
 import org.apache.impala.catalog.HdfsFileFormat;
+import org.apache.impala.service.CatalogOpExecutor;
 import org.apache.impala.thrift.TResultSet;
 import org.apache.impala.thrift.TShowFilesParams;
 import org.apache.impala.thrift.TShowStatsOp;
+import org.apache.paimon.CoreOptions;
 import org.apache.paimon.stats.ColStats;
 import org.apache.paimon.stats.Statistics;
 import org.apache.paimon.table.FileStoreTable;
@@ -128,5 +130,19 @@ public interface FePaimonTable extends FeTable, FeShowFileStmtSupport {
 
   default boolean supportPartitionFilter() {
     return false;
+  }
+
+  @Override
+  default void filterTableProperties(Map<String, String> properties) {
+    // Hide Paimon internals
+    properties.remove(CoreOptions.PRIMARY_KEY.key());
+    properties.remove(CoreOptions.PARTITION.key());
+    properties.remove(PaimonUtil.STORAGE_HANDLER);
+    properties.remove(CatalogOpExecutor.CAPABILITIES_KEY);
+    org.apache.hadoop.hive.metastore.api.Table msTbl = getMetaStoreTable();
+    if (msTbl != null && PaimonUtil.isSynchronizedTable(msTbl)) {
+      properties.remove("TRANSLATED_TO_EXTERNAL");
+      properties.remove(org.apache.impala.catalog.Table.TBL_PROP_EXTERNAL_TABLE_PURGE);
+    }
   }
 }

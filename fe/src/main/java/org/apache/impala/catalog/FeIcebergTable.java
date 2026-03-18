@@ -19,6 +19,7 @@ package org.apache.impala.catalog;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 
@@ -457,6 +458,30 @@ public interface FeIcebergTable extends FeFsTable {
     modifiedTable.getSd().setOutputFormat(originalTable.getSd().getOutputFormat());
     modifiedTable.getSd().getSerdeInfo().setSerializationLib(
         originalTable.getSd().getSerdeInfo().getSerializationLib());
+  }
+
+  static final ImmutableSet<String> HIDDEN_ICEBERG_TABLE_PROPERTIES =
+    ImmutableSet.of(
+      IcebergTable.KEY_STORAGE_HANDLER,
+      IcebergTable.METADATA_LOCATION,
+      IcebergTable.PREVIOUS_METADATA_LOCATION,
+      IcebergTable.CURRENT_SCHEMA,
+      IcebergTable.SNAPSHOT_COUNT,
+      IcebergTable.CURRENT_SNAPSHOT_ID,
+      IcebergTable.CURRENT_SNAPSHOT_SUMMARY,
+      IcebergTable.CURRENT_SNAPSHOT_TIMESTAMP_MS,
+      IcebergTable.DEFAULT_PARTITION_SPEC,
+      IcebergTable.UUID
+    );
+
+  @Override
+  default void filterTableProperties(Map<String, String> properties) {
+    // Add "format-version" property if it's not already present.
+    properties.putIfAbsent(IcebergTable.FORMAT_VERSION,
+        Integer.toString(getFormatVersion()));
+
+    // Hide Iceberg internal metadata properties
+    for (String key: HIDDEN_ICEBERG_TABLE_PROPERTIES) properties.remove(key);
   }
 
   /**

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -236,4 +237,9 @@ public interface FeTable {
     }
     return colDescs;
   }
+
+  /**
+   * Override to filter backend-specific table properties for output.
+   */
+  default void filterTableProperties(Map<String, String> properties) {}
 }

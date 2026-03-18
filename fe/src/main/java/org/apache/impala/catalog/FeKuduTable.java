@@ -20,6 +20,7 @@ package org.apache.impala.catalog;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.bind.DatatypeConverter;
 
@@ -77,6 +78,18 @@ public interface FeKuduTable extends FeTable {
    * Return the Kudu partitioning clause information.
    */
   List<KuduPartitionParam> getPartitionBy();
+
+  @Override
+  default void filterTableProperties(Map<String, String> properties) {
+    // Remove storage handler and internal ids
+    properties.remove(KuduTable.KEY_STORAGE_HANDLER);
+    String kuduTableName = properties.get(KuduTable.KEY_TABLE_NAME);
+    if (kuduTableName != null &&
+        KuduUtil.isDefaultKuduTableName(kuduTableName, getDb().getName(), getName())) {
+      properties.remove(KuduTable.KEY_TABLE_NAME);
+    }
+    properties.remove(KuduTable.KEY_TABLE_ID);
+  }
 
   /**
    * Utility functions for acting on FeKuduTable.

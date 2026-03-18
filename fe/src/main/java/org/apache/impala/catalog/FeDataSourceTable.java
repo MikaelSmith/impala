@@ -17,6 +17,9 @@
 
 package org.apache.impala.catalog;
 
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.impala.thrift.TDataSource;
 import org.apache.impala.thrift.TResultSet;
 
@@ -37,4 +40,15 @@ public interface FeDataSourceTable extends FeTable {
   TResultSet getTableStats();
 
   boolean isJdbcDataSourceTable();
+
+  @Override
+  default void filterTableProperties(Map<String, String> properties) {
+    // Mask external JDBC sensitive properties (case-insensitively)
+    Set<String> keysToBeMasked = DataSourceTable.getJdbcTblPropertyMaskKeys();
+    for (String key : keysToBeMasked) {
+      if (properties.containsKey(key)) properties.put(key, "******");
+      String lower = key.toLowerCase();
+      if (properties.containsKey(lower)) properties.put(lower, "******");
+    }
+  }
 }
