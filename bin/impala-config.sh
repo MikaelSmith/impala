@@ -300,6 +300,9 @@ export IMPALA_DROPWIZARD_METRICS_VERSION=4.2.26
 export IMPALA_AIRCOMPRESSOR_VERSION=0.27
 export IMPALA_DATASKETCHES_VERSION=6.0.0
 export IMPALA_PAIMON_VERSION=1.3.1
+
+export IMPALA_PAIMON_SUPPORT_ENABLED=${IMPALA_PAIMON_SUPPORT_ENABLED-true}
+
 # When Impala is building docker images on Redhat-based distributions,
 # it is useful to be able to customize the base image. Some users will
 # want to use open source / free distributions like Centos/Rocky/Alma/etc.

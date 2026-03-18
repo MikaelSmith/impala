@@ -21,6 +21,7 @@ from tests.common.impala_test_suite import ImpalaTestSuite
 from tests.common.skip import SkipIf
 
 @SkipIf.not_hdfs
+@SkipIf.not_paimon
 class TestCreatingPaimonTable(ImpalaTestSuite):
 
   @classmethod

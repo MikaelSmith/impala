@@ -29,6 +29,7 @@ import org.apache.impala.catalog.HdfsFileFormat;
 import org.apache.impala.catalog.Table;
 import org.apache.impala.catalog.paimon.FePaimonTable;
 import org.apache.impala.catalog.paimon.PaimonImpalaTypeUtils;
+import org.apache.impala.catalog.paimon.PaimonTableUtil;
 import org.apache.impala.catalog.paimon.PaimonUtil;
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.thrift.TBucketType;
@@ -136,13 +137,13 @@ public class PaimonAnalyzer {
     }
 
     // check storage handler, add storage handler for compatibility.
-    String handler = tblProperties.get(PaimonUtil.STORAGE_HANDLER);
-    if (handler != null && !handler.equals(PaimonUtil.PAIMON_STORAGE_HANDLER)) {
+    String handler = tblProperties.get(PaimonTableUtil.STORAGE_HANDLER);
+    if (handler != null && !handler.equals(PaimonTableUtil.PAIMON_STORAGE_HANDLER)) {
       throw new AnalysisException("Invalid storage handler "
           + "specified for Paimon format: " + handler);
     }
     stmt.putGeneratedProperty(
-        PaimonUtil.STORAGE_HANDLER, PaimonUtil.PAIMON_STORAGE_HANDLER);
+        PaimonTableUtil.STORAGE_HANDLER, PaimonTableUtil.PAIMON_STORAGE_HANDLER);
 
     // enable the deletion-vector mode by default if not specified
     if (!paimonTblProperties.containsKey(CoreOptions.DELETION_VECTORS_ENABLED.key())

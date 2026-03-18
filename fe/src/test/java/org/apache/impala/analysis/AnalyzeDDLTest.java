@@ -379,15 +379,18 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalyzesOk(partitioned + "(hour(event_time) in ('2020-01-01-9', '2020-01-01-1'))");
     AnalyzesOk(evolution + "(truncate(4,date_string_col) = '1231')");
     AnalyzesOk(evolution + "(month = 12)");
-    // Paimon ADD/DROP PARTITION Test
-    String paimon_partitioned =
-        "ALTER TABLE functional_parquet.paimon_partitioned";
-    AnalysisError(paimon_partitioned + " ADD PARTITION (userid = 3) ",
-        "ALTER TABLE not allowed on PAIMON table: " +
-         "functional_parquet.paimon_partitioned");
-    AnalysisError(paimon_partitioned + " DROP PARTITION (userid = 3) ",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Paimon ADD/DROP PARTITION Test
+      String paimon_partitioned =
+          "ALTER TABLE functional_parquet.paimon_partitioned";
+      AnalysisError(paimon_partitioned + " ADD PARTITION (userid = 3) ",
+          "ALTER TABLE not allowed on PAIMON table: " +
+          "functional_parquet.paimon_partitioned");
+      AnalysisError(paimon_partitioned + " DROP PARTITION (userid = 3) ",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -527,12 +530,15 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("alter table functional.alltypes add column new_col int not null",
         "The specified column options are only supported in Kudu tables: " +
         "new_col INT NOT NULL");
-    // Paimon ADD COLUMN Test
-    String paimon_partitioned =
-        "ALTER TABLE functional_parquet.paimon_partitioned";
-    AnalysisError(paimon_partitioned + " add column new_col int not null",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Paimon ADD COLUMN Test
+      String paimon_partitioned =
+          "ALTER TABLE functional_parquet.paimon_partitioned";
+      AnalysisError(paimon_partitioned + " add column new_col int not null",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -620,12 +626,15 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("alter table functional.alltypes add columns(new_col int not null)",
         "The specified column options are only supported in Kudu tables: " +
         "new_col INT NOT NULL");
-    // Paimon ADD COLUMNS Test
-    String paimon_partitioned =
-        "ALTER TABLE functional_parquet.paimon_partitioned";
-    AnalysisError(paimon_partitioned + " add columns(new_col int not null)",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Paimon ADD COLUMNS Test
+      String paimon_partitioned =
+          "ALTER TABLE functional_parquet.paimon_partitioned";
+      AnalysisError(paimon_partitioned + " add columns(new_col int not null)",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -685,12 +694,15 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     // Cannot ALTER TABLE REPLACE COLUMNS on a Kudu table.
     AnalysisError("alter table functional_kudu.alltypes replace columns (i int)",
         "ALTER TABLE REPLACE COLUMNS is not supported on Kudu tables.");
-    // Paimon REPLACE COLUMNS Test
-    String paimon_partitioned =
-        "ALTER TABLE functional_parquet.paimon_partitioned";
-    AnalysisError(paimon_partitioned + " replace columns (i int)",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Paimon REPLACE COLUMNS Test
+      String paimon_partitioned =
+          "ALTER TABLE functional_parquet.paimon_partitioned";
+      AnalysisError(paimon_partitioned + " replace columns (i int)",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -729,12 +741,15 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     // Cannot ALTER TABLE DROP COLUMN on an HBase table.
     AnalysisError("alter table functional_hbase.alltypes drop column int_col",
         "ALTER TABLE DROP COLUMN not currently supported on HBase tables.");
-    // Paimon DROP COLUMNS Test
-    String paimon_partitioned =
-        "ALTER TABLE functional_parquet.paimon_partitioned";
-    AnalysisError(paimon_partitioned + " drop column userid",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Paimon DROP COLUMNS Test
+      String paimon_partitioned =
+          "ALTER TABLE functional_parquet.paimon_partitioned";
+      AnalysisError(paimon_partitioned + " drop column userid",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -789,12 +804,15 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     // Cannot ALTER TABLE CHANGE COLUMN on an HBase table.
     AnalysisError("alter table functional_hbase.alltypes CHANGE COLUMN int_col i int",
         "ALTER TABLE CHANGE/ALTER COLUMN not currently supported on HBase tables.");
-    // Paimon CHANGE COLUMNS Test
-    String paimon_partitioned =
-        "ALTER TABLE functional_parquet.paimon_partitioned";
-    AnalysisError(paimon_partitioned + " change column userid user_id bigint",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Paimon CHANGE COLUMNS Test
+      String paimon_partitioned =
+          "ALTER TABLE functional_parquet.paimon_partitioned";
+      AnalysisError(paimon_partitioned + " change column userid user_id bigint",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -828,13 +846,16 @@ public class AnalyzeDDLTest extends FrontendTestBase {
         "delimited fields terminated by ' '",
         "ALTER TABLE SET ROW FORMAT not allowed on a table STORED BY JDBC: " +
         "functional.alltypes_jdbc_datasource");
-    // Paimon SET ROW FORMAT Test
-    String paimon_partitioned =
-        "ALTER TABLE functional_parquet.paimon_partitioned";
-    AnalysisError(paimon_partitioned + " set row format " +
-        "delimited fields terminated by ' '",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Paimon SET ROW FORMAT Test
+      String paimon_partitioned =
+          "ALTER TABLE functional_parquet.paimon_partitioned";
+      AnalysisError(paimon_partitioned + " set row format " +
+          "delimited fields terminated by ' '",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -1109,28 +1130,31 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     // Cannot ALTER TABLE SET on an HBase table.
     AnalysisError("alter table functional_hbase.alltypes set tblproperties('a'='b')",
         "ALTER TABLE SET not currently supported on HBase tables.");
-    // Cannot ALTER TABLE SET on an Paimon table.
-    AnalysisError("alter table functional_parquet.paimon_partitioned set " +
-        "serdeproperties ('a'='2')","ALTER TABLE not allowed " +
-        "on PAIMON table: functional_parquet.paimon_partitioned");
-    AnalysisError("alter table functional_parquet.paimon_partitioned " +
-        "PARTITION (year=2010) set tblproperties ('a'='2')",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
-    AnalysisError("alter table functional_parquet.paimon_partitioned set tblproperties" +
-        " ('__IMPALA_DATA_SOURCE_NAME'='test')","ALTER TABLE not allowed on" +
-        " PAIMON table: functional_parquet.paimon_partitioned");
-    AnalysisError("alter table functional_parquet.paimon_partitioned unset " +
-        "serdeproperties ('a')","ALTER TABLE not allowed on PAIMON table:" +
-        " functional_parquet.paimon_partitioned");
-    AnalysisError("alter table functional_parquet.paimon_partitioned PARTITION " +
-        "(year=2010) unset tblproperties ('a')",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
-    AnalysisError("alter table functional_parquet.paimon_partitioned " +
-        "unset tblproperties ('__IMPALA_DATA_SOURCE_NAME')",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot ALTER TABLE SET on an Paimon table.
+      AnalysisError("alter table functional_parquet.paimon_partitioned set " +
+          "serdeproperties ('a'='2')","ALTER TABLE not allowed " +
+          "on PAIMON table: functional_parquet.paimon_partitioned");
+      AnalysisError("alter table functional_parquet.paimon_partitioned " +
+          "PARTITION (year=2010) set tblproperties ('a'='2')",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+      AnalysisError("alter table functional_parquet.paimon_partitioned set tblproperties" +
+          " ('__IMPALA_DATA_SOURCE_NAME'='test')","ALTER TABLE not allowed on" +
+          " PAIMON table: functional_parquet.paimon_partitioned");
+      AnalysisError("alter table functional_parquet.paimon_partitioned unset " +
+          "serdeproperties ('a')","ALTER TABLE not allowed on PAIMON table:" +
+          " functional_parquet.paimon_partitioned");
+      AnalysisError("alter table functional_parquet.paimon_partitioned PARTITION " +
+          "(year=2010) unset tblproperties ('a')",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+      AnalysisError("alter table functional_parquet.paimon_partitioned " +
+          "unset tblproperties ('__IMPALA_DATA_SOURCE_NAME')",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
     // serialization.encoding
     AnalyzesOk("alter table functional.alltypes set serdeproperties(" +
         "'serialization.encoding'='GBK')");
@@ -1276,11 +1300,14 @@ public class AnalyzeDDLTest extends FrontendTestBase {
         "'testPool'",
         "ALTER TABLE SET CACHED not allowed on a table STORED BY JDBC: " +
         "functional.alltypes_jdbc_datasource");
-    // Cannot ALTER TABLE to set cached for PAIMON tables.
-    AnalysisError("alter table functional_parquet.paimon_partitioned set cached in " +
-            "'testPool'",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot ALTER TABLE to set cached for PAIMON tables.
+      AnalysisError("alter table functional_parquet.paimon_partitioned set cached in " +
+              "'testPool'",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -1426,11 +1453,14 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError(
         "alter table functional.alltypes set column stats string_col ('avgSize'='inf')",
         "Invalid stats value 'inf' for column stats key: avgSize");
-    // Cannot ALTER TABLE to set column stats for PAIMON tables.
-    AnalysisError("alter table functional_parquet.paimon_partitioned set column stats" +
-            " userid ('avgSize'='8')",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot ALTER TABLE to set column stats for PAIMON tables.
+      AnalysisError("alter table functional_parquet.paimon_partitioned set column stats" +
+              " userid ('avgSize'='8')",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -1576,11 +1606,14 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalyzesOk("alter table functional.alltypes_datasource rename to new_datasrc_tbl");
     AnalyzesOk("alter table functional.alltypes_jdbc_datasource rename to " +
         "new_jdbc_datasrc_tbl");
-    // Cannot ALTER TABLE rename for PAIMON tables.
-    AnalysisError("alter table functional_parquet.paimon_partitioned rename to" +
-            " new_datasrc_tbl",
-        "ALTER TABLE RENAME statement not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot ALTER TABLE rename for PAIMON tables.
+      AnalysisError("alter table functional_parquet.paimon_partitioned rename to" +
+              " new_datasrc_tbl",
+          "ALTER TABLE RENAME statement not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -1600,10 +1633,13 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("alter table functional_hbase.alltypes recover partitions",
         "ALTER TABLE RECOVER PARTITIONS must target an HDFS table: " +
         "functional_hbase.alltypes");
-    // Cannot ALTER TABLE recover partitions for PAIMON tables.
-    AnalysisError("alter table functional_parquet.paimon_partitioned RECOVER PARTITIONS",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot ALTER TABLE recover partitions for PAIMON tables.
+      AnalysisError("alter table functional_parquet.paimon_partitioned RECOVER PARTITIONS",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -1622,10 +1658,13 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("alter table functional.alltypes_jdbc_datasource sort by (id)",
         "ALTER TABLE SORT BY not allowed on a table STORED BY JDBC: " +
         "functional.alltypes_jdbc_datasource");
-    // Cannot ALTER TABLE to sort by  for PAIMON tables.
-    AnalysisError("alter table functional_parquet.paimon_partitioned sort by (userid)",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot ALTER TABLE to sort by  for PAIMON tables.
+      AnalysisError("alter table functional_parquet.paimon_partitioned sort by (userid)",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -1648,10 +1687,13 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("alter table functional.alltypes_jdbc_datasource sort by zorder (id)",
         "ALTER TABLE SORT BY not allowed on a table STORED BY JDBC: " +
         "functional.alltypes_jdbc_datasource");
-    // Cannot ALTER TABLE to sort by  for PAIMON tables.
-    AnalysisError("alter table functional_parquet.paimon_partitioned sort by (userid)",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot ALTER TABLE to sort by  for PAIMON tables.
+      AnalysisError("alter table functional_parquet.paimon_partitioned sort by (userid)",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -1908,11 +1950,14 @@ public class AnalyzeDDLTest extends FrontendTestBase {
         "default", "Unsupported column option for non-Kudu table: DROP DEFAULT");
     AnalysisError("alter table functional.alltypes_jdbc_datasource alter int_col drop " +
         "default", "Unsupported column option for non-Kudu table: DROP DEFAULT");
-    // Cannot ALTER TABLE after drop for PAIMON tables.
-    AnalysisError("alter table functional_parquet.paimon_partitioned alter int_col" +
-            " set comment 'a' ",
-        "ALTER TABLE not allowed on PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot ALTER TABLE after drop for PAIMON tables.
+      AnalysisError("alter table functional_parquet.paimon_partitioned alter int_col" +
+              " set comment 'a' ",
+          "ALTER TABLE not allowed on PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   ComputeStatsStmt checkComputeStatsStmt(String stmt) throws AnalysisException {
@@ -2079,10 +2124,14 @@ public class AnalyzeDDLTest extends FrontendTestBase {
       AnalysisError(
           "compute stats functional.alltypes_datasource tablesample system (3)",
           "TABLESAMPLE is only supported on file-based tables.");
-      // Cannot COMPUTE STATS for PAIMON tables.
-      AnalysisError("compute stats functional_parquet.paimon_partitioned",
-          "COMPUTE STATS not supported for PAIMON table: " +
-              "functional_parquet.paimon_partitioned");
+
+      if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+        // Cannot COMPUTE STATS for PAIMON tables.
+        AnalysisError("compute stats functional_parquet.paimon_partitioned",
+            "COMPUTE STATS not supported for PAIMON table: " +
+                "functional_parquet.paimon_partitioned");
+      }
+
       // Test different COMPUTE_STATS_MIN_SAMPLE_BYTES.
       TQueryOptions queryOpts = new TQueryOptions();
 
@@ -2208,10 +2257,12 @@ public class AnalyzeDDLTest extends FrontendTestBase {
         "compute incremental stats functional.alltypes partition(year=2009, month<12)");
 
     BackendConfig.INSTANCE.getBackendCfg().setInc_stats_size_limit_bytes(bytes);
-    // Cannot COMPUTE INCREMENTAL STATS for PAIMON tables.
-    AnalysisError("compute incremental stats functional_parquet.paimon_partitioned",
-        "COMPUTE STATS not supported for PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot COMPUTE INCREMENTAL STATS for PAIMON tables.
+      AnalysisError("compute incremental stats functional_parquet.paimon_partitioned",
+          "COMPUTE STATS not supported for PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
 
@@ -2230,11 +2281,14 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("drop incremental stats functional_parquet.iceberg_partitioned "
             + "partition(year=2010, month=1)", "DROP INCREMENTAL STATS ... PARTITION "
             + "not supported for Iceberg table functional_parquet.iceberg_partitioned");
-    // Cannot DROP INCREMENTAL STATS for PAIMON tables.
-    AnalysisError("drop incremental stats functional_parquet.paimon_partitioned" +
-            " partition(userid=10)",
-        "DROP STATS not allowed on a PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot DROP INCREMENTAL STATS for PAIMON tables.
+      AnalysisError("drop incremental stats functional_parquet.paimon_partitioned" +
+              " partition(userid=10)",
+          "DROP STATS not allowed on a PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
 
@@ -2253,10 +2307,13 @@ public class AnalyzeDDLTest extends FrontendTestBase {
         "Syntax error");
     AnalysisError("drop stats functional.alltypes partition(year, month)",
         "Syntax error");
-    // Cannot DROP  STATS for PAIMON tables.
-    AnalysisError("drop stats functional_parquet.paimon_partitioned",
-        "DROP STATS not allowed on a PAIMON table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot DROP  STATS for PAIMON tables.
+      AnalysisError("drop stats functional_parquet.paimon_partitioned",
+          "DROP STATS not allowed on a PAIMON table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -2350,10 +2407,13 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     // Cannot truncate a non hdfs table.
     AnalysisError("truncate table functional.alltypes_view",
         "TRUNCATE TABLE not supported on non-HDFS table: functional.alltypes_view");
-    // Cannot TRUNCATE for PAIMON tables.
-    AnalysisError("truncate table functional_parquet.paimon_partitioned",
-        "TRUNCATE TABLE not supported on non-HDFS table: " +
-            "functional_parquet.paimon_partitioned");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot TRUNCATE for PAIMON tables.
+      AnalysisError("truncate table functional_parquet.paimon_partitioned",
+          "TRUNCATE TABLE not supported on non-HDFS table: " +
+              "functional_parquet.paimon_partitioned");
+    }
   }
 
   @Test
@@ -2494,9 +2554,12 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("create table newtbl_jdbc like parquet " +
         "'/test-warehouse/schemas/alltypestiny.parquet' stored as JDBC",
         "CREATE TABLE LIKE FILE statement is not supported for JDBC tables.");
-    AnalysisError("create table newtbl_jdbc like parquet " +
-            "'/test-warehouse/schemas/alltypestiny.parquet' stored AS PAIMON",
-        "CREATE TABLE LIKE FILE statement is not supported for PAIMON tables.");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      AnalysisError("create table newtbl_jdbc like parquet " +
+              "'/test-warehouse/schemas/alltypestiny.parquet' stored AS PAIMON",
+          "CREATE TABLE LIKE FILE statement is not supported for PAIMON tables.");
+    }
   }
 
   @Test
@@ -2597,9 +2660,13 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("create table foo stored as RCFILE as select 1",
         "CREATE TABLE AS SELECT does not support the (RCFILE) file format. " +
          "Supported formats are: (PARQUET, TEXTFILE, KUDU, ICEBERG)");
-    AnalysisError("create table foo stored as PAIMON as select 1",
-         "CREATE TABLE AS SELECT does not support the (PAIMON) file format. " +
-          "Supported formats are: (PARQUET, TEXTFILE, KUDU, ICEBERG)");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      AnalysisError("create table foo stored as PAIMON as select 1",
+           "CREATE TABLE AS SELECT does not support the (PAIMON) file format. " +
+            "Supported formats are: (PARQUET, TEXTFILE, KUDU, ICEBERG)");
+    }
+
     // CTAS with a WITH clause and inline view (IMPALA-1100)
     AnalyzesOk("create table test_with as with with_1 as (select 1 as int_col from " +
         "functional.alltypes as t1 right join (select 1 as int_col from " +
@@ -2903,10 +2970,12 @@ public class AnalyzeDDLTest extends FrontendTestBase {
         "functional.alltypes");
     AnalysisError("create table tbl sort by zorder (int_col,foo) like " +
         "functional.alltypes", "Could not find SORT BY column 'foo' in table.");
-    // Cannot support create table like for PAIMON tables.
-    AnalysisError("create table test_like like functional_parquet.paimon_partitioned" +
-            " STORED BY PAIMON",
-        "CREATE TABLE LIKE is not supported for PAIMON tables.");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Cannot support create table like for PAIMON tables.
+      AnalysisError("create table test_like like functional_parquet.paimon_partitioned" +
+          " STORED BY PAIMON", "CREATE TABLE LIKE is not supported for PAIMON tables.");
+    }
 
     // Test creating Iceberg tables from non-Iceberg sources
     // Non-partitioned table to Iceberg
@@ -3228,55 +3297,59 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("CREATE EXTERNAL TABLE Foo (i int) PARTITIONED BY (d decimal) " +
         "STORED BY JDBC ",
         "PARTITIONED BY cannot be used in a JDBC table.");
-    // Create Paimon tables.
-    AnalyzesOk("CREATE TABLE IF NOT EXISTS foo (user_id BIGINT, item_id BIGINT, " +
-        "behavior STRING) STORED AS PAIMON");
-    AnalyzesOk("CREATE TABLE IF NOT EXISTS foo (user_id BIGINT, item_id BIGINT, " +
-        "behavior STRING) PARTITIONED BY (dt STRING, hh STRING) STORED AS PAIMON");
-    AnalyzesOk("CREATE TABLE foo (user_id BIGINT, item_id BIGINT, behavior STRING) " +
-        "PARTITIONED BY (dt STRING, hh STRING) STORED AS PAIMON TBLPROPERTIES " +
-        "('primary-key'='user_id')");
-    AnalyzesOk("CREATE TABLE foo (user_id BIGINT, item_id BIGINT, behavior STRING, " +
-        "PRIMARY KEY(user_id)) PARTITIONED BY (dt STRING, hh STRING) STORED AS PAIMON");
-    AnalyzesOk("CREATE TABLE foo (user_id BIGINT, item_id BIGINT, behavior STRING)" +
-        " STORED AS PAIMON TBLPROPERTIES ('bucket' = '4', 'bucket-key'='behavior')");
-    AnalyzesOk("CREATE TABLE foo (user_id BIGINT, item_id BIGINT, behavior STRING, " +
-        "PRIMARY KEY(user_id)) PARTITIONED BY (dt STRING, hh STRING) STORED AS PAIMON " +
-        "LOCATION 'hdfs:///test-warehouse/test_create_managed_location_paimon_table'");
-    AnalyzesOk("CREATE TABLE foo (`USER_ID` BIGINT, `ITEM_ID` BIGINT, BEHAVIOR STRING, " +
-        "PRIMARY KEY(`USER_ID`)) PARTITIONED BY (`DT` STRING, `HH` STRING) " +
-        "STORED AS PAIMON");
-    AnalyzesOk("CREATE EXTERNAL TABLE foo STORED AS PAIMON LOCATION " +
-        "'hdfs:///test-warehouse/paimon_test/paimon_catalog/warehouse/functional.db/" +
-        "paimon_non_partitioned'");
-    AnalyzesOk("CREATE EXTERNAL TABLE foo STORED AS PAIMON LOCATION " +
-        "'hdfs:///test-warehouse/paimon_test/paimon_catalog/warehouse/functional.db/" +
-        "paimon_partitioned'");
-    AnalyzesOk("CREATE EXTERNAL TABLE foo STORED AS PAIMON TBLPROPERTIES" +
-        "('paimon.catalog'='hadoop', 'paimon.catalog_location'='hdfs:///test-warehouse" +
-        "/paimon_test/paimon_catalog/warehouse', 'paimon.table_identifier'=" +
-        "'functional.paimon_non_partitioned')");
-    AnalyzesOk("CREATE EXTERNAL TABLE foo STORED AS PAIMON TBLPROPERTIES(" +
-        "'paimon.catalog'='hadoop', 'paimon.catalog_location'='hdfs:///test-warehouse" +
-        "/paimon_test/paimon_catalog/warehouse', 'paimon.table_identifier'=" +
-        "'functional.paimon_partitioned')");
-    AnalyzesOk("CREATE TABLE foo (col_boolean BOOLEAN, col_tinyint TINYINT, " +
-        "col_smallint SMALLINT, col_int INT, col_integer INTEGER, col_bigint BIGINT, " +
-        "col_float FLOAT, col_double DOUBLE, col_decimal DECIMAL(10,2), " +
-        "col_string STRING, col_char CHAR(20), col_varchar VARCHAR(100), " +
-        "col_timestamp TIMESTAMP, col_date DATE, col_binary BINARY) STORED AS PAIMON");
-    AnalysisError("CREATE TABLE impala_paimon_complex_types_array " +
-        "(col_array_string ARRAY<STRING>) STORED AS PAIMON;",
-        "Tables stored by Paimon do not support the " +
-        "column col_array_string type: ARRAY<STRING>");
-    AnalysisError("CREATE TABLE impala_paimon_complex_types_map " +
-        "(col_map_string MAP<STRING,STRING>) STORED AS PAIMON;",
-        "Tables stored by Paimon do not support the" +
-        " column col_map_string type: MAP<STRING,STRING>");
-    AnalysisError("CREATE TABLE impala_paimon_complex_types_struct " +
-        "(col_struct_string STRUCT<f1:STRING, f2:STRING>) STORED AS PAIMON;",
-        "Tables stored by Paimon do not support the " +
-        "column col_struct_string type: STRUCT<f1:STRING,f2:STRING>");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      // Create Paimon tables.
+      AnalyzesOk("CREATE TABLE IF NOT EXISTS foo (user_id BIGINT, item_id BIGINT, " +
+          "behavior STRING) STORED AS PAIMON");
+      AnalyzesOk("CREATE TABLE IF NOT EXISTS foo (user_id BIGINT, item_id BIGINT, " +
+          "behavior STRING) PARTITIONED BY (dt STRING, hh STRING) STORED AS PAIMON");
+      AnalyzesOk("CREATE TABLE foo (user_id BIGINT, item_id BIGINT, behavior STRING) " +
+          "PARTITIONED BY (dt STRING, hh STRING) STORED AS PAIMON TBLPROPERTIES " +
+          "('primary-key'='user_id')");
+      AnalyzesOk("CREATE TABLE foo (user_id BIGINT, item_id BIGINT, behavior STRING, " +
+          "PRIMARY KEY(user_id)) PARTITIONED BY (dt STRING, hh STRING) STORED AS PAIMON");
+      AnalyzesOk("CREATE TABLE foo (user_id BIGINT, item_id BIGINT, behavior STRING)" +
+          " STORED AS PAIMON TBLPROPERTIES ('bucket' = '4', 'bucket-key'='behavior')");
+      AnalyzesOk("CREATE TABLE foo (user_id BIGINT, item_id BIGINT, behavior STRING, " +
+          "PRIMARY KEY(user_id)) PARTITIONED BY (dt STRING, hh STRING) STORED AS PAIMON" +
+          " LOCATION 'hdfs:///test-warehouse/test_create_managed_location_paimon_table'");
+      AnalyzesOk("CREATE TABLE foo (`USER_ID` BIGINT, `ITEM_ID` BIGINT, BEHAVIOR STRING" +
+          ", PRIMARY KEY(`USER_ID`)) PARTITIONED BY (`DT` STRING, `HH` STRING) " +
+          "STORED AS PAIMON");
+      AnalyzesOk("CREATE EXTERNAL TABLE foo STORED AS PAIMON LOCATION " +
+          "'hdfs:///test-warehouse/paimon_test/paimon_catalog/warehouse/functional.db/" +
+          "paimon_non_partitioned'");
+      AnalyzesOk("CREATE EXTERNAL TABLE foo STORED AS PAIMON LOCATION " +
+          "'hdfs:///test-warehouse/paimon_test/paimon_catalog/warehouse/functional.db/" +
+          "paimon_partitioned'");
+      AnalyzesOk("CREATE EXTERNAL TABLE foo STORED AS PAIMON TBLPROPERTIES" +
+          "('paimon.catalog'='hadoop', 'paimon.catalog_location'=" +
+          "'hdfs:///test-warehouse/paimon_test/paimon_catalog/warehouse', " +
+          "'paimon.table_identifier'='functional.paimon_non_partitioned')");
+      AnalyzesOk("CREATE EXTERNAL TABLE foo STORED AS PAIMON TBLPROPERTIES(" +
+          "'paimon.catalog'='hadoop', 'paimon.catalog_location'='hdfs:///test-warehouse" +
+          "/paimon_test/paimon_catalog/warehouse', 'paimon.table_identifier'=" +
+          "'functional.paimon_partitioned')");
+      AnalyzesOk("CREATE TABLE foo (col_boolean BOOLEAN, col_tinyint TINYINT, " +
+          "col_smallint SMALLINT, col_int INT, col_integer INTEGER, col_bigint BIGINT, " +
+          "col_float FLOAT, col_double DOUBLE, col_decimal DECIMAL(10,2), " +
+          "col_string STRING, col_char CHAR(20), col_varchar VARCHAR(100), " +
+          "col_timestamp TIMESTAMP, col_date DATE, col_binary BINARY) STORED AS PAIMON");
+      AnalysisError("CREATE TABLE impala_paimon_complex_types_array " +
+          "(col_array_string ARRAY<STRING>) STORED AS PAIMON;",
+          "Tables stored by Paimon do not support the " +
+          "column col_array_string type: ARRAY<STRING>");
+      AnalysisError("CREATE TABLE impala_paimon_complex_types_map " +
+          "(col_map_string MAP<STRING,STRING>) STORED AS PAIMON;",
+          "Tables stored by Paimon do not support the" +
+          " column col_map_string type: MAP<STRING,STRING>");
+      AnalysisError("CREATE TABLE impala_paimon_complex_types_struct " +
+          "(col_struct_string STRUCT<f1:STRING, f2:STRING>) STORED AS PAIMON;",
+          "Tables stored by Paimon do not support the " +
+          "column col_struct_string type: STRUCT<f1:STRING,f2:STRING>");
+    }
+
     // Create table PRODUCED BY DATA SOURCE
     final String DATA_SOURCE_NAME = "TestDataSource1";
     catalog_.addDataSource(new DataSource(DATA_SOURCE_NAME, "/foo.jar",
@@ -3367,10 +3440,14 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     AnalysisError("CREATE TABLE functional.bucket (i int COMMENT 'hello', s string) " +
         "CLUSTERED BY (i) INTO 24 BUCKETS STORED BY JDBC",
         "CLUSTERED BY not support fileformat: 'JDBC'");
-    AnalysisError("CREATE TABLE functional.bucket (i int COMMENT 'hello', s string) " +
-         "CLUSTERED BY (i) INTO 24 BUCKETS STORED BY PAIMON",
-         "CLUSTERED BY clause is not support by PAIMON now, use property " +
-         "bucket-key instead.");
+
+    if (System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true")) {
+      AnalysisError("CREATE TABLE functional.bucket (i int COMMENT 'hello', s string) " +
+          "CLUSTERED BY (i) INTO 24 BUCKETS STORED BY PAIMON",
+          "CLUSTERED BY clause is not support by PAIMON now, use property " +
+          "bucket-key instead.");
+    }
+
     // Bucketed columns must not contain partition column and don't duplicate
     AnalysisError("CREATE TABLE functional.bucket (i int COMMENT 'hello', s string) " +
         "PARTITIONED BY(dt string) CLUSTERED BY (dt) INTO 24 BUCKETS",

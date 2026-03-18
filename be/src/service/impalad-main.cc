@@ -69,7 +69,9 @@ int ImpaladMain(int argc, char** argv) {
   ABORT_IF_ERROR(HBaseTableWriter::InitJNI());
   ABORT_IF_ERROR(IcebergMetadataScanner::InitJNI());
   ABORT_IF_ERROR(IcebergRowReader::InitJNI());
+#ifdef IMPALA_WITH_PAIMON
   ABORT_IF_ERROR(PaimonJniScanner::InitJNI());
+#endif
   ABORT_IF_ERROR(HiveUdfCall::InitEnv());
   ABORT_IF_ERROR(JniCatalogCacheUpdateIterator::InitJNI());
   InitFeSupport();

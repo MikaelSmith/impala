@@ -51,7 +51,7 @@ import org.apache.impala.catalog.VirtualColumn;
 import org.apache.impala.catalog.local.MetaProvider.TableMetaRef;
 import org.apache.impala.catalog.paimon.PaimonColumn;
 import org.apache.impala.catalog.paimon.PaimonStructField;
-import org.apache.impala.catalog.paimon.PaimonUtil;
+import org.apache.impala.catalog.paimon.PaimonTableUtil;
 import org.apache.impala.common.Pair;
 import org.apache.impala.common.RuntimeEnv;
 import org.apache.impala.compat.MetastoreShim;
@@ -132,7 +132,7 @@ abstract class LocalTable implements FeTable {
       t = LocalKuduTable.loadFromKudu(db, msTbl, ref);
     } else if (IcebergTable.isIcebergTable(msTbl)) {
       t = LocalIcebergTable.loadIcebergTableViaMetaProvider(db, msTbl, ref);
-    } else if (PaimonUtil.isPaimonTable(msTbl)) {
+    } else if (PaimonTableUtil.isPaimonTable(msTbl)) {
       t = LocalPaimonTable.load(db, msTbl, ref);
     } else if (DataSourceTable.isDataSourceTable(msTbl)) {
       t = LocalDataSourceTable.load(db, msTbl, ref);

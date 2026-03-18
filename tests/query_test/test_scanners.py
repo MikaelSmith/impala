@@ -2016,6 +2016,7 @@ class TestSingleFileTable(ImpalaTestSuite):
     assert res.data[0].split("\t")[0] == '1'
 
 
+@SkipIf.not_paimon
 class TestPaimonScannerWithLimit(ImpalaTestSuite):
   """Test paimon scanners with a simple limit clause. The limit clause triggers
    cancellation in the scanner code paths."""

@@ -144,10 +144,10 @@ public interface FePaimonTable extends FeTable, FeShowFileStmtSupport {
     // Hide Paimon internals
     properties.remove(CoreOptions.PRIMARY_KEY.key());
     properties.remove(CoreOptions.PARTITION.key());
-    properties.remove(PaimonUtil.STORAGE_HANDLER);
+    properties.remove(PaimonTableUtil.STORAGE_HANDLER);
     properties.remove(CatalogOpExecutor.CAPABILITIES_KEY);
     org.apache.hadoop.hive.metastore.api.Table msTbl = getMetaStoreTable();
-    if (msTbl != null && PaimonUtil.isSynchronizedTable(msTbl)) {
+    if (msTbl != null && PaimonTableUtil.isSynchronizedTable(msTbl)) {
       properties.remove("TRANSLATED_TO_EXTERNAL");
       properties.remove(org.apache.impala.catalog.Table.TBL_PROP_EXTERNAL_TABLE_PURGE);
     }

@@ -19,6 +19,7 @@ package org.apache.impala.analysis;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import org.apache.impala.authorization.Privilege;
 import org.apache.impala.common.AnalysisException;
@@ -382,6 +383,16 @@ public class ToSqlTest extends FrontendTestBase {
         + "test_pk_fk.fk ( seq INT, id INT, year STRING, a INT, FOREIGN KEY(id, year) "
         + "REFERENCES functional.parent_table(id, year), FOREIGN KEY(a) REFERENCES "
         + "functional.parent_table_2(a) ) STORED AS TEXTFILE", true);
+  }
+
+  @Test
+  public void TestCreateTablePaimon() throws AnalysisException {
+    assumeTrue(System.getenv("IMPALA_PAIMON_SUPPORT_ENABLED").equals("true"));
+
+    // Foreign Key test requires a valid primary key table.
+    addTestDb("test_pk_fk", "Test DB for PK/FK tests");
+    AnalysisContext ctx = createAnalysisCtx("test_pk_fk");
+
     // Test create table for paimon table.
     testToSql("CREATE TABLE test_create_managed_paimon_table ("
         + "user_id BIGINT, item_id BIGINT, behavior STRING) STORED AS PAIMON",
@@ -392,7 +403,7 @@ public class ToSqlTest extends FrontendTestBase {
         + "'storage_handler'='org.apache.paimon.hive.PaimonStorageHandler')",
        true);
 
-      testToSql("CREATE TABLE  test_create_managed_part_paimon_table ("
+    testToSql("CREATE TABLE  test_create_managed_part_paimon_table ("
         + " user_id BIGINT, item_id BIGINT, behavior STRING) PARTITIONED BY ("
         + "dt STRING, hh STRING ) STORED AS PAIMON", "default",
         "CREATE TABLE default.test_create_managed_part_paimon_table ("

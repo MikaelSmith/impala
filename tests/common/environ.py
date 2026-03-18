@@ -97,6 +97,8 @@ if impala_iceberg_version:
 IS_APACHE_HIVE = (os.environ.get("USE_APACHE_HIVE_3", False) == 'true'
                   or os.environ.get("USE_APACHE_HIVE_2", False) == 'true')
 
+USE_PAIMON = os.environ.get("IMPALA_PAIMON_SUPPORT_ENABLED", "false") == "true"
+
 # Resolve any symlinks in the path.
 impalad_basedir = \
     os.path.realpath(os.path.join(IMPALA_HOME, 'be/build', build_type_dir)).rstrip('/')

@@ -54,6 +54,8 @@ CONFIGS=(
   # USE_APACHE_HIVE_2=true build:
   "-skiptests -noclean -use_apache_components -use_apache_hive_2"
   "-notests -noclean -use_apache_components -use_apache_hive_2 -package"
+  # IMPALA_PAIMON_SUPPORT_ENABLED=false build:
+  "-notests -noclean -disable_paimon"
 )
 
 FAILED=""
@@ -94,10 +96,20 @@ for CONFIG in "${CONFIGS[@]}"; do
     export USE_APACHE_HIVE_2=true
     export USE_APACHE_HIVE_3=false
   fi
+
+  CONFIG2=${CONFIG/-disable_paimon/}
+  if [[ "$CONFIG" != "$CONFIG2" ]]; then
+    CONFIG=$CONFIG2
+    export IMPALA_PAIMON_SUPPORT_ENABLED=false
+  else
+    export IMPALA_PAIMON_SUPPORT_ENABLED=true
+  fi
+
   DESCRIPTION="Options $CONFIG"
   DESCRIPTION+=" | USE_APACHE_COMPONENTS=$USE_APACHE_COMPONENTS"
   DESCRIPTION+=" | USE_APACHE_HIVE_3=$USE_APACHE_HIVE_3"
   DESCRIPTION+=" | USE_APACHE_HIVE_2=$USE_APACHE_HIVE_2"
+  DESCRIPTION+=" | IMPALA_PAIMON_SUPPORT_ENABLED=$IMPALA_PAIMON_SUPPORT_ENABLED"
 
   if [[ $# == 1 && $1 == "--dryrun" ]]; then
     echo $DESCRIPTION

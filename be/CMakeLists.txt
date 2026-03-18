@@ -339,6 +339,10 @@ add_definitions(-DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H -DHAVE_NETDB_H)
 # 2. Don't include stubs.h
 add_definitions(-DKUDU_HEADERS_USE_RICH_SLICE -DKUDU_HEADERS_NO_STUBS)
 
+if ($ENV{IMPALA_PAIMON_SUPPORT_ENABLED} STREQUAL "true")
+  add_definitions(-DIMPALA_WITH_PAIMON)
+endif()
+
 # Set clang flags for cross-compiling to IR.
 # IR_COMPILE is #defined for the cross compile to remove code that bloats the IR.
 # Optimization is omitted and left up to individual uses.

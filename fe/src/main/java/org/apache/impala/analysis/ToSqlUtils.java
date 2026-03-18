@@ -60,7 +60,7 @@ import org.apache.impala.catalog.PrunablePartition;
 import org.apache.impala.catalog.RowFormat;
 import org.apache.impala.catalog.Table;
 import org.apache.impala.catalog.paimon.FePaimonTable;
-import org.apache.impala.catalog.paimon.PaimonUtil;
+import org.apache.impala.catalog.paimon.PaimonTableUtil;
 import org.apache.impala.common.Pair;
 import org.apache.impala.service.CatalogOpExecutor;
 import org.apache.impala.thrift.TBucketInfo;
@@ -524,7 +524,7 @@ public class ToSqlUtils {
       storageHandlerClassName = null;
       isPrimaryKeyUnique = true;
       // for synchronized table, show sql like a managed table
-      if (PaimonUtil.isSynchronizedTable(msTable)) {
+      if (PaimonTableUtil.isSynchronizedTable(msTable)) {
         if ((location != null)
             && location.toLowerCase().endsWith(table.getName().toLowerCase())) {
           location = null;

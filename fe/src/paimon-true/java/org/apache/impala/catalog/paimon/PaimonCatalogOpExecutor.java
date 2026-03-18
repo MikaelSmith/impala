@@ -150,7 +150,7 @@ public class PaimonCatalogOpExecutor {
       TCreateTableParams params) throws ImpalaException, TException {
     String location = newTable.getSd().getLocation();
     // Create table in paimon if necessary
-    if (PaimonUtil.isSynchronizedTable(newTable)) {
+    if (PaimonTableUtil.isSynchronizedTable(newTable)) {
       // Set location here if not been specified in sql
       if (location == null) {
         location = PaimonUtil.getPaimonCatalogLocation(msClient, newTable);
@@ -257,7 +257,7 @@ public class PaimonCatalogOpExecutor {
     if (msTbl == null) { return false; }
     Preconditions.checkArgument(existingTbl instanceof PaimonTable);
     boolean isSynchronizedPaimonTable =
-        PaimonUtil.isSynchronizedTable(msTbl) || param.isPurge();
+        PaimonTableUtil.isSynchronizedTable(msTbl) || param.isPurge();
 
     if (isSynchronizedPaimonTable) {
       String location = msTbl.getSd().getLocation();

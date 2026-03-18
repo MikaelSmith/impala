@@ -43,7 +43,7 @@ import org.apache.impala.catalog.monitor.CatalogMonitor;
 import org.apache.impala.catalog.paimon.PaimonColumn;
 import org.apache.impala.catalog.paimon.PaimonStructField;
 import org.apache.impala.catalog.paimon.PaimonTable;
-import org.apache.impala.catalog.paimon.PaimonUtil;
+import org.apache.impala.catalog.paimon.PaimonTableUtil;
 import org.apache.impala.common.ImpalaRuntimeException;
 import org.apache.impala.common.Metrics;
 import org.apache.impala.common.Pair;
@@ -562,7 +562,7 @@ public abstract class Table extends CatalogObjectImpl implements FeTable {
       table = new KuduTable(msTbl, db, msTbl.getTableName(), msTbl.getOwner());
     } else if (IcebergTable.isIcebergTable(msTbl)) {
       table = new IcebergTable(msTbl, db, msTbl.getTableName(), msTbl.getOwner());
-    } else if (PaimonUtil.isPaimonTable(msTbl)) {
+    } else if (PaimonTableUtil.isPaimonTable(msTbl)) {
       table = new PaimonTable(msTbl, db, msTbl.getTableName(), msTbl.getOwner());
     } else if (DataSourceTable.isDataSourceTable(msTbl)) {
       // It's important to check if this is a DataSourceTable before HdfsTable because

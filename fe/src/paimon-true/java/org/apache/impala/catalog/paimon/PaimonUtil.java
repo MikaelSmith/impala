@@ -128,9 +128,6 @@ import java.util.stream.Collectors;
 public class PaimonUtil {
   final static Logger LOG = LoggerFactory.getLogger(PaimonUtil.class);
 
-  public static final String PAIMON_STORAGE_HANDLER =
-      "org.apache.paimon.hive.PaimonStorageHandler";
-  public static final String STORAGE_HANDLER = "storage_handler";
   public static final String PAIMON_CATALOG = "paimon.catalog";
   public static final String HIVE_CATALOG = "hive";
   public static final String PAIMON_PROPERTY_PREFIX = "";
@@ -141,32 +138,8 @@ public class PaimonUtil {
   public static final String PAIMON_TABLE_IDENTIFIER = "paimon.table_identifier";
 
   private static final HiveConf hiveConf_ = new HiveConf();
-  public static Catalog catalog_ = null;
   private static final String metastoreClientClass_ =
       "org.apache.hadoop.hive.metastore.HiveMetaStoreClient";
-
-  /**
-   * Returns true if the given Metastore Table represents an Paimon table.
-   * Versions of Hive/Paimon are inconsistent which Paimon related fields are set
-   * (e.g., HIVE-6548 changed the input format to null).
-   * For maximum compatibility consider all known fields that indicate an Paimon table.
-   */
-  public static boolean isPaimonTable(org.apache.hadoop.hive.metastore.api.Table msTbl) {
-    if (msTbl.getParameters() != null
-        && PAIMON_STORAGE_HANDLER.equals(
-            msTbl.getParameters().getOrDefault(STORAGE_HANDLER, ""))) {
-      return true;
-    }
-    StorageDescriptor sd = msTbl.getSd();
-    if (sd == null) return false;
-    if (sd.getInputFormat() != null
-        && sd.getInputFormat().equals(HdfsFileFormat.PAIMON.inputFormat())) {
-      return true;
-    } else
-      return sd.getSerdeInfo() != null && sd.getSerdeInfo().getSerializationLib() != null
-          && sd.getSerdeInfo().getSerializationLib().equals(
-              HdfsFileFormat.PAIMON.serializationLib());
-  }
 
   public static ByteBuffer serialize(FePaimonTable paimonTable) throws IOException {
     return ByteBuffer.wrap(SerializationUtils.serialize(paimonTable.getPaimonApiTable()));
@@ -611,24 +584,6 @@ public class PaimonUtil {
       return HdfsFileFormat.ORC;
     }
     return null;
-  }
-
-  /**
-   * A table is synchronized table if its Managed table or if its a external table with
-   * <code>external.table.purge</code> property set to true.
-   * We need to create/drop/etc. synchronized tables through the Paimon APIs as well.
-   */
-  public static boolean isSynchronizedTable(
-      org.apache.hadoop.hive.metastore.api.Table msTbl) {
-    com.google.common.base.Preconditions.checkState(isPaimonTable(msTbl));
-    return isManagedTable(msTbl) || isExternalPurgeTable(msTbl);
-  }
-
-  /**
-   * Returns if this metastore table has managed table type
-   */
-  public static boolean isManagedTable(org.apache.hadoop.hive.metastore.api.Table msTbl) {
-    return msTbl.getTableType().equalsIgnoreCase(TableType.MANAGED_TABLE.toString());
   }
 
   /**

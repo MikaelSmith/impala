@@ -797,6 +797,11 @@ def eval_sections(test_vectors, sections, fails_only_constraint,
       print(f"Skipping '{table_name}' due to exclude constraint matches.")
       continue
 
+    if os.getenv("IMPALA_PAIMON_SUPPORT_ENABLED", "false") != "true" \
+        and 'STORED AS PAIMON' in section['CREATE'].upper():
+      print(f"Skipping table '{table_name}': Paimon support not enabled")
+      continue
+
     assert not (section['CREATE'] and section['CREATE_HIVE']), \
         "Can't set both CREATE and CREATE_HIVE"
 

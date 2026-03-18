@@ -160,7 +160,7 @@ import org.apache.impala.catalog.monitor.CatalogMonitor;
 import org.apache.impala.catalog.monitor.CatalogOperationTracker;
 import org.apache.impala.catalog.paimon.FePaimonTable;
 import org.apache.impala.catalog.paimon.PaimonCatalogOpExecutor;
-import org.apache.impala.catalog.paimon.PaimonUtil;
+import org.apache.impala.catalog.paimon.PaimonTableUtil;
 import org.apache.impala.common.FileSystemUtil;
 import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.ImpalaRuntimeException;
@@ -3907,7 +3907,7 @@ public class CatalogOpExecutor {
           params.if_not_exists, params.getColumns(), params.getPartition_spec(),
           params.getPrimary_key_column_names(), params.getTable_properties(),
           params.getComment(), debugAction);
-    } else if (PaimonUtil.isPaimonTable(tbl)) {
+    } else if (PaimonTableUtil.isPaimonTable(tbl)) {
       return createPaimonTable(
           tbl, wantMinimalResult, response, catalogTimeline, params, debugAction);
     }
@@ -4404,7 +4404,7 @@ public class CatalogOpExecutor {
   private boolean createPaimonTable(org.apache.hadoop.hive.metastore.api.Table newTable,
       boolean wantMinimalResult, TDdlExecResponse response, EventSequence catalogTimeline,
       TCreateTableParams params, @Nullable String debugAction) throws ImpalaException {
-    Preconditions.checkState(PaimonUtil.isPaimonTable(newTable));
+    Preconditions.checkState(PaimonTableUtil.isPaimonTable(newTable));
 
     acquireMetastoreDdlLock(catalogTimeline);
     try {

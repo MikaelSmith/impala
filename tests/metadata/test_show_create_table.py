@@ -96,6 +96,7 @@ class TestShowCreateTable(ImpalaTestSuite):
                                            unique_database)
 
   @SkipIf.not_hdfs
+  @SkipIf.not_paimon
   def test_show_create_table_paimon(self, unique_database):
     self.__run_show_create_table_test_case('QueryTest/show-create-table-paimon',
                                            unique_database)
