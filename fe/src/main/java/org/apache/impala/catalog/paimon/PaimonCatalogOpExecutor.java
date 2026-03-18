@@ -22,23 +22,27 @@ import com.google.common.collect.Lists;
 
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.impala.catalog.MetaStoreClientPool.MetaStoreClient;
 import org.apache.impala.catalog.TableLoadingException;
+import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.ImpalaRuntimeException;
 import org.apache.impala.thrift.TColumn;
 import org.apache.impala.thrift.TCreateTableParams;
 import org.apache.impala.thrift.TDropTableOrViewParams;
+import org.apache.impala.thrift.TPaimonCatalog;
 import org.apache.impala.util.EventSequence;
 import org.apache.paimon.CoreOptions;
 import org.apache.paimon.catalog.CatalogContext;
-import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.fs.FileIO;
 import org.apache.paimon.fs.Path;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.schema.SchemaManager;
 import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.table.DataTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.utils.StringUtils;
+import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,15 +59,13 @@ import java.util.stream.Collectors;
  * such as creating and dropping tables from Paimon.
  */
 public class PaimonCatalogOpExecutor {
-  public static final Logger LOG = LoggerFactory.getLogger(PaimonCatalogOpExecutor.class);
-  public static final String LOADED_PAIMON_TABLE = "Loaded paimon table";
-    public static final String CREATED_PAIMON_TABLE =
-            "Created table using Paimon Catalog ";
-  /**
-   * Create Paimon table by Paimon api
-   * Return value is table object from Paimon
-   */
-  public static String createTable(Identifier identifier, String location,
+  private static final Logger LOG =
+      LoggerFactory.getLogger(PaimonCatalogOpExecutor.class);
+  private static final String LOADED_PAIMON_TABLE = "Loaded Paimon table";
+  private static final String CREATED_PAIMON_TABLE =
+      "Created table using Paimon catalog ";
+
+  private static String createTable(String location,
       TCreateTableParams params, org.apache.hadoop.hive.metastore.api.Table newTable)
       throws ImpalaRuntimeException {
     try {
@@ -140,9 +142,75 @@ public class PaimonCatalogOpExecutor {
   }
 
   /**
+   * Create Paimon table by Paimon api
+   * Return value is table object from Paimon
+   */
+  public static boolean createTable(MetaStoreClient msClient,
+      org.apache.hadoop.hive.metastore.api.Table newTable, EventSequence catalogTimeline,
+      TCreateTableParams params) throws ImpalaException, TException {
+    String location = newTable.getSd().getLocation();
+    // Create table in paimon if necessary
+    if (PaimonUtil.isSynchronizedTable(newTable)) {
+      // Set location here if not been specified in sql
+      if (location == null) {
+        location = PaimonUtil.getPaimonCatalogLocation(msClient, newTable);
+      }
+      String tableLoc = createTable(location, params, newTable);
+      newTable.getSd().setLocation(tableLoc);
+      catalogTimeline.markEvent(CREATED_PAIMON_TABLE + newTable.getTableName());
+    } else {
+      // If this is not a synchronized table, we assume that the table must be
+      // existing in an Paimon Catalog.
+      TPaimonCatalog underlyingCatalog = PaimonUtil.getTPaimonCatalog(newTable);
+      if (underlyingCatalog != TPaimonCatalog.HADOOP_CATALOG &&
+            underlyingCatalog != TPaimonCatalog.HIVE_CATALOG) {
+          throw new TableLoadingException(
+            "Paimon table only support hadoop catalog and hive catalog.");
+      }
+      String locationToLoadFrom;
+      if (underlyingCatalog == TPaimonCatalog.HIVE_CATALOG) {
+        if (location == null) return false;
+        locationToLoadFrom = location;
+      } else {
+        // For HadoopCatalog tables 'locationToLoadFrom' is the location of the
+        // hadoop catalog. For HiveCatalog tables it remains null.
+        locationToLoadFrom =
+            PaimonUtil.getPaimonCatalogLocation(msClient, newTable);
+      }
+      try {
+        Table paimonTable = PaimonUtil.createFileStoreTable(locationToLoadFrom);
+        // Populate the HMS table schema based on the Paimon table's schema because
+        // the Paimon metadata is the source of truth. This also avoids an
+        // unnecessary ALTER TABLE.
+        populateExternalTableSchemaFromPaimonTable(newTable, paimonTable);
+        catalogTimeline.markEvent(LOADED_PAIMON_TABLE);
+        if (location == null) {
+          // Using the location of the loaded Paimon table we can also get the
+          // correct location for tables stored in nested namespaces.
+          newTable.getSd().setLocation(((DataTable) paimonTable).location().toString());
+        }
+      } catch (Exception ex) {
+        // if failed to load paimon table
+        if (newTable.getSd().getCols().isEmpty()) {
+          // if user doesn't specify schema in table, we should load from underlying
+          // paimon table, but it fails. throw the exception.
+          throw new TableLoadingException(
+              "Failed to extract paimon schema from underlying paimon table", ex);
+        } else {
+          // user has specify schema in table ddl, try to create a new paimon table
+          // instead.
+          String tableLoc = createTable(location, params, newTable);
+          newTable.getSd().setLocation(tableLoc);
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
    * Populates HMS table schema based on the Paimon table's schema.
    */
-  public static void populateExternalTableSchemaFromPaimonTable(
+  private static void populateExternalTableSchemaFromPaimonTable(
       org.apache.hadoop.hive.metastore.api.Table msTbl, Table tbl)
       throws TableLoadingException {
     try {

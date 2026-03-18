@@ -160,7 +160,6 @@ import org.apache.impala.catalog.monitor.CatalogMonitor;
 import org.apache.impala.catalog.monitor.CatalogOperationTracker;
 import org.apache.impala.catalog.paimon.FePaimonTable;
 import org.apache.impala.catalog.paimon.PaimonCatalogOpExecutor;
-import org.apache.impala.catalog.paimon.PaimonTableLoadingException;
 import org.apache.impala.catalog.paimon.PaimonUtil;
 import org.apache.impala.common.FileSystemUtil;
 import org.apache.impala.common.ImpalaException;
@@ -241,7 +240,6 @@ import org.apache.impala.thrift.TIcebergPartitionSpec;
 import org.apache.impala.thrift.TIcebergPartitionTransform;
 import org.apache.impala.thrift.TIcebergPartitionTransformType;
 import org.apache.impala.thrift.TKuduPartitionParam;
-import org.apache.impala.thrift.TPaimonCatalog;
 import org.apache.impala.thrift.TPartitionDef;
 import org.apache.impala.thrift.TPartitionKeyValue;
 import org.apache.impala.thrift.TPartitionStats;
@@ -278,7 +276,6 @@ import org.apache.impala.util.MetaStoreUtil;
 import org.apache.impala.util.MetaStoreUtil.TableInsertEventInfo;
 import org.apache.impala.util.NoOpEventSequence;
 import org.apache.impala.util.ThreadNameAnnotator;
-import org.apache.paimon.table.DataTable;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -4420,74 +4417,11 @@ public class CatalogOpExecutor {
         catalogTimeline.markEvent(CHECKED_HMS_TABLE_EXISTENCE);
         if (!tableInMetastore) {
           long eventId = getCurrentEventId(msClient, catalogTimeline);
-          String location = newTable.getSd().getLocation();
-          // Create table in paimon if necessary
-          if (PaimonUtil.isSynchronizedTable(newTable)) {
-            // Set location here if not been specified in sql
-            if (location == null) {
-              location = PaimonUtil.getPaimonCatalogLocation(msClient, newTable);
-            }
-            if (debugAction != null) {
-              DebugUtils.executeDebugAction(debugAction, DebugUtils.PAIMON_CREATE);
-            }
-            String tableLoc = PaimonCatalogOpExecutor.createTable(
-                PaimonUtil.getTableIdentifier(newTable), location, params, newTable);
-            newTable.getSd().setLocation(tableLoc);
-            catalogTimeline.markEvent(PaimonCatalogOpExecutor.CREATED_PAIMON_TABLE +
-                newTable.getTableName());
-          } else {
-            // If this is not a synchronized table, we assume that the table must be
-            // existing in an Paimon Catalog.
-            TPaimonCatalog underlyingCatalog = PaimonUtil.getTPaimonCatalog(newTable);
-            if (underlyingCatalog != TPaimonCatalog.HADOOP_CATALOG &&
-                 underlyingCatalog != TPaimonCatalog.HIVE_CATALOG) {
-                throw new TableLoadingException(
-                  "Paimon table only support hadoop catalog and hive catalog.");
-            }
-            String locationToLoadFrom;
-            if (underlyingCatalog == TPaimonCatalog.HIVE_CATALOG) {
-              if (location == null) {
-                addSummary(response,
-                    "Location is necessary for external paimon table with hive catalog.");
-                return false;
-              }
-              locationToLoadFrom = location;
-            } else {
-              // For HadoopCatalog tables 'locationToLoadFrom' is the location of the
-              // hadoop catalog. For HiveCatalog tables it remains null.
-              locationToLoadFrom =
-                  PaimonUtil.getPaimonCatalogLocation(msClient, newTable);
-            }
-            try {
-              org.apache.paimon.table.Table paimonTable =
-                  PaimonUtil.createFileStoreTable(locationToLoadFrom);
-              // Populate the HMS table schema based on the Paimon table's schema because
-              // the Paimon metadata is the source of truth. This also avoids an
-              // unnecessary ALTER TABLE.
-              PaimonCatalogOpExecutor.populateExternalTableSchemaFromPaimonTable(
-                  newTable, paimonTable);
-              catalogTimeline.markEvent(PaimonCatalogOpExecutor.LOADED_PAIMON_TABLE);
-              if (location == null) {
-                // Using the location of the loaded Paimon table we can also get the
-                // correct location for tables stored in nested namespaces.
-                newTable.getSd().setLocation(
-                    ((DataTable) paimonTable).location().toString());
-              }
-            } catch (Exception ex) {
-              // if failed to load paimon table
-              if (newTable.getSd().getCols().isEmpty()) {
-                // if user doesn't specify schema in table, we should load from underlying
-                // paimon table, but it fails. throw the exception.
-                throw new PaimonTableLoadingException(
-                    "Failed to extract paimon schema from underlying paimon table", ex);
-              } else {
-                // user has specify schema in table ddl, try to create a new paimon table
-                // instead.
-                String tableLoc = PaimonCatalogOpExecutor.createTable(
-                    PaimonUtil.getTableIdentifier(newTable), location, params, newTable);
-                newTable.getSd().setLocation(tableLoc);
-              }
-            }
+          if (!PaimonCatalogOpExecutor.createTable(
+              msClient, newTable, catalogTimeline, params)) {
+            addSummary(response,
+                "Location is necessary for external paimon table with hive catalog.");
+            return false;
           }
 
           msClient.getHiveClient().createTable(newTable);

@@ -531,28 +531,19 @@ public class ToSqlUtils {
         }
         isExternal = false;
       }
-      try {
-        FePaimonTable fePaimonTable = (FePaimonTable) table;
-        primaryKeySql = fePaimonTable.getPaimonApiTable()
-                            .primaryKeys()
-                            .stream()
-                            .map(String::toLowerCase)
-                            .collect(Collectors.toList());
 
-        partitionColsSql = new ArrayList<>();
-        for (int i = 0; i < table.getNumClusteringCols(); i++) {
-          Column col = table.getColumns().get(i);
-          partitionColsSql.add(columnToSql(col));
-        }
+      primaryKeySql = ((FePaimonTable) table).getPrimaryKeys();
 
-        colsSql = new ArrayList<>();
+      partitionColsSql = new ArrayList<>();
+      for (int i = 0; i < table.getNumClusteringCols(); i++) {
+        Column col = table.getColumns().get(i);
+        partitionColsSql.add(columnToSql(col));
+      }
 
-        for (int i = table.getNumClusteringCols(); i < table.getColumns().size(); i++) {
-          Column col = table.getColumns().get(i);
-          colsSql.add(columnToSql(col));
-        }
-      } catch (Exception e) {
-        throw new CatalogException("Could not get primary key/foreign keys sql.", e);
+      colsSql = new ArrayList<>();
+      for (int i = table.getNumClusteringCols(); i < table.getColumns().size(); i++) {
+        Column col = table.getColumns().get(i);
+        colsSql.add(columnToSql(col));
       }
     } else if (table instanceof FeDataSourceTable) {
       // masking handled by filterTblProperties(); nothing to do for CREATE

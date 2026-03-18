@@ -134,6 +134,8 @@ public class PaimonUtil {
   public static final String PAIMON_CATALOG = "paimon.catalog";
   public static final String HIVE_CATALOG = "hive";
   public static final String PAIMON_PROPERTY_PREFIX = "";
+  public static final String PAIMON_PRIMARY_KEY = "primary-key";
+  public static final String PAIMON_PARTITION = "partition";
   public static final String PAIMON_HADOOP_CATALOG_LOCATION = "paimon.catalog_location";
   public static final String PAIMON_TABLE_LOCATION = "paimon_location";
   public static final String PAIMON_TABLE_IDENTIFIER = "paimon.table_identifier";

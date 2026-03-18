@@ -39,8 +39,10 @@ import org.apache.paimon.types.RowType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Frontend interface for interacting with an Paimon-backed table.
@@ -130,6 +132,11 @@ public interface FePaimonTable extends FeTable, FeShowFileStmtSupport {
 
   default boolean supportPartitionFilter() {
     return false;
+  }
+
+  default List<String> getPrimaryKeys() {
+    return getPaimonApiTable().primaryKeys().stream()
+        .map(String::toLowerCase).collect(Collectors.toList());
   }
 
   @Override
