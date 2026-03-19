@@ -600,6 +600,7 @@ under the License.
     <module>iceberg-rest-catalog-test</module>
     <module>executor-deps</module>
     <module>ext-data-source</module>
+    <module>paimon-hive-connector-3.1</module>
     <module>../fe</module>
     <module>external-frontend</module>
     <module>calcite-planner</module>
