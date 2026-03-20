@@ -30,6 +30,7 @@ import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.impala.calcite.rules.AggregateFilterToConditionalAggregateRule;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,7 +58,7 @@ public class RelCommonExpressionAggFilterSuggester
         CoreRules.AGGREGATE_PROJECT_MERGE));
     b.addRuleCollection(
         Arrays.asList(AggregateFilterScanRegisterRule.Config.DEFAULT.toRule(),
-        AggregateFilterToFilteredAggregateRule.Config.DEFAULT.toRule(),
+        AggregateFilterToConditionalAggregateRule.Config.DEFAULT.toRule(),
         AggregateProjectScanRegisterRule.Config.DEFAULT.toRule()));
     ScanRegistry sr = new ScanRegistry();
     HepPlanner planner = new HepPlanner(b.build(), Contexts.of(sr));
@@ -81,7 +82,6 @@ public class RelCommonExpressionAggFilterSuggester
         builder.filter(key);
         Set<AggregateCall> aggCalls = new HashSet<>();
         List<RexNode> projects = new ArrayList<>();
-        List<RexNode> filters = new ArrayList<>();
         for (ScanRegistry.NodeInfo nodeInfo : value) {
           // Currently we only handle empty group sets.
           if (!nodeInfo.groupSet.isEmpty()) {
@@ -98,14 +98,10 @@ public class RelCommonExpressionAggFilterSuggester
             int filterArg = -1;
             if (c.hasFilter()) {
               RexNode p = nodeInfo.project.get(c.filterArg);
-              filters.add(p);
               filterArg = addExpression(p, projects);
             }
             aggCalls.add(c.withArgList(remappedArgs).withFilter(filterArg));
           }
-        }
-        if (!filters.isEmpty()) {
-          builder.filter(builder.or(filters));
         }
         if (!projects.isEmpty()) {
           builder.project(projects);
@@ -144,11 +140,6 @@ public class RelCommonExpressionAggFilterSuggester
   private void addSuggestion(RelNode rel) {
     // Post-processing to convert the generated suggestions to a form that is more likely to
     // be supported by different engines (e.g. Impala).
-    HepProgram program =
-        new HepProgramBuilder().addRuleInstance(
-            AggregateFilterToCaseRule.Config.DEFAULT.toRule()).build();
-    HepPlanner planner = new HepPlanner(program);
-    planner.setRoot(rel);
-    suggestions.add(planner.findBestExp());
+    suggestions.add(rel);
   }
 }
