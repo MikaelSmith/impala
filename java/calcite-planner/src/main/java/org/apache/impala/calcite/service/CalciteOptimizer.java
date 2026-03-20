@@ -47,6 +47,8 @@ import org.apache.calcite.tools.RelBuilder;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.impala.analysis.Analyzer;
 import org.apache.impala.calcite.coercenodes.CoerceNodes;
+import org.apache.impala.calcite.cte.AggregateExtractFilterRule;
+import org.apache.impala.calcite.cte.AggregateFilterToCaseRule;
 import org.apache.impala.calcite.operators.ImpalaRexSimplify;
 import org.apache.impala.calcite.cte.SuggesterFactory;
 import org.apache.impala.calcite.rel.node.ConvertToImpalaRelRules;
@@ -163,10 +165,14 @@ public class CalciteOptimizer implements CompilerStep {
     timeline_.markEvent("Created optimized CTE plan");
     LogUtil.logDebug(optimizedCTEPlan, "Optimized plan after CTE substitution.");
 
+    RelNode aggPushedDownPlan = runAggPushdownProgram(optimizedCTEPlan, simplifier);
+    timeline_.markEvent("Created optimized aggregate pushdown plan");
+    LogUtil.logDebug(aggPushedDownPlan, "Optimized plan after aggregate filter pushdown.");
+
     // Run some essential rules needed to create working RelNodes after
     // optimization
     RelNode preImpalaConvertPlan =
-        runPreImpalaConvertProgram(optimizedCTEPlan, simplifier);
+        runPreImpalaConvertProgram(aggPushedDownPlan, simplifier);
     LogUtil.logDebug(preImpalaConvertPlan, "Optimized plan after final "
         + "preparation done before conversion to physical nodes.");
 
@@ -178,6 +184,16 @@ public class CalciteOptimizer implements CompilerStep {
     LogUtil.logDebug(finalOptimizedPlan, "Final Impala optimized plan");
 
     return finalOptimizedPlan;
+  }
+
+  private RelNode runAggPushdownProgram(RelNode plan, ImpalaRexSimplify simplify) {
+    HepProgramBuilder builder = new HepProgramBuilder();
+    builder.addRuleInstance(CoreRules.AGGREGATE_CASE_TO_FILTER)
+            .addRuleInstance(AggregateExtractFilterRule.Config.DEFAULT.toRule())
+            .addRuleInstance(CoreRules.FILTER_PROJECT_TRANSPOSE)
+            .addRuleInstance(CoreRules.FILTER_REDUCE_EXPRESSIONS)
+            .addRuleInstance(AggregateFilterToCaseRule.Config.DEFAULT.toRule());
+    return runProgram(plan, builder.build(), simplify);
   }
 
   private RelNode runExpandNodesProgram(RelNode plan,
