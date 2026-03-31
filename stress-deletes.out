@@ -1,0 +1,1080 @@
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.70s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.10s
+Creating TPC-H kudu table in stream_stress...
+lineitem successfully created
+part successfully created
+partsupp successfully created
+supplier successfully created
+nation successfully created
+region successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into kudu table...
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 5.18 seconds.
+part successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.39 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.36 seconds.
+Table counts after iteration 1 (0.83 seconds): ['704861', '200000', '360161', '0', '0', '0', '0', '0']
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q4 successfully ran
+q3 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q15 successfully ran
+q16 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 10.22 seconds.
+partsupp successfully loaded
+supplier successfully loaded
+nation successfully loaded
+region successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.41 seconds.
+Deleted 1% of rows from supplier with iter=2 in 0.50 seconds.
+Table counts after iteration 2 (1.01 seconds): ['2975956', '200000', '800000', '10000', '25', '5', '1016878', '0']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q7 successfully ran
+q6 successfully ran
+q8 successfully ran
+q10 successfully ran
+q11 successfully ran
+q9 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q18 successfully ran
+q20 successfully ran
+q19 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 29.65 seconds.
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=3 in 0.52 seconds.
+Deleted 1% of rows from supplier with iter=3 in 0.54 seconds.
+Table counts after iteration 3 (0.78 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '150000']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q10 successfully ran
+q11 successfully ran
+q9 successfully ran
+q13 successfully ran
+q14 successfully ran
+q12 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 43.93 seconds.
+lineitem successfully loaded
+Deleted 1% of rows from customer with iter=4 in 0.36 seconds.
+Deleted 1% of rows from supplier with iter=4 in 0.38 seconds.
+Table counts after iteration 4 (0.66 seconds): ['6001215', '200000', '800000', '9800', '25', '5', '1500000', '148500']
+Loaded in 92.24 seconds with 4 runs of the test queries.
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.30s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.10s
+Creating TPC-H kudu table in stream_stress...
+lineitem successfully created
+part successfully created
+partsupp successfully created
+supplier successfully created
+nation successfully created
+region successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into kudu table...
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q8 successfully ran
+q7 successfully ran
+q9 successfully ran
+q10 successfully ran
+q12 successfully ran
+q11 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q16 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 4.90 seconds.
+part successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.62 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.34 seconds.
+Table counts after iteration 1 (0.92 seconds): ['704861', '200000', '360161', '0', '0', '0', '0', '0']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q7 successfully ran
+q6 successfully ran
+q9 successfully ran
+q8 successfully ran
+q11 successfully ran
+q10 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q15 successfully ran
+q16 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 10.24 seconds.
+partsupp successfully loaded
+supplier successfully loaded
+nation successfully loaded
+region successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.43 seconds.
+Deleted 1% of rows from supplier with iter=2 in 0.43 seconds.
+Table counts after iteration 2 (1.02 seconds): ['2741071', '200000', '800000', '10000', '25', '5', '1017425', '0']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q7 successfully ran
+q8 successfully ran
+q6 successfully ran
+q10 successfully ran
+q9 successfully ran
+q11 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q18 successfully ran
+q20 successfully ran
+q19 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 31.43 seconds.
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=3 in 0.60 seconds.
+Deleted 1% of rows from supplier with iter=3 in 2.27 seconds.
+Table counts after iteration 3 (0.83 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '150000']
+Starting test queries while loading...
+q2 successfully ran
+q3 successfully ran
+q1 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q8 successfully ran
+q7 successfully ran
+q10 successfully ran
+q11 successfully ran
+q9 successfully ran
+q13 successfully ran
+q14 successfully ran
+q12 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q19 successfully ran
+q18 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 49.36 seconds.
+lineitem successfully loaded
+Deleted 1% of rows from customer with iter=4 in 0.38 seconds.
+Deleted 1% of rows from supplier with iter=4 in 0.39 seconds.
+Table counts after iteration 4 (0.64 seconds): ['6001215', '200000', '800000', '9800', '25', '5', '1500000', '148500']
+Loaded in 99.34 seconds with 4 runs of the test queries.
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.30s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.10s
+Creating TPC-H kudu table in stream_stress...
+lineitem successfully created
+part successfully created
+partsupp successfully created
+supplier successfully created
+nation successfully created
+region successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into kudu table...
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q16 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 4.83 seconds.
+part successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.55 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.37 seconds.
+Table counts after iteration 1 (0.83 seconds): ['587374', '200000', '360161', '0', '0', '0', '0', '0']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q5 successfully ran
+q4 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q11 successfully ran
+q10 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 10.16 seconds.
+partsupp successfully loaded
+supplier successfully loaded
+nation successfully loaded
+region successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.47 seconds.
+Deleted 1% of rows from supplier with iter=2 in 0.43 seconds.
+Table counts after iteration 2 (1.02 seconds): ['2780220', '200000', '800000', '10000', '25', '5', '856352', '0']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q7 successfully ran
+q8 successfully ran
+q6 successfully ran
+q10 successfully ran
+q11 successfully ran
+q9 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q18 successfully ran
+q20 successfully ran
+q19 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 38.49 seconds.
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=3 in 0.50 seconds.
+Deleted 1% of rows from supplier with iter=3 in 0.97 seconds.
+Table counts after iteration 3 (0.83 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '150000']
+Starting test queries while loading...
+q2 successfully ran
+q3 successfully ran
+q1 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q10 successfully ran
+q9 successfully ran
+q11 successfully ran
+q13 successfully ran
+q14 successfully ran
+q12 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 38.85 seconds.
+lineitem successfully loaded
+Deleted 1% of rows from customer with iter=4 in 0.38 seconds.
+Deleted 1% of rows from supplier with iter=4 in 0.41 seconds.
+Table counts after iteration 4 (0.71 seconds): ['6001215', '200000', '800000', '9800', '25', '5', '1500000', '148500']
+Loaded in 95.72 seconds with 4 runs of the test queries.
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.20s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.10s
+Creating TPC-H iceberg table in stream_stress...
+part successfully created
+lineitem successfully created
+partsupp successfully created
+supplier successfully created
+nation successfully created
+region successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into iceberg table...
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q20 successfully ran
+q19 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 5.09 seconds.
+lineitem successfully loaded
+part successfully loaded
+partsupp successfully loaded
+supplier successfully loaded
+nation successfully loaded
+region successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.43 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.38 seconds.
+Table counts after iteration 1 (0.72 seconds): ['6001215', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q4 successfully ran
+q3 successfully ran
+q6 successfully ran
+q5 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q14 successfully ran
+q13 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q19 successfully ran
+q18 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 6.56 seconds.
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.54 seconds.
+Deleted 1% of rows from supplier with iter=2 in 1.32 seconds.
+Table counts after iteration 2 (0.64 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '148500']
+Loaded in 13.01 seconds with 2 runs of the test queries.
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.20s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.11s
+Creating TPC-H iceberg table in stream_stress...
+lineitem successfully created
+part successfully created
+partsupp successfully created
+supplier successfully created
+nation successfully created
+region successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into iceberg table...
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 4.19 seconds.
+lineitem successfully loaded
+part successfully loaded
+partsupp successfully loaded
+supplier successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.36 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.36 seconds.
+Table counts after iteration 1 (0.68 seconds): ['6001215', '200000', '800000', '10000', '25', '5', '0', '0']
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q6 successfully ran
+q5 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 4.89 seconds.
+nation successfully loaded
+region successfully loaded
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.92 seconds.
+Deleted 1% of rows from supplier with iter=2 in 0.95 seconds.
+Table counts after iteration 2 (0.64 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '148500']
+Loaded in 10.40 seconds with 2 runs of the test queries.
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.20s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.11s
+Creating TPC-H iceberg table in stream_stress...
+lineitem successfully created
+part successfully created
+partsupp successfully created
+supplier successfully created
+nation successfully created
+region successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into iceberg table...
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 4.41 seconds.
+lineitem successfully loaded
+part successfully loaded
+partsupp successfully loaded
+supplier successfully loaded
+nation successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.38 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.36 seconds.
+Table counts after iteration 1 (0.70 seconds): ['6001215', '200000', '800000', '10000', '25', '5', '0', '0']
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q6 successfully ran
+q5 successfully ran
+q7 successfully ran
+q9 successfully ran
+q8 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q20 successfully ran
+q19 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 5.02 seconds.
+region successfully loaded
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.35 seconds.
+Deleted 1% of rows from supplier with iter=2 in 0.52 seconds.
+Table counts after iteration 2 (0.64 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '150000']
+Loaded in 10.77 seconds with 2 runs of the test queries.
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.20s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.11s
+Creating TPC-H hybrid table in stream_stress...
+lineitem successfully created
+part successfully created
+partsupp successfully created
+supplier successfully created
+region successfully created
+nation successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into hybrid table...
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q8 successfully ran
+q7 successfully ran
+q9 successfully ran
+q10 successfully ran
+q12 successfully ran
+q11 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q16 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 5.11 seconds.
+part successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.45 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.41 seconds.
+Merge completed in 1.30 seconds.
+Table counts after iteration 1 (0.83 seconds): ['704861', '200000', '360161', '0', '0', '0', '0', '0']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q5 successfully ran
+q4 successfully ran
+q7 successfully ran
+q6 successfully ran
+q8 successfully ran
+q9 successfully ran
+q11 successfully ran
+q10 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q16 successfully ran
+q15 successfully ran
+q18 successfully ran
+q17 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 13.72 seconds.
+partsupp successfully loaded
+supplier successfully loaded
+nation successfully loaded
+region successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.43 seconds.
+Deleted 1% of rows from supplier with iter=2 in 0.40 seconds.
+Merge completed in 60.70 seconds.
+Table counts after iteration 2 (1.36 seconds): ['6001215', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q7 successfully ran
+q6 successfully ran
+q8 successfully ran
+q9 successfully ran
+q11 successfully ran
+q10 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 21.67 seconds.
+lineitem successfully loaded
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=3 in 0.45 seconds.
+Deleted 1% of rows from supplier with iter=3 in 0.51 seconds.
+Merge completed in 28.66 seconds.
+Table counts after iteration 3 (0.79 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '148500']
+Loaded in 97.43 seconds with 3 runs of the test queries.
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.70s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.10s
+Creating TPC-H hybrid table in stream_stress...
+lineitem successfully created
+part successfully created
+partsupp successfully created
+supplier successfully created
+nation successfully created
+region successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into hybrid table...
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q6 successfully ran
+q5 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 5.81 seconds.
+part successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.41 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.45 seconds.
+Merge completed in 1.28 seconds.
+Table counts after iteration 1 (0.94 seconds): ['704861', '200000', '487330', '0', '0', '0', '0', '0']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q5 successfully ran
+q4 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q11 successfully ran
+q10 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q15 successfully ran
+q16 successfully ran
+q18 successfully ran
+q17 successfully ran
+q20 successfully ran
+q19 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 14.70 seconds.
+partsupp successfully loaded
+supplier successfully loaded
+nation successfully loaded
+region successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.58 seconds.
+Deleted 1% of rows from supplier with iter=2 in 0.51 seconds.
+Merge completed in 60.12 seconds.
+Table counts after iteration 2 (1.23 seconds): ['6001215', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q11 successfully ran
+q10 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 19.20 seconds.
+lineitem successfully loaded
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=3 in 0.38 seconds.
+Deleted 1% of rows from supplier with iter=3 in 0.49 seconds.
+Merge completed in 28.73 seconds.
+Table counts after iteration 3 (0.86 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '148500']
+Loaded in 97.68 seconds with 3 runs of the test queries.
+Starting Impala Shell with no authentication using Python 3.11.14
+Warning: live_progress only applies to interactive shell sessions, and is being skipped for now.
+Opened TCP connection to localhost:21050
+Connected to localhost:21050
+Server version: impalad version 5.0.0-SNAPSHOT RELEASE (build 005b38d313dd1f8da98616508d1e1c6fd0fd7b5e)
+Query: drop database if exists stream_stress cascade
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been dropped. |
++----------------------------+
+Fetched 1 row(s) in 0.70s
+Query: create database stream_stress
++----------------------------+
+| summary                    |
++----------------------------+
+| Database has been created. |
++----------------------------+
+Fetched 1 row(s) in 0.10s
+Creating TPC-H hybrid table in stream_stress...
+part successfully created
+lineitem successfully created
+supplier successfully created
+partsupp successfully created
+region successfully created
+nation successfully created
+orders successfully created
+customer successfully created
+Loading tpch data into hybrid table...
+Starting test queries while loading...
+q1 successfully ran
+q2 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q10 successfully ran
+q11 successfully ran
+q12 successfully ran
+q13 successfully ran
+q14 successfully ran
+q15 successfully ran
+q17 successfully ran
+q16 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q21 successfully ran
+q22 successfully ran
+Ran test queries in 5.89 seconds.
+part successfully loaded
+Deleted 1% of rows from customer with iter=1 in 0.41 seconds.
+Deleted 1% of rows from supplier with iter=1 in 0.40 seconds.
+Merge completed in 1.30 seconds.
+Table counts after iteration 1 (0.88 seconds): ['704861', '200000', '480240', '0', '0', '0', '0', '0']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q5 successfully ran
+q4 successfully ran
+q6 successfully ran
+q7 successfully ran
+q8 successfully ran
+q9 successfully ran
+q11 successfully ran
+q10 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q16 successfully ran
+q15 successfully ran
+q18 successfully ran
+q17 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 15.52 seconds.
+partsupp successfully loaded
+supplier successfully loaded
+nation successfully loaded
+region successfully loaded
+Deleted 1% of rows from customer with iter=2 in 0.46 seconds.
+Deleted 1% of rows from supplier with iter=2 in 0.43 seconds.
+Merge completed in 61.23 seconds.
+Table counts after iteration 2 (1.33 seconds): ['6001215', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Starting test queries while loading...
+q2 successfully ran
+q1 successfully ran
+q3 successfully ran
+q4 successfully ran
+q5 successfully ran
+q7 successfully ran
+q6 successfully ran
+q8 successfully ran
+q9 successfully ran
+q11 successfully ran
+q10 successfully ran
+q13 successfully ran
+q12 successfully ran
+q14 successfully ran
+q16 successfully ran
+q15 successfully ran
+q17 successfully ran
+q18 successfully ran
+q19 successfully ran
+q20 successfully ran
+q22 successfully ran
+q21 successfully ran
+Ran test queries in 19.61 seconds.
+lineitem successfully loaded
+orders successfully loaded
+customer successfully loaded
+Deleted 1% of rows from customer with iter=3 in 0.51 seconds.
+Deleted 1% of rows from supplier with iter=3 in 0.45 seconds.
+Merge completed in 28.62 seconds.
+Table counts after iteration 3 (0.79 seconds): ['6001215', '200000', '800000', '9900', '25', '5', '1500000', '148500']
+Loaded in 98.76 seconds with 3 runs of the test queries.
