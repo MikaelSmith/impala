@@ -6,7 +6,8 @@ import argparse
 from multiprocessing import Pool
 
 TARGET_DB = "stream_stress"
-# Table name, schema, partition columns (empty string for none).
+# Table name, schema (without PRIMARY KEY), primary key columns, partition columns
+# (empty string for none).
 TPCH_SCHEMA = [
   ("lineitem", """
   L_ORDERKEY BIGINT,
@@ -24,11 +25,10 @@ TPCH_SCHEMA = [
   L_RECEIPTDATE STRING,
   L_SHIPINSTRUCT STRING,
   L_SHIPMODE STRING,
-  L_COMMENT STRING,
-  PRIMARY KEY(L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER)
-  """, "L_ORDERKEY"),
+  L_COMMENT STRING
+  """, "L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER", "L_ORDERKEY"),
   ("part", """
-  P_PARTKEY BIGINT PRIMARY KEY,
+  P_PARTKEY BIGINT,
   P_NAME STRING,
   P_MFGR STRING,
   P_BRAND STRING,
@@ -37,37 +37,36 @@ TPCH_SCHEMA = [
   P_CONTAINER STRING,
   P_RETAILPRICE DECIMAL(12,2),
   P_COMMENT STRING
-  """, "P_PARTKEY"),
+  """, "P_PARTKEY", "P_PARTKEY"),
   ("partsupp", """
   PS_PARTKEY BIGINT,
   PS_SUPPKEY BIGINT,
   PS_AVAILQTY BIGINT,
   PS_SUPPLYCOST DECIMAL(12,2),
-  PS_COMMENT STRING,
-  PRIMARY KEY(PS_PARTKEY, PS_SUPPKEY)
-  """, "PS_PARTKEY, PS_SUPPKEY"),
+  PS_COMMENT STRING
+  """, "PS_PARTKEY, PS_SUPPKEY", "PS_PARTKEY, PS_SUPPKEY"),
   ("supplier", """
-  S_SUPPKEY BIGINT PRIMARY KEY,
+  S_SUPPKEY BIGINT,
   S_NAME STRING,
   S_ADDRESS STRING,
   S_NATIONKEY SMALLINT,
   S_PHONE STRING,
   S_ACCTBAL DECIMAL(12,2),
   S_COMMENT STRING
-  """, "S_SUPPKEY"),
+  """, "S_SUPPKEY", "S_SUPPKEY"),
   ("nation", """
-  N_NATIONKEY SMALLINT PRIMARY KEY,
+  N_NATIONKEY SMALLINT,
   N_NAME STRING,
   N_REGIONKEY SMALLINT,
   N_COMMENT STRING
-  """, ""),
+  """, "N_NATIONKEY", ""),
   ("region", """
-  R_REGIONKEY SMALLINT PRIMARY KEY,
+  R_REGIONKEY SMALLINT,
   R_NAME STRING,
   R_COMMENT STRING
-  """, ""),
+  """, "R_REGIONKEY", ""),
   ("orders", """
-  O_ORDERKEY BIGINT PRIMARY KEY,
+  O_ORDERKEY BIGINT,
   O_CUSTKEY BIGINT,
   O_ORDERSTATUS STRING,
   O_TOTALPRICE DECIMAL(12,2),
@@ -76,9 +75,9 @@ TPCH_SCHEMA = [
   O_CLERK STRING,
   O_SHIPPRIORITY INT,
   O_COMMENT STRING
-  """, "O_ORDERKEY"),
+  """, "O_ORDERKEY", "O_ORDERKEY"),
   ("customer", """
-  C_CUSTKEY BIGINT PRIMARY KEY,
+  C_CUSTKEY BIGINT,
   C_NAME STRING,
   C_ADDRESS STRING,
   C_NATIONKEY SMALLINT,
@@ -86,7 +85,7 @@ TPCH_SCHEMA = [
   C_ACCTBAL DECIMAL(12,2),
   C_MKTSEGMENT STRING,
   C_COMMENT STRING
-  """, "C_CUSTKEY")]
+  """, "C_CUSTKEY", "C_CUSTKEY")]
 
 def parse_args():
   parser = argparse.ArgumentParser()
@@ -104,6 +103,11 @@ def parse_args():
       type=int,
       default=2,
       help="Number of parallel query workers (default: %(default)s)")
+  parser.add_argument(
+      "--hybrid-table",
+      action="store_true",
+      help=("Create hybrid streaming tables (Kudu, Iceberg, deletes, PIT, and "
+            "meta table) instead of plain Kudu tables"))
 
   options = parser.parse_args()
   if options.parallel_loads < 1:
@@ -112,15 +116,86 @@ def parse_args():
     parser.error("--parallel-queries must be >= 1")
   return options
 
-def create(table, schema, partitions):
+
+def _parse_columns(schema):
+  columns = []
+  for raw_line in schema.splitlines():
+    line = raw_line.strip().rstrip(',')
+    if not line:
+      continue
+    col_name, col_type = line.split(None, 1)
+    columns.append((col_name, col_type.strip()))
+  return columns
+
+
+def _split_columns(csv_columns):
+  return [col.strip() for col in csv_columns.split(',') if col.strip()]
+
+
+def _format_schema(columns):
+  return ",\n  ".join(f"{col} {col_type}" for col, col_type in columns)
+
+
+def _format_iceberg_partition_spec(partitions):
+  if not partitions:
+    return ""
+  partition_columns = [col.strip() for col in partitions.split(',') if col.strip()]
+  return f"PARTITIONED BY SPEC ({', '.join(f'BUCKET(9,{col})' for col in partition_columns)})"
+
+
+def _create_hybrid(table, schema, primary_key, partitions):
+  columns = _parse_columns(schema)
+  pk_columns = _split_columns(primary_key)
+
+  iceberg_schema = _format_schema(columns).replace("SMALLINT", "INT")  # Iceberg doesn't support SMALLINT
+  partition_spec = _format_iceberg_partition_spec(partitions)
+  kudu_partition = f"PARTITION BY HASH ({partitions}) PARTITIONS 9" if partitions else ""
+  primary_key_clause = f"PRIMARY KEY({', '.join(pk_columns)})"
+
+  type_by_column = {col_name: col_type for col_name, col_type in columns}
+  dels_columns = ",\n  ".join(f"{col} {type_by_column[col]}" for col in pk_columns)
+  dels_pk = ", ".join(pk_columns)
+
+  statements = [
+      f"CREATE TABLE {table}_iceberg ({iceberg_schema}) {partition_spec} STORED AS ICEBERG",
+      (f"CREATE TABLE {table}_kudu ({iceberg_schema},\n"
+       f"  {primary_key_clause}) {kudu_partition} STORED AS KUDU"),
+      f"CREATE TABLE {table}_dels ({dels_columns},\n"
+      f"  NON UNIQUE PRIMARY KEY({dels_pk})) STORED AS KUDU",
+      (f"CREATE TABLE {table}_pit (id INT PRIMARY KEY, migration_ts BIGINT, "
+       f"snapshot_id BIGINT) STORED AS KUDU"),
+      (f"CREATE TABLE {table} ({iceberg_schema}) STORED AS ICEBERG "
+       f"TBLPROPERTIES('impala.streaming.kudu'='{table}_kudu', "
+       f"'impala.streaming.iceberg'='{table}_iceberg', "
+       f"'impala.streaming.pit'='{table}_pit', "
+       f"'impala.streaming.dels'='{table}_dels')")
+  ]
+
+  return subprocess.run(
+      ["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q", "; ".join(statements)],
+      capture_output=True)
+
+def create(table, schema, primary_key, partitions, hybrid_table):
+  if hybrid_table:
+    return _create_hybrid(table, schema, primary_key, partitions)
+
+  pk_clause = f"PRIMARY KEY({primary_key})"
   part = f"PARTITION BY HASH ({partitions}) PARTITIONS 9" if partitions else ""
   return subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB,
-      "-q", f"CREATE TABLE {table} ({schema}) {part} STORED AS KUDU"], capture_output=True)
-
-def load(table, source_db):
-  return subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q",
-  f"INSERT INTO TABLE {table} SELECT * FROM {source_db}.{table}; COMPUTE STATS {table}"],
+      "-q", f"CREATE TABLE {table} ({schema}, {pk_clause}) {part} STORED AS KUDU"],
       capture_output=True)
+
+def load(table, source_db, hybrid_table):
+  op = "UPSERT" if hybrid_table else "INSERT"
+  return subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q",
+      f"{op} INTO TABLE {table} SELECT * FROM {source_db}.{table}; COMPUTE STATS {table}"],
+      capture_output=True)
+
+def merge(tables):
+  start = time.perf_counter()
+  subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q",
+      "; ".join([f"MERGE {table}" for table in tables])])
+  return time.perf_counter() - start
 
 STEP_CREATE = ["creating", "created"]
 STEP_LOAD = ["loading", "loaded"]
@@ -157,21 +232,31 @@ def main():
       "-q", f"drop database if exists {TARGET_DB} cascade; create database {TARGET_DB}"])
 
   with Pool(processes=options.parallel_loads) as load_pool:
-    print(f"Creating TPC-H Kudu tables at {TARGET_DB}...")
-    results = {table: load_pool.apply_async(create, (table, schema, partitions))
-               for table, schema, partitions in TPCH_SCHEMA}
+    if options.hybrid_table:
+      print(f"Creating TPC-H hybrid tables at {TARGET_DB}...")
+    else:
+      print(f"Creating TPC-H Kudu tables at {TARGET_DB}...")
+    results = {table: load_pool.apply_async(
+        create, (table, schema, primary_key, partitions, options.hybrid_table))
+               for table, schema, primary_key, partitions in TPCH_SCHEMA}
     while results:
       time.sleep(0.01)
       print_ready(STEP_CREATE, results)
 
-    print(f"Loading {options.source_db} data into Kudu tables...")
+    if options.hybrid_table:
+      print(f"Loading {options.source_db} data into hybrid tables...")
+    else:
+      print(f"Loading {options.source_db} data into Kudu tables...")
     start_load = time.perf_counter()
-    results = {table: load_pool.apply_async(load, (table, options.source_db))
-               for table, _, _ in TPCH_SCHEMA}
+    results = {table: load_pool.apply_async(load, (table, options.source_db, options.hybrid_table))
+               for table, _, _, _ in TPCH_SCHEMA}
 
     query_runs = 0
-    with Pool(processes=options.parallel_queries) as query_pool:
+    with Pool(processes=options.parallel_queries) as query_pool, Pool(processes=1) as merge_pool:
       while results:
+        # Start table migration while queries run.
+        if options.hybrid_table:
+          merge_result = merge_pool.apply_async(merge, ([table for table, _, _, _ in TPCH_SCHEMA],))
         # Optional; doesn't work on hybrid table yet.
         # subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q", f"COMPUTE STATS lineitem"])
         print("Starting test queries while loading...")
@@ -182,6 +267,8 @@ def main():
         print(f"Ran test queries in {end_queries - start_queries:.2f} seconds.")
         # TODO: move before queries?
         print_ready(STEP_LOAD, results)
+        if options.hybrid_table:
+          print(f"Merge completed in {merge_result.get():.2f} seconds.")
     end_load = time.perf_counter()
     print(f"Loaded in {end_load - start_load:.2f} seconds with {query_runs} runs of the test queries.")
 
