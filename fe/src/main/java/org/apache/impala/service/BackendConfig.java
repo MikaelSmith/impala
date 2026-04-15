@@ -657,6 +657,10 @@ public class BackendConfig {
     return backendCfg_.unregistration_thread_pool_size;
   }
 
+  public void setCTESuggesterClass(String suggesterClass) {
+    backendCfg_.cte_suggester_class = suggesterClass;
+  }
+
   public String getCTESuggesterClass() {
     return backendCfg_.cte_suggester_class;
   }

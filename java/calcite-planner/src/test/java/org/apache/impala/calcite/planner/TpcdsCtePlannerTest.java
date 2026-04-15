@@ -21,6 +21,7 @@ import org.apache.impala.catalog.SideloadTableStats;
 import org.apache.impala.common.ByteUnits;
 import org.apache.impala.common.RuntimeEnv;
 import org.apache.impala.planner.PlannerTestBase;
+import org.apache.impala.service.BackendConfig;
 import org.apache.impala.thrift.TPlannerType;
 import org.apache.impala.thrift.TQueryOptions;
 import org.apache.impala.thrift.TReplicaPreference;
@@ -158,6 +159,8 @@ public class TpcdsCtePlannerTest extends PlannerTestBase {
           testDb, entry.getKey(), entry.getValue());
     }
     invalidateTables();
+    BackendConfig.INSTANCE.setCTESuggesterClass(
+        "org.apache.impala.calcite.cte.AdvisorSuggester");
   }
 
   @AfterClass
