@@ -71,6 +71,7 @@ import org.apache.impala.util.EventSequence;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -367,7 +368,13 @@ public class CalciteOptimizer implements CompilerStep {
     if (ctes.isEmpty()) {
       return plan;
     }
-
+    // Since we assign a name to every CTE we need to enforce
+    // some order among them to keep plans deterministic
+    // We could potentially delegate this responsibility to
+    // the suggester implementation. However, since suggesters
+    // are pluggable/configurable not sure if we should rely on
+    // the end user.
+    ctes = ctes.stream().sorted(Comparator.comparing(RelOptUtil::toString)).toList();
     List<RelOptMaterialization> cteMVs = new ArrayList<>();
     int i = 0;
     for (RelNode cte : ctes) {
