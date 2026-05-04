@@ -20,7 +20,6 @@ package org.apache.impala.analysis;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.planner.DataSink;
 import org.apache.impala.planner.KuduTableSink;
-import org.apache.impala.planner.MultiDataSink;
 import org.apache.impala.planner.TableSink;
 
 import com.google.common.base.Preconditions;
@@ -36,15 +35,8 @@ public class StreamingDeleteImpl extends StreamingModifyImpl {
   public DataSink createDataSink() {
     // analyze() must have been called before.
     Preconditions.checkState(modifyStmt_.table_ instanceof FeKuduTable);
-    TableSink deleteSink = new KuduTableSink(deleteTable_, TableSink.Op.INSERT,
-        deleteTableColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken(),
-        deleteTableId_);
-    TableSink tableSink = new KuduTableSink(modifyStmt_.table_, TableSink.Op.DELETE,
-        referencedColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken());
-
-    MultiDataSink ret = new MultiDataSink();
-    ret.addDataSink(deleteSink);
-    ret.addDataSink(tableSink);
-    return ret;
+    return new KuduTableSink(modifyStmt_.table_, TableSink.Op.DELETE,
+        referencedColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken(),
+        deleteTableId_, deleteTableColumns_);
   }
 }

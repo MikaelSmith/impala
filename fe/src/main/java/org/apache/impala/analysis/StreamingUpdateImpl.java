@@ -20,7 +20,6 @@ package org.apache.impala.analysis;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.planner.DataSink;
 import org.apache.impala.planner.KuduTableSink;
-import org.apache.impala.planner.MultiDataSink;
 import org.apache.impala.planner.TableSink;
 
 import com.google.common.base.Preconditions;
@@ -35,21 +34,15 @@ public class StreamingUpdateImpl extends StreamingModifyImpl {
     // UPDATE -> select all matching primary keys and missing rows, delete rows, then
     // upsert new rows into Kudu.
     Preconditions.checkState(modifyStmt_.table_ instanceof FeKuduTable);
-    TableSink tableSink = new KuduTableSink(modifyStmt_.table_, TableSink.Op.UPSERT,
-        referencedColumns_, sourceStmt_.getResultExprs(),
-        modifyStmt_.getKuduTransactionToken());
     if (getKuduTable().isPrimaryKeyUnique()) {
       // For tables with unique primary keys we can directly upsert the modified rows
       // without deleting first.
-      return tableSink;
+      return new KuduTableSink(modifyStmt_.table_, TableSink.Op.UPSERT,
+          referencedColumns_, sourceStmt_.getResultExprs(),
+          modifyStmt_.getKuduTransactionToken());
     }
-
-    TableSink deleteSink = new KuduTableSink(deleteTable_, TableSink.Op.INSERT,
-        deleteTableColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken(),
-        deleteTableId_);
-    MultiDataSink ret = new MultiDataSink();
-    ret.addDataSink(deleteSink);
-    ret.addDataSink(tableSink);
-    return ret;
+    return new KuduTableSink(modifyStmt_.table_, TableSink.Op.UPSERT,
+        referencedColumns_, sourceStmt_.getResultExprs(),
+        modifyStmt_.getKuduTransactionToken(), deleteTableId_, deleteTableColumns_);
   }
 }

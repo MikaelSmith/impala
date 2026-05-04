@@ -121,6 +121,16 @@ Status KuduTableSink::Prepare(RuntimeState* state, MemTracker* parent_mem_tracke
 
   state->dml_exec_state()->InitForKuduDml(table_desc_->fully_qualified_name());
 
+  if (kudu_table_sink_.delete_table_id > table_id_) {
+    TableDescriptor* delete_table_desc =
+        state->desc_tbl().GetTableDescriptor(kudu_table_sink_.delete_table_id);
+    DCHECK(delete_table_desc != nullptr);
+    DCHECK(dynamic_cast<const KuduTableDescriptor*>(delete_table_desc))
+        << "Delete TableDescriptor must be an instance KuduTableDescriptor.";
+    delete_table_desc_ = static_cast<const KuduTableDescriptor*>(delete_table_desc);
+    state->dml_exec_state()->InitForKuduDml(delete_table_desc_->fully_qualified_name());
+  }
+
   // Add counters
   total_rows_ = ADD_COUNTER(profile(), "TotalNumRows", TUnit::UNIT);
   num_row_errors_ = ADD_COUNTER(profile(), "NumRowErrors", TUnit::UNIT);
@@ -153,6 +163,10 @@ Status KuduTableSink::Open(RuntimeState* state) {
   KUDU_RETURN_IF_ERROR(client_->OpenTable(table_desc_->table_name(), &table_),
       "Unable to open Kudu table");
   auto_incrementing_column_idx_ = table_->schema().GetAutoIncrementingColumnIndex();
+  if (delete_table_desc_ != nullptr) {
+    KUDU_RETURN_IF_ERROR(client_->OpenTable(delete_table_desc_->table_name(),
+        &delete_table_), "Unable to open Kudu delete table");
+  }
 
   // Verify the KuduTable's schema is what we expect, in case it was modified since
   // analysis. If the underlying schema is changed after this point but before the write
@@ -161,8 +175,6 @@ Status KuduTableSink::Open(RuntimeState* state) {
   for (int i = 0; i < output_expr_evals_.size(); ++i) {
     int col_idx = kudu_table_sink_.referenced_columns.empty() ?
         i : kudu_table_sink_.referenced_columns[i];
-    // Negative index means the column is not referenced and thus should be ignored.
-    if (col_idx < 0) continue;
     if (col_idx >= table_->schema().num_columns()) {
       return Status(strings::Substitute(
           "Table $0 has fewer columns than expected.", table_desc_->name()));
@@ -284,6 +296,8 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
   // Collect all write operations and apply them together so the time in Apply() can be
   // easily timed.
   vector<unique_ptr<kudu::client::KuduWriteOperation>> write_ops;
+  if (delete_table_desc_ != nullptr) write_ops.reserve(batch->num_rows() * 2);
+  else write_ops.reserve(batch->num_rows());
 
   // Count the number of rows with nulls in non-nullable columns, i.e. null constraint
   // violations.
@@ -295,6 +309,8 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
   // Since everything is set up just forward everything to the writer.
   for (int i = 0; i < batch->num_rows(); ++i) {
     TupleRow* current_row = batch->GetRow(i);
+    unique_ptr<kudu::client::KuduWriteOperation> del;
+    if (delete_table_desc_ != nullptr) del.reset(delete_table_->NewInsert());
     unique_ptr<kudu::client::KuduWriteOperation> write(
         ignore_conflicts_ ? NewWriteIgnoreOp() : NewWriteOp());
     bool add_row = true;
@@ -305,8 +321,6 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
       // referenced_columns is then used to map to actual column positions.
       int col = kudu_table_sink_.referenced_columns.empty() ?
           j : kudu_table_sink_.referenced_columns[j];
-      // Skip unused columns.
-      if (col < 0) continue;
 
       void* value = output_expr_evals_[j]->GetValue(current_row);
       if (value == nullptr) {
@@ -349,8 +363,23 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
                      << "' of type '" << type << "': "
                      << s.GetDetail();
       RETURN_IF_ERROR(s);
+      if (del && j < kudu_table_sink_.delete_columns.size()) {
+        int delete_col = kudu_table_sink_.delete_columns[j];
+        if (delete_col == -1) continue; // skip columns that are not part of delete condition
+        s = WriteKuduValue(delete_col, type, value, true, del->mutable_row());
+        // This can only fail if we set a col to an incorrect type, which would be a bug in
+        // planning, so we can DCHECK.
+        DCHECK(s.ok()) << "WriteKuduValue (delete) failed for col '"
+                       << delete_table_->schema().Column(delete_col).name()
+                       << "' of type '" << type << "': "
+                       << s.GetDetail();
+        RETURN_IF_ERROR(s);
+      }
     }
-    if (add_row) write_ops.push_back(move(write));
+    if (add_row) {
+      if (del) write_ops.push_back(move(del));
+      write_ops.push_back(move(write));
+    }
   }
 
   {

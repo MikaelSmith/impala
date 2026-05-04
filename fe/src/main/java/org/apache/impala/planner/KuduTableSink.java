@@ -55,26 +55,31 @@ public class KuduTableSink extends TableSink {
   // target table is Kudu table and transaction for Kudu is enabled.
   private java.nio.ByteBuffer txnToken_;
 
+  // Table which is to be populated by this sink.
+  private final int deleteTableId_;
+  // Kudu table column indices for the delete table.
+  private final List<Integer> deleteColIdxs_;
+
   // Indicate whether Kudu cluster supports IGNORE write operations or not.
   private boolean supportsIgnoreOperations_ = false;
 
-  // Table ID for sink table. This is used to distinguish multiple KuduTableSinks in a
-  // MultiDataSink.
-  private int tableId_;
-
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken) {
-    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken,
-        DescriptorTable.TABLE_SINK_ID);
+    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, -1, null);
   }
 
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
-      List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int tableId) {
+      List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int deleteTableId,
+      List<Integer> deleteTableColumns) {
     super(targetTable, sinkOp, outputExprs);
     targetColIdxs_ = referencedColumns != null
         ? Lists.newArrayList(referencedColumns) : null;
     txnToken_ =
         txnToken != null ? org.apache.thrift.TBaseHelper.copyBinary(txnToken) : null;
+    Preconditions.checkArgument(
+        deleteTableId > DescriptorTable.TABLE_SINK_ID ^ deleteTableColumns == null);
+    deleteTableId_ = deleteTableId;
+    deleteColIdxs_ = deleteTableColumns;
 
     // Check if Kudu cluster supports IGNORE write operations.
     Preconditions.checkState(targetTable instanceof FeKuduTable);
@@ -85,7 +90,6 @@ public class KuduTableSink extends TableSink {
     } catch (Exception e) {
       LOG.error("Unable to check Kudu ignore operation support", e);
     }
-    tableId_ = tableId;
   }
 
   @Override
@@ -126,11 +130,15 @@ public class KuduTableSink extends TableSink {
 
   @Override
   protected void toThriftImpl(TDataSink tsink) {
-    TTableSink tTableSink = new TTableSink(tableId_,
+    TTableSink tTableSink = new TTableSink(DescriptorTable.TABLE_SINK_ID,
         TTableSinkType.KUDU, sinkOp_.toThrift());
     TKuduTableSink tKuduSink = new TKuduTableSink();
     tKuduSink.setReferenced_columns(targetColIdxs_);
     if (txnToken_ != null) tKuduSink.setKudu_txn_token(txnToken_);
+    if (deleteTableId_ > DescriptorTable.TABLE_SINK_ID) {
+      tKuduSink.setDelete_table_id(deleteTableId_);
+      tKuduSink.setDelete_columns(deleteColIdxs_);
+    }
     tKuduSink.setIgnore_not_found_or_duplicate(supportsIgnoreOperations_);
     tTableSink.setKudu_table_sink(tKuduSink);
     tsink.table_sink = tTableSink;
