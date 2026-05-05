@@ -1117,6 +1117,11 @@ enum TImpalaQueryOptions {
   // The constant value was chosen arbitrarily to not be "too high" or "too low".
   // TODO: Compute stats for nested types and pick them up.
   AVG_COLLECTION_SIZE = 206
+
+  // Write updates directly to the Kudu API only on data in Kudu instead of across
+  // both Kudu and Iceberg portions of a streaming table. Only allowed with unique
+  // primary key tables.
+  DIRECT_KUDU_UPDATE = 207
 }
 
 // The summary of a DML statement.
