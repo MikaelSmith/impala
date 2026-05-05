@@ -42,6 +42,7 @@ abstract class StreamingModifyImpl extends ModifyImpl {
   private FeTable baseTable_;
   protected FeKuduTable deleteTable_ = null;
   protected int deleteTableId_ = -1;
+  protected boolean isKuduOnly_ = false;
 
   /////////////////////////////////////////
   // START: Members that are set in buildAndValidateSelectExprs().
@@ -73,6 +74,7 @@ abstract class StreamingModifyImpl extends ModifyImpl {
     deleteTable_ = KuduUtil.getKuduTable(analyzer, baseTable_.getDb().getName(),
         baseTable_.getParameter(FeTable.STREAMING_DELS));
     deleteTableId_ = analyzer.getDescTbl().addTargetTable(deleteTable_);
+    isKuduOnly_ = analyzer.getQueryOptions().direct_kudu_update;
   }
 
   private Map<String, Integer> indexMap(List<Column> columns) {
@@ -127,6 +129,7 @@ abstract class StreamingModifyImpl extends ModifyImpl {
     boolean convertToUtc = analyzer.getQueryOptions().isWrite_kudu_utc_timestamps();
 
     // Unhide target table to analyze the lhsSlotRef in its context.
+    Preconditions.checkState(modifyStmt_.targetTableRef_.isHidden());
     modifyStmt_.targetTableRef_.setHidden(false);
     modifyStmt_.fromClause_.getTableRefs().forEach(r -> r.setHidden(true));
     for (Pair<SlotRef, Expr> valueAssignment : modifyStmt_.assignments_) {
@@ -173,6 +176,13 @@ abstract class StreamingModifyImpl extends ModifyImpl {
       selectList.add(new SelectListItem(rhsExpr, null));
       referencedColumns_.add(colIndexMap.get(c.getName()));
     }
+
+    if (isKuduOnly_) {
+      // In DIRECT_KUDU_UPDATE mode, we only need the key columns in the select list since
+      // we only operate on the Kudu table and can use Update instead of Upsert.
+      return;
+    }
+
     // Add all remaining columns to the select and referenced columns lists to ensure the
     // upsert contains a complete row.
     Set<Integer> referencedColumnsSet = new HashSet<>(referencedColumns_);
