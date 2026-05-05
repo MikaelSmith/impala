@@ -1496,6 +1496,10 @@ Status impala::SetQueryOption(TImpalaQueryOptions::type option, const string& va
         query_options->__set_chain_grouping_sets_preagg(IsTrue(value));
         break;
       }
+      case TImpalaQueryOptions::DIRECT_KUDU_UPDATE: {
+        query_options->__set_direct_kudu_update(IsTrue(value));
+        break;
+      }
       default:
         string key = to_string(option);
         if (IsRemovedQueryOption(key)) {

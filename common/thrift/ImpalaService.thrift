@@ -1131,6 +1131,11 @@ enum TImpalaQueryOptions {
   // output of each grouping set into the next one instead of passing every input row to
   // every grouping set.
   CHAIN_GROUPING_SETS_PREAGG = 209
+
+  // Write updates directly to the Kudu API only on data in Kudu instead of across
+  // both Kudu and Iceberg portions of a streaming table. Only allowed with unique
+  // primary key tables.
+  DIRECT_KUDU_UPDATE = 210
 }
 
 // The summary of a DML statement.
