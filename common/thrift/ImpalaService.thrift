@@ -1088,6 +1088,11 @@ enum TImpalaQueryOptions {
   // NONE             : No fallback planner to be used.
   // default is ORIGINAL
   FALLBACK_PLANNER = 200
+
+  // Write updates directly to the Kudu API only on data in Kudu instead of across
+  // both Kudu and Iceberg portions of a streaming table. Only allowed with unique
+  // primary key tables.
+  DIRECT_KUDU_UPDATE = 201
 }
 
 // The summary of a DML statement.

@@ -95,15 +95,8 @@ select * from test order by i, count;
 INT, STRING, BIGINT
 ====
 ---- QUERY
-update test set comm='oops' where i>=5;
-select * from test order by i, count;
----- RESULTS
-2,'b',20
-4,'d',40
-5,'oops',50
-6,'oops',60
-6,'oops',61
-7,'oops',NULL
----- TYPES
-INT, STRING, BIGINT
+set direct_kudu_update=true;
+update test set comm='direct' where i=7;
+---- CATCH
+AnalysisException: Cannot DIRECT_KUDU_UPDATE streaming table '$DATABASE.test' because the primary key is not unique.
 ====

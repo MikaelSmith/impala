@@ -51,7 +51,7 @@ typedef std::unordered_map<string, beeswax::TQueryOptionLevel::type>
 // plus one. Thus, the second argument to the DCHECK has to be updated every
 // time we add or remove a query option to/from the enum TImpalaQueryOptions.
 constexpr unsigned NUM_QUERY_OPTIONS =
-    TImpalaQueryOptions::FALLBACK_PLANNER + 1;
+    TImpalaQueryOptions::DIRECT_KUDU_UPDATE + 1;
 #define QUERY_OPTS_TABLE                                                                 \
   DCHECK_EQ(_TImpalaQueryOptions_VALUES_TO_NAMES.size(), NUM_QUERY_OPTIONS);             \
   REMOVED_QUERY_OPT_FN(abort_on_default_limit_exceeded, ABORT_ON_DEFAULT_LIMIT_EXCEEDED) \
@@ -388,6 +388,7 @@ constexpr unsigned NUM_QUERY_OPTIONS =
   QUERY_OPT_FN(show_create_table_partition_limit, SHOW_CREATE_TABLE_PARTITION_LIMIT, TQueryOptionLevel::REGULAR)             \
   QUERY_OPT_FN(planner, PLANNER, TQueryOptionLevel::ADVANCED)                            \
   QUERY_OPT_FN(fallback_planner, FALLBACK_PLANNER, TQueryOptionLevel::ADVANCED)          \
+  QUERY_OPT_FN(direct_kudu_update, DIRECT_KUDU_UPDATE, TQueryOptionLevel::ADVANCED)      \
   ;
 
 /// Enforce practical limits on some query options to avoid undesired query state.

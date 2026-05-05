@@ -101,3 +101,17 @@ select * from test order by i;
 ---- TYPES
 INT, STRING, BIGINT
 ====
+---- QUERY
+set direct_kudu_update=true;
+update test set comm='bb' where i=2;
+update test set comm='direct' where i=7;
+select * from test order by i;
+---- RESULTS
+2,'b',20
+4,'d',40
+5,'oops',50
+6,'oops',61
+7,'direct',NULL
+---- TYPES
+INT, STRING, BIGINT
+====

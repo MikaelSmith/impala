@@ -119,7 +119,6 @@ public abstract class ModifyStmt extends DmlStatementBase {
   @Override
   public void analyze(Analyzer analyzer) throws AnalysisException {
     super.analyze(analyzer);
-    fromClause_.analyze(analyzer);
 
     TableName targetTableName = targetTablePath_.size() == 1 ?
         new TableName(analyzer.getDefaultDb(), targetTablePath_.get(0)) :
@@ -132,9 +131,27 @@ public abstract class ModifyStmt extends DmlStatementBase {
       // Set targetTableRef_ to the underlying Kudu table.
       targetTableRef_ = TableRef.newTableRef(analyzer, List.of(targetTable.getDb().getName(),
           targetTable.getParameter(FeTable.STREAMING_KUDU)), null);
-      // Hide the target table while evaluating the where predicate to avoid ambiguity.
-      targetTableRef_.setHidden(true);
+      if (!(targetTableRef_.getTable() instanceof FeKuduTable)) {
+        throw new AnalysisException(format("{} for {} is not a Kudu table.",
+            FeTable.STREAMING_KUDU, targetTable.getFullName()));
+      }
+      if (modifyImpl_ != null) {
+        // Hide the target table while evaluating the where predicate to avoid ambiguity.
+        targetTableRef_.setHidden(true);
+      } else {
+        if (!((FeKuduTable) targetTableRef_.getTable()).isPrimaryKeyUnique()) {
+          throw new AnalysisException(format("Cannot DIRECT_KUDU_UPDATE streaming table" +
+              " '%s' because the primary key is not unique.", targetTable.getFullName()));
+        }
+        // Rewrite fromClause to reference the Kudu table.
+        fromClause_ = new FromClause(List.of(targetTableRef_));
+        fromClause_.analyze(analyzer);
+        fromClause_.setIsModify();
+      }
+      fromClause_.analyze(analyzer);
     } else {
+      fromClause_.analyze(analyzer);
+
       List<Path> candidates = analyzer.getTupleDescPaths(targetTablePath_);
       if (candidates.isEmpty()) {
         throw new AnalysisException(format("'%s' is not a valid table alias or reference.",
