@@ -1105,6 +1105,11 @@ enum TImpalaQueryOptions {
   // Occurrence threshold for using CTEs. CTEs are only used if occurrences are greater
   // than the threshold. Defaults to -1; negative values disable CTE planning.
   CTE_THRESHOLD = 205
+
+  // Write updates directly to the Kudu API only on data in Kudu instead of across
+  // both Kudu and Iceberg portions of a streaming table. Only allowed with unique
+  // primary key tables.
+  DIRECT_KUDU_UPDATE = 206
 }
 
 // The summary of a DML statement.

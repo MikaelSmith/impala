@@ -34,15 +34,15 @@ public class StreamingUpdateImpl extends StreamingModifyImpl {
     // UPDATE -> select all matching primary keys and missing rows, delete rows, then
     // upsert new rows into Kudu.
     Preconditions.checkState(modifyStmt_.table_ instanceof FeKuduTable);
+    TableSink.Op op = isKuduOnly_ ? TableSink.Op.UPDATE : TableSink.Op.UPSERT;
     if (getKuduTable().isPrimaryKeyUnique()) {
       // For tables with unique primary keys we can directly upsert the modified rows
       // without deleting first.
-      return new KuduTableSink(modifyStmt_.table_, TableSink.Op.UPSERT,
-          referencedColumns_, sourceStmt_.getResultExprs(),
-          modifyStmt_.getKuduTransactionToken());
+      return new KuduTableSink(modifyStmt_.table_, op, referencedColumns_,
+          sourceStmt_.getResultExprs(), modifyStmt_.getKuduTransactionToken());
     }
-    return new KuduTableSink(modifyStmt_.table_, TableSink.Op.UPSERT,
-        referencedColumns_, sourceStmt_.getResultExprs(),
-        modifyStmt_.getKuduTransactionToken(), deleteTableId_, deleteTableColumns_);
+    return new KuduTableSink(modifyStmt_.table_, op, referencedColumns_,
+        sourceStmt_.getResultExprs(), modifyStmt_.getKuduTransactionToken(),
+        deleteTableId_, deleteTableColumns_);
   }
 }

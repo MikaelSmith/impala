@@ -119,7 +119,6 @@ public abstract class ModifyStmt extends DmlStatementBase {
   @Override
   public void analyze(Analyzer analyzer) throws AnalysisException {
     super.analyze(analyzer);
-    fromClause_.analyze(analyzer);
 
     TableName targetTableName = targetTablePath_.size() == 1 ?
         new TableName(analyzer.getDefaultDb(), targetTablePath_.get(0)) :
@@ -131,10 +130,25 @@ public abstract class ModifyStmt extends DmlStatementBase {
       createModifyImpl();
       // Set targetTableRef_ to the underlying Kudu table.
       targetTableRef_ = TableRef.newTableRef(analyzer, List.of(targetTable.getDb().getName(),
-          targetTable.getParameter(FeTable.STREAMING_KUDU)), null);
+          targetTable.getParameter(FeTable.STREAMING_KUDU)), "target");
+      if (analyzer_.getQueryOptions().direct_kudu_update) {
+        Preconditions.checkState(fromClause_.size() == 1);
+        // Rewrite fromClause to reference the Kudu table. Uses DiffScan based on last
+        // migration timestamp to avoid reading old entries that have been superseded with
+        // a new auto_incrementing_id.
+        TableRef srcTableRef = new TableRef(targetTableRef_.getPath(),
+            fromClause_.get(0).getExplicitAlias(), null,
+            new TimeTravelSpec(NumericLiteral.create(targetTable.getPIT().second),
+                new FunctionCallExpr("now", null)));
+        fromClause_ = new FromClause(List.of(srcTableRef));
+        fromClause_.setIsModify();
+      }
       // Hide the target table while evaluating the where predicate to avoid ambiguity.
       targetTableRef_.setHidden(true);
+      fromClause_.analyze(analyzer);
     } else {
+      fromClause_.analyze(analyzer);
+
       List<Path> candidates = analyzer.getTupleDescPaths(targetTablePath_);
       if (candidates.isEmpty()) {
         throw new AnalysisException(format("'%s' is not a valid table alias or reference.",

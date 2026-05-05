@@ -1471,6 +1471,10 @@ Status impala::SetQueryOption(TImpalaQueryOptions::type option, const string& va
         query_options->__set_cte_threshold(int32_t_val);
         break;
       }
+      case TImpalaQueryOptions::DIRECT_KUDU_UPDATE: {
+        query_options->__set_direct_kudu_update(IsTrue(value));
+        break;
+      }
       default:
         string key = to_string(option);
         if (IsRemovedQueryOption(key)) {

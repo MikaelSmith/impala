@@ -49,7 +49,7 @@ create table test_dels (i int non unique primary key) stored as kudu;
 ====
 ---- QUERY
 # Add new and modify existing data after migrate.
-upsert into test values (6, 'f', 60), (7, 'g', null);
+upsert into test values (6, 'f', null), (7, 'g', 70);
 upsert into test select 1, 'aa', count from test where i=1;
 select * from test order by i;
 ---- RESULTS
@@ -58,8 +58,8 @@ select * from test order by i;
 3,'c',30
 4,'d',40
 5,'e',50
-6,'f',60
-7,'g',NULL
+6,'f',NULL
+7,'g',70
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -73,7 +73,7 @@ select * from test order by i;
 4,'d',40
 5,'e',50
 6,'ff',61
-7,'g',NULL
+7,'g',70
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -85,7 +85,7 @@ select * from test order by i;
 4,'d',40
 5,'e',50
 6,'ff',61
-7,'g',NULL
+7,'g',70
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -97,7 +97,22 @@ select * from test order by i;
 4,'d',40
 5,'oops',50
 6,'oops',61
-7,'oops',NULL
+7,'oops',70
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+set direct_kudu_update=true;
+update test set comm='bb' where i=2;
+update test set comm='direct', count=count+1 where i=7;
+delete test where i=2;
+delete test where i=6;
+select * from test order by i;
+---- RESULTS
+2,'b',20
+4,'d',40
+5,'oops',50
+7,'direct',71
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -108,7 +123,6 @@ select * from test order by i, count;
 ---- RESULTS
 4,'d',40
 5,'oops',50
-7,'oops',NULL
 ---- TYPES
 INT, STRING, BIGINT
 ====
