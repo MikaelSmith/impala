@@ -108,6 +108,10 @@ def parse_args():
       action="store_true",
       help=("Create hybrid streaming tables (Kudu, Iceberg, deletes, PIT, and "
             "meta table) instead of plain Kudu tables"))
+  parser.add_argument(
+      "--with-deletes",
+      action="store_true",
+      help=("Periodically delete 1% of rows from a few tables while queries run"))
 
   options = parser.parse_args()
   if options.parallel_loads < 1:
@@ -143,6 +147,10 @@ def _format_iceberg_partition_spec(partitions):
   return f"PARTITIONED BY SPEC ({', '.join(f'BUCKET(9,{col})' for col in partition_columns)})"
 
 
+def run(query):
+  return subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q", query], capture_output=True)
+
+
 def _create_hybrid(table, schema, primary_key, partitions):
   columns = _parse_columns(schema)
   pk_columns = _split_columns(primary_key)
@@ -171,9 +179,7 @@ def _create_hybrid(table, schema, primary_key, partitions):
        f"'impala.streaming.dels'='{table}_dels')")
   ]
 
-  return subprocess.run(
-      ["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q", "; ".join(statements)],
-      capture_output=True)
+  return run("; ".join(statements))
 
 def create(table, schema, primary_key, partitions, hybrid_table):
   if hybrid_table:
@@ -181,20 +187,20 @@ def create(table, schema, primary_key, partitions, hybrid_table):
 
   pk_clause = f"PRIMARY KEY({primary_key})"
   part = f"PARTITION BY HASH ({partitions}) PARTITIONS 9" if partitions else ""
-  return subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB,
-      "-q", f"CREATE TABLE {table} ({schema}, {pk_clause}) {part} STORED AS KUDU"],
-      capture_output=True)
+  return run(f"CREATE TABLE {table} ({schema}, {pk_clause}) {part} STORED AS KUDU")
 
 def load(table, source_db, hybrid_table):
   op = "UPSERT" if hybrid_table else "INSERT"
-  return subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q",
-      f"{op} INTO TABLE {table} SELECT * FROM {source_db}.{table}; COMPUTE STATS {table}"],
-      capture_output=True)
+  return run(f"{op} INTO TABLE {table} SELECT * FROM {source_db}.{table}; COMPUTE STATS {table}")
 
 def merge(tables):
   start = time.perf_counter()
-  subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q",
-      "; ".join([f"MERGE {table}" for table in tables])])
+  run("; ".join([f"MERGE {table}" for table in tables]))
+  return time.perf_counter() - start
+
+def delete(table, key, iter):
+  start = time.perf_counter()
+  run(f"DELETE {table} WHERE {key} % 100 = {iter}")
   return time.perf_counter() - start
 
 STEP_CREATE = ["creating", "created"]
@@ -252,8 +258,12 @@ def main():
                for table, _, _, _ in TPCH_SCHEMA}
 
     query_runs = 0
-    with Pool(processes=options.parallel_queries) as query_pool, Pool(processes=1) as merge_pool:
+    with Pool(processes=options.parallel_queries) as query_pool, Pool(processes=3) as merge_pool:
       while results:
+        if options.with_deletes:
+          # Delete 1% of rows from a few tables
+          customer_del = merge_pool.apply_async(delete, ("customer", "C_CUSTKEY", query_runs))
+          supplier_del = merge_pool.apply_async(delete, ("supplier", "S_SUPPKEY", query_runs))
         # Start table migration while queries run.
         if options.hybrid_table:
           merge_result = merge_pool.apply_async(merge, ([table for table, _, _, _ in TPCH_SCHEMA],))
@@ -267,6 +277,9 @@ def main():
         print(f"Ran test queries in {end_queries - start_queries:.2f} seconds.")
         # TODO: move before queries?
         print_ready(STEP_LOAD, results)
+        if options.with_deletes:
+          print(f"Deleted 1% of rows from customer with iter={query_runs} in {customer_del.get():.2f} seconds.")
+          print(f"Deleted 1% of rows from supplier with iter={query_runs} in {supplier_del.get():.2f} seconds.")
         if options.hybrid_table:
           print(f"Merge completed in {merge_result.get():.2f} seconds.")
     end_load = time.perf_counter()
