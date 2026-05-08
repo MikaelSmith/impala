@@ -109,10 +109,11 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
     }
 
     final String baseAlias = ObjectUtils.firstNonNull(tblRef.getExplicitAlias(), "base");
-    String pitTable = KuduUtil.getKuduTableName(
-        db, params.get(FeTable.STREAMING_PIT), kuduTbl.getKuduMasterHosts());
-    Pair<Long, Long> kuduPIT = KuduUtil.kuduPITLookup(kuduTbl.getKuduMasterHosts(),
-        pitTable, KuduUtil.LAST_MIGRATION_ID);
+    Pair<Long, Long> kuduPIT = baseTable.getPIT();
+    if (kuduPIT == null) {
+      throw new AnalysisException("Failed to retrieve point-in-time for streaming table: " +
+          baseTable.getFullName());
+    }
     long icebergSnapshot = kuduPIT.first;
     if (icebergSnapshot > 0) {
       long kuduMigrationTs = kuduPIT.second;

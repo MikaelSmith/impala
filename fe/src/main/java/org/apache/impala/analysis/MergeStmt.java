@@ -27,6 +27,7 @@ import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.FeTable;
 import org.apache.impala.catalog.KuduColumn;
 import org.apache.impala.catalog.KuduTable;
+import org.apache.impala.catalog.TableLoadingException;
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.ImpalaRuntimeException;
@@ -157,7 +158,7 @@ public class MergeStmt extends DmlStatementBase {
             """.formatted(icebergTable, kuduTbl.getFullName(), kuduEndMigrationTs,
                 pkJoinCondition, updateList, columnList, valuesList);
       }
-    } catch (Exception e) {
+    } catch (TableLoadingException e) {
       // Cleanup the PIT entry if there is an error to avoid blocking future migrations.
       // TODO: need to handle this on failures throughout the merge, and ensure we only
       // clean up if this coordinator initiated the merge.
@@ -166,7 +167,7 @@ public class MergeStmt extends DmlStatementBase {
       } catch (AnalysisException ex) {
         e.addSuppressed(ex);
       }
-      throw e;
+      throw new AnalysisException("Failed to load PIT for merge statement", e);
     }
   }
 

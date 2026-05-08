@@ -618,16 +618,18 @@ public class KuduUtil {
   }
 
   public static Pair<Long, Long> kuduPITLookup(String kuduMasters, String tableName,
-      int migrationId) throws AnalysisException {
+      int migrationId) throws TableLoadingException {
     KuduClient client = getKuduClient(kuduMasters);
     try {
       RowResult row = getPITRow(client, client.openTable(tableName),
           List.of(SNAPSHOT_ID, MIGRATION_TS), migrationId);
       if (row != null) {
+        LOG.warn("KuduPITLookup in {}: snapshot id {} and migration timestamp {}",
+            tableName, row.getLong(SNAPSHOT_ID), Instant.ofEpochMilli(row.getLong(MIGRATION_TS) / 1_000));
         return new Pair<>(row.getLong(SNAPSHOT_ID), row.getLong(MIGRATION_TS));
       }
     } catch (KuduException e) {
-      throw new AnalysisException("KuduPITLookup failed for table " + tableName
+      throw new TableLoadingException("KuduPITLookup failed for table " + tableName
           + " columns=" + SNAPSHOT_ID + ", " + MIGRATION_TS + " key=" + migrationId, e);
     }
     return new Pair<>(-1L, -1L);

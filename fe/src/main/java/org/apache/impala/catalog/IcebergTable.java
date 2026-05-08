@@ -23,6 +23,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
+import static org.apache.impala.catalog.FeIcebergTable.LOG;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,7 +49,9 @@ import org.apache.impala.analysis.IcebergPartitionField;
 import org.apache.impala.analysis.IcebergPartitionSpec;
 import org.apache.impala.analysis.IcebergPartitionTransform;
 import org.apache.impala.catalog.iceberg.GroupedContentFiles;
+import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.ImpalaRuntimeException;
+import org.apache.impala.common.Pair;
 import org.apache.impala.common.PrintUtils;
 import org.apache.impala.service.BackendConfig;
 import org.apache.impala.thrift.CatalogLookupStatus;
@@ -73,6 +77,7 @@ import org.apache.impala.thrift.TTableType;
 import org.apache.impala.util.EventSequence;
 import org.apache.impala.util.IcebergSchemaConverter;
 import org.apache.impala.util.IcebergUtil;
+import org.apache.impala.util.KuduUtil;
 
 /**
  * Representation of an Iceberg table in the catalog cache.
@@ -271,6 +276,9 @@ public class IcebergTable extends Table implements FeIcebergTable {
   // a full file metadata reload.
   private int loadedFormatVersion_ = -1;
 
+  // Last migration PIT for a streaming table. Init before loading dependent tables.
+  private Pair<Long, Long> lastMigrationPIT_ = null;
+
   private Map<Integer, IcebergColumn> icebergFieldIdToCol_;
   private Map<String, TIcebergPartitionStats> partitionStats_;
 
@@ -417,6 +425,24 @@ public class IcebergTable extends Table implements FeIcebergTable {
   @Override
   public long snapshotId() {
     return catalogSnapshotId_;
+  }
+
+  @Override
+  public void initPIT(String pitName) {
+    if (lastMigrationPIT_ != null) return;
+    String kuduMasters = BackendConfig.INSTANCE.getBackendCfg().kudu_master_hosts;
+    try {
+      String pitTable = KuduUtil.getKuduTableName(getDb().getName(), pitName, kuduMasters);
+      lastMigrationPIT_ =
+          KuduUtil.kuduPITLookup(kuduMasters, pitTable, KuduUtil.LAST_MIGRATION_ID);
+    } catch (ImpalaException e) {
+      LOG.warn("Failed to lookup PIT for streaming table", e);
+    }
+  }
+
+  @Override
+  public Pair<Long, Long> getPIT() {
+    return lastMigrationPIT_;
   }
 
   @Override

@@ -29,6 +29,7 @@ import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.impala.analysis.StmtMetadataLoader;
 import org.apache.impala.analysis.TableName;
+import org.apache.impala.common.Pair;
 import org.apache.impala.thrift.TCatalogObjectType;
 import org.apache.impala.thrift.TColumnDescriptor;
 import org.apache.impala.thrift.TImpalaTableType;
@@ -130,9 +131,23 @@ public interface FeTable {
     if (!isStreaming()) return Collections.emptySet();
     String db = getDb().getName();
     Map<String, String> props = getMetaStoreTable().getParameters();
+    initPIT(props.get(STREAMING_PIT));
     return Set.of(new TableName(db, props.get(STREAMING_KUDU)),
         new TableName(db, props.get(STREAMING_ICEBERG)),
         new TableName(db, props.get(STREAMING_DELS)));
+  }
+
+  /**
+   * Initialize the point-in-time (PIT) for a streaming table.
+   */
+  default void initPIT(String pitName) {}
+
+  /**
+   * Returns the point-in-time (PIT) for a streaming table.
+   */
+  default Pair<Long, Long> getPIT() {
+    throw new UnsupportedOperationException(
+        "getPIT is not supported for non-streaming tables");
   }
 
   /**
