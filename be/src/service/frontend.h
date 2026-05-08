@@ -269,8 +269,8 @@ class Frontend {
   /// Returns a CSV list of Impala keywords excluding the provided ODBC-reserved CSV.
   Status GetNonOdbcKeywords(const std::string& odbc_keywords_csv, std::string* response);
 
-  /// Cancels a PIT migration in progress.
-  Status CancelPITMigration(const THybridMergeOpts& hybrid_merge);
+  /// Ends a PIT migration in progress.
+  Status EndPITMigration(THybridMergeOpts hybrid_merge, long snapshot_id = -1);
 
  private:
   jclass fe_class_; // org.apache.impala.service.JniFrontend class
@@ -321,7 +321,7 @@ class Frontend {
   jmethodID hive_legacy_timezone_convert_; // JniFrontend.hiveLegacyTimezoneConvert()
   jmethodID cancel_exec_request_id_; // JniFrontend.cancelExecRequest()
   jmethodID get_non_odbc_keywords_id_; // JniFrontend.getNonOdbcKeywords(String)
-  jmethodID cancel_pit_migration_id_; // JniFrontend.cancelPITMigration()
+  jmethodID end_pit_migration_id_; // JniFrontend.endPITMigration()
 
   // Only used for testing.
   jmethodID build_test_descriptor_table_id_; // JniFrontend.buildTestDescriptorTable()

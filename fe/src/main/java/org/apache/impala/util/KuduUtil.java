@@ -684,11 +684,12 @@ public class KuduUtil {
     return epochMicros << 12;
   }
 
-  public static void kuduPITEndMigration(THybridMergeOpts hybridMerge, long snapshotId)
+  public static void kuduPITEndMigration(THybridMergeOpts hybridMerge)
       throws AnalysisException {
     KuduClient client = getKuduClient(hybridMerge.getKudu_masters());
     KuduSession session = client.newSession();
     session.setFlushMode(KuduSession.FlushMode.AUTO_FLUSH_SYNC);
+    long snapshotId = hybridMerge.isSetSnapshot_id() ? hybridMerge.getSnapshot_id() : -1;
     try {
       KuduTable table = client.openTable(hybridMerge.getPit_table());
       if (snapshotId > 0) {

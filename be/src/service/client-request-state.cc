@@ -1395,7 +1395,45 @@ Status ClientRequestState::WaitInternal() {
       if (InKuduTransaction()) AbortKuduTransaction();
       return status;
     }
-    RETURN_IF_ERROR(UpdateCatalog());
+    const TExecRequest& exec_req = exec_request();
+    if (exec_req.__isset.query_exec_request &&
+        exec_req.query_exec_request.stmt_type == TStmtType::DML) {
+      query_events_->MarkEvent("DML data written");
+
+      const TQueryExecRequest& query_exec_request = exec_req.query_exec_request;
+      if (query_exec_request.__isset.finalize_params) {
+        const TFinalizeParams& finalize_params = query_exec_request.finalize_params;
+        // Always use sync DDL for hybrid merge to make sure the catalog is updated before
+        // updating the PIT so the new Iceberg snapshot ID is available.
+        long end_snapshot_id = -1;
+        status = UpdateCatalog(finalize_params, exec_req.query_options.debug_action,
+            exec_req.query_options.sync_ddl || finalize_params.__isset.hybrid_merge,
+            &end_snapshot_id);
+        if (finalize_params.__isset.hybrid_merge) {
+          SCOPED_TIMER(ADD_TIMER(server_profile_, "EndPITMigrationTimer"));
+          RETURN_IF_ERROR(frontend_->EndPITMigration(
+              finalize_params.hybrid_merge, end_snapshot_id));
+          string step = end_snapshot_id > 0 ? "Completed" : "Cancelled";
+          query_events_->MarkEvent(step + " PIT migration");
+        }
+        if (UNLIKELY(!status.ok())) {
+          LOG(ERROR) << "ERROR Finalizing DML: " << status.GetDetail();
+          return status;
+        }
+      } else if (InKuduTransaction()) {
+        SCOPED_TIMER(ADD_TIMER(server_profile_, "KuduTransactionCommitTimer"));
+        // Commit the Kudu transaction. Clear transaction state if it's successful.
+        // Otherwise, abort the Kudu transaction and clear transaction state. Note that
+        // TQueryExecRequest.finalize_params is not set for inserting rows to Kudu table.
+        Status status = CommitKuduTransaction();
+        if (UNLIKELY(!status.ok())) {
+          AbortKuduTransaction();
+          LOG(ERROR) << "ERROR Finalizing DML: " << status.GetDetail();
+          return status;
+        }
+        query_events_->MarkEvent("Kudu transaction committed");
+      }
+    }
   } else {
     // When the coordinator is not available for CTAS that requires a coordinator, check
     // further if the query has been cancelled. If so, return immediately as there will
@@ -1702,120 +1740,91 @@ void ClientRequestState::Cancel(const Status* cause, bool wait_until_finalized) 
   if (GetCoordinator() != nullptr) GetCoordinator()->Cancel(wait_until_finalized);
 }
 
-Status ClientRequestState::UpdateCatalog() {
-  const TExecRequest& exec_req = exec_request();
-  if (!exec_req.__isset.query_exec_request ||
-      exec_req.query_exec_request.stmt_type != TStmtType::DML) {
-    return Status::OK();
-  }
-
-  query_events_->MarkEvent("DML data written");
+Status ClientRequestState::UpdateCatalog(const TFinalizeParams& finalize_params,
+    const string& debug_action, bool sync_ddl, long* end_snapshot_id) {
   SCOPED_TIMER(ADD_TIMER(server_profile_, "MetastoreUpdateTimer"));
 
-  const TQueryExecRequest& query_exec_request = exec_req.query_exec_request;
-  if (query_exec_request.__isset.finalize_params) {
-    const TFinalizeParams& finalize_params = query_exec_request.finalize_params;
-    TUpdateCatalogRequest catalog_update;
-    catalog_update.__set_sync_ddl(exec_req.query_options.sync_ddl);
-    catalog_update.__set_header(GetCatalogServiceRequestHeader());
-    if (exec_req.query_options.__isset.debug_action) {
-      catalog_update.__set_debug_action(exec_req.query_options.debug_action);
+  TUpdateCatalogRequest catalog_update;
+  catalog_update.__set_header(GetCatalogServiceRequestHeader());
+  if (!debug_action.empty()) catalog_update.__set_debug_action(debug_action);
+  catalog_update.__set_sync_ddl(sync_ddl);
+  DmlExecState* dml_exec_state = GetCoordinator()->dml_exec_state();
+  if (!dml_exec_state->PrepareCatalogUpdate(&catalog_update, finalize_params)) {
+    VLOG_QUERY << "No partitions altered, not updating metastore (query id: "
+                << PrintId(query_id()) << ")";
+  } else {
+    // TODO: We track partitions written to, not created, which means
+    // that we do more work than is necessary, because written-to
+    // partitions don't always require a metastore change.
+    if (VLOG_IS_ON(1)) {
+      vector<string> part_list;
+      for (auto it : catalog_update.updated_partitions) part_list.push_back(it.first);
+      VLOG_QUERY << "Updating metastore with "
+                << catalog_update.updated_partitions.size()
+                << " altered partitions ("
+                << join (part_list, ", ") << ")";
     }
-    if (finalize_params.__isset.hybrid_merge) {
-      catalog_update.__set_hybrid_merge(finalize_params.hybrid_merge);
+
+    catalog_update.target_table = finalize_params.table_name;
+    catalog_update.db_name = finalize_params.table_db;
+    catalog_update.is_overwrite = finalize_params.is_overwrite;
+    if (InTransaction()) {
+      catalog_update.__set_transaction_id(finalize_params.transaction_id);
+      catalog_update.__set_write_id(finalize_params.write_id);
     }
-    DmlExecState* dml_exec_state = GetCoordinator()->dml_exec_state();
-    if (!dml_exec_state->PrepareCatalogUpdate(&catalog_update, finalize_params)) {
-      VLOG_QUERY << "No partitions altered, not updating metastore (query id: "
-                 << PrintId(query_id()) << ")";
-      if (finalize_params.__isset.hybrid_merge) {
-        RETURN_IF_ERROR(frontend_->CancelPITMigration(finalize_params.hybrid_merge));
+    if (finalize_params.__isset.iceberg_params) {
+      TIcebergOperationParam& cat_ice_op = catalog_update.iceberg_operation;
+      catalog_update.__isset.iceberg_operation = true;
+      if (!CreateIcebergCatalogOps(finalize_params, &cat_ice_op)) {
+        VLOG_QUERY << "No Iceberg partitions altered, not updating metastore "
+                    << "(query id: " << PrintId(query_id()) << ")";
+        return Status::OK();
       }
-    } else {
-      // TODO: We track partitions written to, not created, which means
-      // that we do more work than is necessary, because written-to
-      // partitions don't always require a metastore change.
-      if (VLOG_IS_ON(1)) {
-        vector<string> part_list;
-        for (auto it : catalog_update.updated_partitions) part_list.push_back(it.first);
-        VLOG_QUERY << "Updating metastore with "
-                  << catalog_update.updated_partitions.size()
-                  << " altered partitions ("
-                  << join (part_list, ", ") << ")";
-      }
-
-      catalog_update.target_table = finalize_params.table_name;
-      catalog_update.db_name = finalize_params.table_db;
-      catalog_update.is_overwrite = finalize_params.is_overwrite;
-      if (InTransaction()) {
-        catalog_update.__set_transaction_id(finalize_params.transaction_id);
-        catalog_update.__set_write_id(finalize_params.write_id);
-      }
-      if (finalize_params.__isset.iceberg_params) {
-        TIcebergOperationParam& cat_ice_op = catalog_update.iceberg_operation;
-        catalog_update.__isset.iceberg_operation = true;
-        if (!CreateIcebergCatalogOps(finalize_params, &cat_ice_op)) {
-          VLOG_QUERY << "No Iceberg partitions altered, not updating metastore "
-                     << "(query id: " << PrintId(query_id()) << ")";
-          if (finalize_params.__isset.hybrid_merge) {
-            RETURN_IF_ERROR(frontend_->CancelPITMigration(finalize_params.hybrid_merge));
-          }
-          return Status::OK();
-        }
-      }
-
-      Status cnxn_status;
-      CatalogServiceConnection client(ExecEnv::GetInstance()->catalogd_client_cache(),
-          *ExecEnv::GetInstance()->GetCatalogdAddress().get(), &cnxn_status);
-      RETURN_IF_ERROR(cnxn_status);
-
-      VLOG_QUERY << "Executing FinalizeDml() using CatalogService";
-      TUpdateCatalogResponse resp;
-      Status status = DebugAction(query_options(), "CLIENT_REQUEST_UPDATE_CATALOG");
-      if (status.ok()) {
-        status = client.DoRpc(
-            &CatalogServiceClientWrapper::UpdateCatalog, catalog_update, &resp);
-        query_events_->MarkEvent("UpdateCatalog finished");
-      }
-      if (resp.__isset.profile) {
-        for (const TEventSequence& catalog_timeline : resp.profile.event_sequences) {
-          string timeline_name = catalog_timeline.name;
-          // For CTAS, we already have a timeline for the CreateTable execution.
-          // Use another name for the INSERT timeline.
-          if (summary_profile_->GetEventSequence(timeline_name) != nullptr) {
-            timeline_name += " 2";
-          }
-          summary_profile_->AddEventSequence(timeline_name, catalog_timeline);
-        }
-      }
-      if (status.ok()) status = Status(resp.result.status);
-      if (!status.ok()) {
-        if (InTransaction()) AbortTransaction();
-        LOG(ERROR) << "ERROR Finalizing DML: " << status.GetDetail();
-        return status;
-      }
-      if (InTransaction()) {
-        // UpdateCatalog() succeeded and already committed the transaction for us.
-        int64_t txn_id = GetTransactionId();
-        if (!frontend_->UnregisterTransaction(txn_id).ok()) {
-          LOG(ERROR) << Substitute("Failed to unregister transaction $0", txn_id);
-        }
-        ClearTransactionState();
-        query_events_->MarkEvent("Transaction committed");
-      }
-      RETURN_IF_ERROR(parent_server_->ProcessCatalogUpdateResult(resp.result,
-          exec_req.query_options.sync_ddl, query_options(), query_events_));
     }
-  } else if (InKuduTransaction()) {
-    // Commit the Kudu transaction. Clear transaction state if it's successful.
-    // Otherwise, abort the Kudu transaction and clear transaction state.
-    // Note that TQueryExecRequest.finalize_params is not set for inserting rows to Kudu
-    // table.
-    Status status = CommitKuduTransaction();
-    if (UNLIKELY(!status.ok())) {
-      AbortKuduTransaction();
+
+    Status cnxn_status;
+    CatalogServiceConnection client(ExecEnv::GetInstance()->catalogd_client_cache(),
+        *ExecEnv::GetInstance()->GetCatalogdAddress().get(), &cnxn_status);
+    RETURN_IF_ERROR(cnxn_status);
+
+    VLOG_QUERY << "Executing FinalizeDml() using CatalogService";
+    TUpdateCatalogResponse resp;
+    Status status = DebugAction(query_options(), "CLIENT_REQUEST_UPDATE_CATALOG");
+    if (status.ok()) {
+      status = client.DoRpc(
+          &CatalogServiceClientWrapper::UpdateCatalog, catalog_update, &resp);
+      query_events_->MarkEvent("UpdateCatalog finished");
+    }
+    if (resp.__isset.profile) {
+      for (const TEventSequence& catalog_timeline : resp.profile.event_sequences) {
+        string timeline_name = catalog_timeline.name;
+        // For CTAS, we already have a timeline for the CreateTable execution.
+        // Use another name for the INSERT timeline.
+        if (summary_profile_->GetEventSequence(timeline_name) != nullptr) {
+          timeline_name += " 2";
+        }
+        summary_profile_->AddEventSequence(timeline_name, catalog_timeline);
+      }
+    }
+    if (status.ok()) status = Status(resp.result.status);
+    if (!status.ok()) {
+      if (InTransaction()) AbortTransaction();
       LOG(ERROR) << "ERROR Finalizing DML: " << status.GetDetail();
       return status;
+    }
+    if (InTransaction()) {
+      // UpdateCatalog() succeeded and already committed the transaction for us.
+      int64_t txn_id = GetTransactionId();
+      if (!frontend_->UnregisterTransaction(txn_id).ok()) {
+        LOG(ERROR) << Substitute("Failed to unregister transaction $0", txn_id);
+      }
+      ClearTransactionState();
+      query_events_->MarkEvent("Transaction committed");
+    }
+    RETURN_IF_ERROR(parent_server_->ProcessCatalogUpdateResult(resp.result,
+        sync_ddl, query_options(), query_events_));
+    if (end_snapshot_id != nullptr) {
+      *end_snapshot_id = resp.iceberg_snapshot_id;
     }
   }
   query_events_->MarkEvent("DML Metastore update finished");

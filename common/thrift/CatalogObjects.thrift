@@ -1007,4 +1007,5 @@ struct THybridMergeOpts {
   2: required string pit_table
   3: required string data_table
   4: required string dels_table
+  5: optional i64 snapshot_id
 }

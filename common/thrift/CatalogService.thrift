@@ -307,8 +307,6 @@ struct TUpdateCatalogRequest {
 
   // Passes the debug actions to catalogd if the query option is set.
   11: optional string debug_action
-
-  12: optional CatalogObjects.THybridMergeOpts hybrid_merge;
 }
 
 // Response from a TUpdateCatalogRequest
@@ -317,6 +315,8 @@ struct TUpdateCatalogResponse {
 
   // Profile of the DDL/DML execution in catalogd
   2: optional RuntimeProfile.TRuntimeProfileNode profile
+
+  3: optional i64 iceberg_snapshot_id
 }
 
 // Parameters of REFRESH/INVALIDATE METADATA commands

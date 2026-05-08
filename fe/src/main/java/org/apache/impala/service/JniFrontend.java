@@ -385,11 +385,12 @@ public class JniFrontend {
     return sb.toString();
   }
 
-  public void cancelPITMigration(byte[] thriftHybridMergeOpts) throws ImpalaException {
+  public void endPITMigration(byte[] thriftHybridMergeOpts) throws ImpalaException {
     THybridMergeOpts opts = new THybridMergeOpts();
     JniUtil.deserializeThrift(protocolFactory_, opts, thriftHybridMergeOpts);
-    LOG.debug("Cancelling PIT migration for {}", opts.getData_table());
-    KuduUtil.kuduPITEndMigration(opts, -1);
+    String step = opts.isSetSnapshot_id() ? "Completing" : "Cancelling";
+    LOG.debug("{} PIT migration for {}", step, opts.getData_table());
+    KuduUtil.kuduPITEndMigration(opts);
   }
 
   /**

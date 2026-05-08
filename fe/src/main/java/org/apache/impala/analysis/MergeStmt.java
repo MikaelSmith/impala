@@ -162,7 +162,7 @@ public class MergeStmt extends DmlStatementBase {
       // TODO: need to handle this on failures throughout the merge, and ensure we only
       // clean up if this coordinator initiated the merge.
       try {
-        KuduUtil.kuduPITEndMigration(hybridMerge_, -1);
+        KuduUtil.kuduPITEndMigration(hybridMerge_);
       } catch (AnalysisException ex) {
         e.addSuppressed(ex);
       }
@@ -211,7 +211,7 @@ public class MergeStmt extends DmlStatementBase {
         impl_ = mergeStmt.impl_;
       } catch (Exception e) {
         try {
-          KuduUtil.kuduPITEndMigration(hybridMerge_, -1);
+          KuduUtil.kuduPITEndMigration(hybridMerge_);
         } catch (AnalysisException ex) {
           e.addSuppressed(ex);
         }
