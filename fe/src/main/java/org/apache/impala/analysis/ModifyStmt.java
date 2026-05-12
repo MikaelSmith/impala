@@ -130,24 +130,21 @@ public abstract class ModifyStmt extends DmlStatementBase {
       createModifyImpl();
       // Set targetTableRef_ to the underlying Kudu table.
       targetTableRef_ = TableRef.newTableRef(analyzer, List.of(targetTable.getDb().getName(),
-          targetTable.getParameter(FeTable.STREAMING_KUDU)), null);
-      if (!(targetTableRef_.getTable() instanceof FeKuduTable)) {
-        throw new AnalysisException(format("{} for {} is not a Kudu table.",
-            FeTable.STREAMING_KUDU, targetTable.getFullName()));
-      }
-      if (modifyImpl_ != null) {
-        // Hide the target table while evaluating the where predicate to avoid ambiguity.
-        targetTableRef_.setHidden(true);
-      } else {
-        if (!((FeKuduTable) targetTableRef_.getTable()).isPrimaryKeyUnique()) {
-          throw new AnalysisException(format("Cannot DIRECT_KUDU_UPDATE streaming table" +
-              " '%s' because the primary key is not unique.", targetTable.getFullName()));
-        }
-        // Rewrite fromClause to reference the Kudu table.
-        fromClause_ = new FromClause(List.of(targetTableRef_));
-        fromClause_.analyze(analyzer);
+          targetTable.getParameter(FeTable.STREAMING_KUDU)), "target");
+      if (analyzer_.getQueryOptions().direct_kudu_update) {
+        Preconditions.checkState(fromClause_.size() == 1);
+        // Rewrite fromClause to reference the Kudu table. Uses DiffScan based on last
+        // migration timestamp to avoid reading old entries that have been superseded with
+        // a new auto_incrementing_id.
+        TableRef srcTableRef = new TableRef(targetTableRef_.getPath(),
+            fromClause_.get(0).getExplicitAlias(), null,
+            new TimeTravelSpec(NumericLiteral.create(targetTable.getPIT().second),
+                new FunctionCallExpr("now", null)));
+        fromClause_ = new FromClause(List.of(srcTableRef));
         fromClause_.setIsModify();
       }
+      // Hide the target table while evaluating the where predicate to avoid ambiguity.
+      targetTableRef_.setHidden(true);
       fromClause_.analyze(analyzer);
     } else {
       fromClause_.analyze(analyzer);
