@@ -307,13 +307,14 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
       DebugAction(state->query_options(), "FIS_KUDU_TABLE_SINK_WRITE_BEGIN"));
 
   // Since everything is set up just forward everything to the writer.
+  int64_t row_id;
   for (int i = 0; i < batch->num_rows(); ++i) {
     TupleRow* current_row = batch->GetRow(i);
     unique_ptr<kudu::client::KuduWriteOperation> del;
     if (delete_table_desc_ != nullptr) del.reset(delete_table_->NewInsert());
     unique_ptr<kudu::client::KuduWriteOperation> write(
         ignore_conflicts_ ? NewWriteIgnoreOp() : NewWriteOp());
-    bool add_row = true;
+    bool add_row = true, add_delete_row = true;
 
     for (int j = 0; j < output_expr_evals_.size(); ++j) {
       // output_expr_evals_ only contains the columns that the op
@@ -338,11 +339,11 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
           add_row = false;
           break; // skip remaining columns for this row
         }
-      } else if (auto_incrementing_column_idx_ == col) {
-        // If auto-incrementing value is -1 and doing Upsert, switch to Insert and skip
-        // writing the value since Kudu will auto-generate it.
-        if (sink_action_ == TSinkAction::UPSERT
-            && *reinterpret_cast<int64_t*>(value) == -1) {
+      } else if (auto_incrementing_column_idx_ == col
+          && *reinterpret_cast<int64_t*>(value) <= 0) {
+        if (sink_action_ == TSinkAction::UPSERT) {
+          // If auto-incrementing value is invalid and doing Upsert, switch to Insert and
+          // skip writing the value since Kudu will auto-generate it.
           KuduPartialRow saved_row{std::move(*write->mutable_row())};
           if (ignore_conflicts_) {
             write.reset(table_->NewInsertIgnore());
@@ -351,6 +352,9 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
           }
           *write->mutable_row() = std::move(saved_row);
           continue;
+        } else {
+          // It's an Iceberg _row_id. Skip modifying this row, but continue to delete.
+          add_row = false;
         }
       }
 
@@ -365,7 +369,18 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
       RETURN_IF_ERROR(s);
       if (del && j < kudu_table_sink_.delete_columns.size()) {
         int delete_col = kudu_table_sink_.delete_columns[j];
-        if (delete_col == -1) continue; // skip columns that are not part of delete condition
+        if (auto_incrementing_column_idx_ == col) {
+          // If the value is 0 or less, it's an Iceberg _row_id. Convert to positive.
+          row_id = *reinterpret_cast<int64_t*>(value);
+          if (row_id <= 0) {
+            row_id = -row_id;
+            value = &row_id;
+          } else {
+            // Kudu auto_incrementing_id, so no need to add a delete row.
+            add_delete_row = false;
+            continue;
+          }
+        }
         s = WriteKuduValue(delete_col, type, value, true, del->mutable_row());
         // This can only fail if we set a col to an incorrect type, which would be a bug in
         // planning, so we can DCHECK.
@@ -376,10 +391,8 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
         RETURN_IF_ERROR(s);
       }
     }
-    if (add_row) {
-      if (del) write_ops.push_back(move(del));
-      write_ops.push_back(move(write));
-    }
+    if (add_row) write_ops.push_back(move(write));
+    if (del && add_delete_row) write_ops.push_back(move(del));
   }
 
   {

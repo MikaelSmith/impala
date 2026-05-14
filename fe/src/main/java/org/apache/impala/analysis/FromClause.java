@@ -39,6 +39,8 @@ import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.Pair;
 import org.apache.impala.util.AcidUtils;
 import org.apache.impala.util.KuduUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -49,6 +51,8 @@ import com.google.common.collect.Lists;
  * the class it implements the Iterable interface.
  */
 public class FromClause extends StmtNode implements Iterable<TableRef> {
+  private final static Logger LOG = LoggerFactory.getLogger(FromClause.class);
+
   private final List<TableRef> tableRefs_;
 
   private boolean isModify_ = false;
@@ -104,7 +108,11 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
         .map(col -> "`%s`".formatted(col)).collect(Collectors.joining(", "));
     String iceAuto = "", kuduAuto = "";
     if (isModify_ && !kuduTbl.isPrimaryKeyUnique()) {
-      iceAuto = ", -1 as auto_incrementing_id";
+      // We need unique identifiers for the rows in both the Iceberg and Kudu tables to
+      // track deletes. Use auto_incrementing_id for Kudu and _row_id for Iceberg.
+      // auto_incrementing_id is 1-indexed, row_id is 0-indexed. To simplify layout put
+      // both in the same column and use negative numbers for _row_id to avoid collisions.
+      iceAuto = ", -_row_id as auto_incrementing_id";
       kuduAuto = ", auto_incrementing_id";
     }
 
@@ -128,6 +136,13 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
       // Build join conditions for primary keys
       String deletedJoinCondition =
           KuduUtil.buildJoinCondition(primaryKeys, baseAlias, "deleted");
+
+      if (isModify_ && !kuduTbl.isPrimaryKeyUnique()) {
+        // If the primary key is not unique, we need to include the _row_id column in the
+        // join condition to ensure we can identify unique rows.
+        deletedJoinCondition += " and %s._row_id = deleted._row_id".formatted(baseAlias);
+        primaryKeys.add("`_row_id`");
+      }
 
       // Build primary key select list for deleted subquery
       String pkSelectList = String.join(", ", primaryKeys);
@@ -169,6 +184,7 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
 
       if (tblRef.getResolvedPath() != null && tblRef.getTable().isStreaming()) {
         String sql = buildStreamingViewSql(analyzer, tblRef);
+        LOG.debug("Created streaming view SQL: {}", sql.replace("\n", " "));
         StatementBase parsed = Parser.parse(sql.toString(), analyzer.getQueryOptions());
         View streamingView = new View(tblRef.getUniqueAlias(), (QueryStmt) parsed, null);
         tblRef = new InlineViewRef(streamingView, tblRef);

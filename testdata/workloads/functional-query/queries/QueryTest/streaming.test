@@ -116,3 +116,13 @@ select * from test order by i;
 ---- TYPES
 INT, STRING, BIGINT
 ====
+---- QUERY
+upsert into test values (2, 'bb', 21);
+delete test where count % 10 = 1;
+select * from test order by i, count;
+---- RESULTS
+4,'d',40
+5,'oops',50
+---- TYPES
+INT, STRING, BIGINT
+====

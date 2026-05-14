@@ -1,10 +1,11 @@
 ====
 ---- QUERY
 # Create tables for managing a streaming table.
-create table test_iceberg(i int, comm string, count bigint) stored as iceberg;
+create table test_iceberg(i int, comm string, count bigint) stored as iceberg
+    tblproperties('format-version'='3');
 create table test_kudu (i int non unique primary key, comm string, count bigint)
     stored as kudu;
-create table test_dels (i int non unique primary key) stored as kudu;
+create table test_dels (i int non unique primary key, _row_id bigint) stored as kudu;
 create table test_pit (
     id int primary key, migration_ts bigint, snapshot_id bigint) stored as kudu;
 create table test(i int, comm string, count bigint) stored as iceberg
@@ -47,7 +48,7 @@ drop table test_dels;
 drop table test_kudu;
 create table test_kudu (i int non unique primary key, comm string, count bigint)
     stored as kudu;
-create table test_dels (i int non unique primary key) stored as kudu;
+create table test_dels (i int non unique primary key, _row_id bigint) stored as kudu;
 ====
 ---- QUERY
 # Add new and modify existing data after migrate.
@@ -119,6 +120,17 @@ select * from test order by i, count;
 4,'d',40
 5,'oops',50
 7,'direct',71
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+insert into test values (2, 'bb', 21);
+delete test where count % 10 = 1;
+select * from test order by i, count;
+---- RESULTS
+2,'b',20
+4,'d',40
+5,'oops',50
 ---- TYPES
 INT, STRING, BIGINT
 ====

@@ -112,10 +112,10 @@ abstract class StreamingModifyImpl extends ModifyImpl {
       selectList.add(new SelectListItem(ref, null));
       resultExprs_.add(ref);
       referencedColumns_.add(colIndexMap.get(kcol.getName()));
-      // We skip adding auto-incrementing columns to the delete table, so use a
-      // negative index to indicate the sink should ignore them.
-      deleteTableColumns_.add(kcol.isAutoIncrementing() ? -1 :
-          deleteTableColIndexMap.get(kcol.getName()));
+      // If the primary key is not unique, we need to include the _row_id column in the
+      // delete table to ensure we can identify unique rows.
+      deleteTableColumns_.add(deleteTableColIndexMap.get(
+          kcol.isAutoIncrementing() ? "_row_id" : kcol.getName()));
     }
     keyColumnsOffset_ = selectList.size();
 
