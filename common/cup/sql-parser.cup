@@ -1172,10 +1172,16 @@ merge_delete ::= KW_DELETE
   {: RESULT = new MergeDelete(); :};
 
 migrate_stmt ::=
-  KW_MIGRATE table_ref:table
+  KW_MIGRATE dotted_path:target_table
   {:
     // Migrate for streaming tables.
-    RESULT = new MigrateStmt(table);
+    RESULT = new MigrateStmt(new TableRef(target_table, null), null);
+  :}
+  | KW_MIGRATE dotted_path:target_table KW_AS KW_OF expr:expr
+  {:
+    // Migrate data up to a timestamp.
+    RESULT = new MigrateStmt(new TableRef(target_table, null),
+        new TimeTravelSpec(TimeTravelSpec.Kind.TIME_AS_OF, expr));
   :};
 
 optimize_stmt ::=

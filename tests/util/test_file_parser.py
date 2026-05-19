@@ -263,6 +263,8 @@ def parse_test_file_text(text, valid_section_names, skip_unknown_sections=True):
             parsed_sections['RAW_STRING'] = comment
           elif comment.startswith('VERIFY'):
             parsed_sections['VERIFIER'] = comment
+          elif comment.startswith('RETRY'):
+            parsed_sections['RETRY'] = int(comment.split('=')[1])
           else:
             raise RuntimeError('Unknown subsection comment: %s' % comment)
 
