@@ -73,6 +73,8 @@ public class PlannerContext {
       queryStmt_ = analysisResult.getOptimizeStmt().getQueryStmt();
     } else if (analysisResult.isMergeStmt()) {
       queryStmt_ = analysisResult.getMergeStmt().getQueryStmt();
+    } else if (analysisResult.isMigrateStmt()) {
+      queryStmt_ = analysisResult.getMigrateStmt().getQueryStmt();
     } else {
       queryStmt_ = analysisResult.getQueryStmt();
     }
@@ -111,7 +113,7 @@ public class PlannerContext {
   public boolean hasTableSink() {
     return isInsertOrCtas() || analysisResult_.isUpdateStmt()
         || analysisResult_.isDeleteStmt() || analysisResult_.isOptimizeStmt()
-        || analysisResult_.isMergeStmt();
+        || analysisResult_.isMergeStmt() || analysisResult_.isMigrateStmt();
   }
   public boolean hasSubplan() { return !subplans_.isEmpty(); }
   public SubplanNode getSubplan() { return subplans_.getFirst(); }
@@ -120,4 +122,5 @@ public class PlannerContext {
   public boolean isUpdate() { return analysisResult_.isUpdateStmt(); }
   public boolean isDelete() { return analysisResult_.isDeleteStmt(); }
   public boolean isMerge() { return analysisResult_.isMergeStmt(); }
+  public boolean isMigrate() { return analysisResult_.isMigrateStmt(); }
 }
