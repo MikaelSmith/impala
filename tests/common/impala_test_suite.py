@@ -1083,8 +1083,19 @@ class ImpalaTestSuite(BaseTestSuite):
                 result_section=results_section_name,
                 update_section=self.pytest_config().option.update_results)
           else:
-            self.__verify_results_and_errors(vector, test_section, results_section_name,
-                result, use_db)
+            remaining=test_section['RETRY'] if 'RETRY' in test_section else 1
+            while remaining > 0:
+              try:
+                remaining -= 1
+                self.__verify_results_and_errors(vector, test_section, results_section_name,
+                    result, use_db)
+              except Exception as e:
+                if remaining == 0:
+                  raise
+                LOG.info("Got error: {0}. Retrying because RETRY is set.".format(e))
+                result = exec_fn(query, user=test_section.get('USER', '').strip() or None)
+                if encoding and result.data:
+                  result.data = [row.decode(encoding) for row in result.data]
         else:
           # TODO: Can't validate errors without expected results for now.
           assert 'ERRORS' not in test_section,\
