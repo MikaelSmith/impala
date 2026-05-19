@@ -134,3 +134,38 @@ select * from test order by i, count;
 ---- TYPES
 INT, STRING, BIGINT
 ====
+---- QUERY
+insert into test values (1, 'a', 12);
+select sleep(3000);
+insert into test values (2, 'b', 22);
+migrate test as of now() - interval 2 seconds;
+select * from test order by i, count;
+---- RESULTS
+1,'a',12
+2,'b',20
+2,'b',22
+4,'d',40
+5,'oops',50
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+select sleep(5000);
+select * from test order by i, count;
+---- RESULTS
+1,'a',12
+2,'b',20
+2,'b',22
+4,'d',40
+5,'oops',50
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+migrate test;
+select sleep(3000);
+select * from test_kudu;
+---- RESULTS:RETRY=10
+---- TYPES
+INT, STRING, BIGINT
+====

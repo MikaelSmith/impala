@@ -635,8 +635,8 @@ public class KuduUtil {
     return new Pair<>(-1L, -1L);
   }
 
-  public static void kuduPITStartMigration(String kuduMasters, String tableName)
-      throws AnalysisException {
+  public static void kuduPITStartMigration(String kuduMasters, String tableName,
+      long endTimestamp) throws AnalysisException {
     KuduClient client = getKuduClient(kuduMasters);
     KuduSession session = client.newSession();
     session.setFlushMode(KuduSession.FlushMode.AUTO_FLUSH_SYNC);
@@ -645,9 +645,7 @@ public class KuduUtil {
       org.apache.kudu.client.Insert insert = table.newInsert();
       PartialRow row = insert.getRow();
       row.addInt(0, NEXT_MIGRATION_ID);
-      // TODO: make this an input to allow migrating only older data.
-      Instant now = Instant.now();
-      row.addLong(1, now.getEpochSecond() * 1_000_000 + now.getNano() / 1_000);
+      row.addLong(1, endTimestamp);
       row.addLong(2, 0);
       org.apache.kudu.client.OperationResponse response = session.apply(insert);
       if (response.hasRowError()) {

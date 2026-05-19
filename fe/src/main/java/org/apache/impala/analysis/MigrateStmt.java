@@ -17,6 +17,7 @@
 
 package org.apache.impala.analysis;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -44,13 +45,16 @@ import com.google.common.base.Preconditions;
 public class MigrateStmt extends DmlStatementBase {
   private TableRef streamingTableRef_;
   private MergeStmt mergeStmt_ = null;
+  private TimeTravelSpec asof_ = null;
   private THybridMergeOpts hybridMerge_ = null;
 
-  public MigrateStmt(TableRef table) {
+  public MigrateStmt(TableRef table, TimeTravelSpec asof) {
     this.streamingTableRef_ = table;
+    this.asof_ = asof;
   }
 
-  private String getStreamingMergeSql(Analyzer analyzer) throws AnalysisException {
+  private String getStreamingMergeSql(Analyzer analyzer, long endMigrationTs)
+      throws AnalysisException {
     // Identify source and target tables for MERGE statement based on the streaming
     // table properties. Then construct the full merge statement.
     String db = table_.getDb().getName();
@@ -84,17 +88,19 @@ public class MigrateStmt extends DmlStatementBase {
     hybridMerge_ = new THybridMergeOpts(kuduMasters, pitTable,
         KuduUtil.getKuduTableName(db, kuduTableName, kuduMasters),
         KuduUtil.getKuduTableName(db, delsTableName, kuduMasters));
-    KuduUtil.kuduPITStartMigration(kuduMasters, pitTable);
+    KuduUtil.kuduPITStartMigration(kuduMasters, pitTable, endMigrationTs);
     try {
       Pair<Long, Long> kuduLastPIT = KuduUtil.kuduPITLookup(kuduMasters,
           pitTable, KuduUtil.LAST_MIGRATION_ID);
-      Pair<Long, Long> kuduNextPIT = KuduUtil.kuduPITLookup(kuduMasters,
-          pitTable, KuduUtil.NEXT_MIGRATION_ID);
-      long kuduStartMigrationTs = kuduLastPIT.second;
-      long kuduEndMigrationTs = kuduNextPIT.second;
+      long startMigrationTs = kuduLastPIT.second;
+      if (startMigrationTs >= endMigrationTs) {
+        throw new AnalysisException(String.format(
+            "Invalid Kudu migration timestamps: start=%d, end=%d", startMigrationTs,
+            endMigrationTs));
+      }
       // If migration timestamp is available, use it to construct the MERGE statement to
       // capture changes since last migration. Otherwise, fallback to a full table scan.
-      if (kuduStartMigrationTs > 0) {
+      if (startMigrationTs > 0) {
         // If the primary key is unique, we want to ignore all Iceberg rows that match
         // keys in the Kudu table. Otherwise we only omit rows from the delete log.
         String omitKuduRows = kuduTbl.isPrimaryKeyUnique() ? "" :
@@ -120,7 +126,7 @@ public class MigrateStmt extends DmlStatementBase {
             when matched and not src.is_delete then update set %11$s
             when not matched and not src.is_delete then insert (%12$s) values (%13$s);
             """.formatted(icebergTable, delsList, String.join(", ", nonPrimaryKeys),
-                kuduTbl.getFullName(), kuduStartMigrationTs, kuduEndMigrationTs,
+                kuduTbl.getFullName(), startMigrationTs, endMigrationTs,
                 String.join(", ", quotedPrimaryKeys), delsTable, delsPkJoinCondition,
                 pkJoinCondition, updateList, columnList, valuesList, omitKuduRows);
       } else {
@@ -129,7 +135,7 @@ public class MigrateStmt extends DmlStatementBase {
             using (select %6$s from %2$s for system_time as of %3$s) as src on %4$s
             when matched then update set %5$s
             when not matched then insert (%6$s) values (%7$s);
-            """.formatted(icebergTable, kuduTbl.getFullName(), kuduEndMigrationTs,
+            """.formatted(icebergTable, kuduTbl.getFullName(), endMigrationTs,
                 pkJoinCondition, updateList, columnList, valuesList);
       }
     } catch (TableLoadingException e) {
@@ -154,9 +160,24 @@ public class MigrateStmt extends DmlStatementBase {
     table_ = streamingTableRef_.getTable();
     if (!table_.isStreaming()) {
       throw new AnalysisException(String.format(
-          "Migrate table must be a streaming table: %s", streamingTableRef_.toSql()));
+          "Migrate requires a streaming table: %s", streamingTableRef_.toSql()));
     }
-    String sql = getStreamingMergeSql(analyzer);
+
+    long endMigrationTs;
+    if (asof_ != null) {
+      Preconditions.checkState(asof_.getKind() == TimeTravelSpec.Kind.TIME_AS_OF);
+      asof_.analyze(analyzer);
+      long asOfMicros = asof_.getAsOfMicros();
+      if (asOfMicros <= 0) {
+        throw new AnalysisException("Invalid AS OF timestamp: %d".formatted(asOfMicros));
+      }
+      endMigrationTs = asOfMicros;
+    } else {
+      Instant now = Instant.now();
+      endMigrationTs = now.getEpochSecond() * 1_000_000 + now.getNano() / 1_000;
+    }
+
+    String sql = getStreamingMergeSql(analyzer, endMigrationTs);
     try {
       StatementBase parsed = Parser.parse(sql.toString(), analyzer.getQueryOptions());
       Preconditions.checkState(parsed instanceof MergeStmt);
@@ -206,6 +227,9 @@ public class MigrateStmt extends DmlStatementBase {
     StringBuilder builder = new StringBuilder();
     builder.append("MIGRATE ");
     builder.append(streamingTableRef_.toSql(options));
+    if (asof_ != null) {
+      builder.append(" ").append(asof_.toSql(options));
+    }
     return builder.toString();
   }
 
