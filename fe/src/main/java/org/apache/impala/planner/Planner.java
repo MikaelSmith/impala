@@ -42,6 +42,7 @@ import org.apache.impala.analysis.MergeCase;
 import org.apache.impala.analysis.MergeInsert;
 import org.apache.impala.analysis.MergeStmt;
 import org.apache.impala.analysis.MergeUpdate;
+import org.apache.impala.analysis.MigrateStmt;
 import org.apache.impala.analysis.ParsedStatement;
 import org.apache.impala.analysis.QueryStmt;
 import org.apache.impala.analysis.SlotRef;
@@ -154,6 +155,9 @@ public class Planner {
 
     if(ctx_.isMerge()) {
       singleNodePlan = addMergeNode(singleNodePlan, ctx_.getRootAnalyzer());
+    } else if (ctx_.isMigrate()) {
+      MigrateStmt migrate = ctx_.getAnalysisResult().getMigrateStmt();
+      singleNodePlan = migrate.getPlanNode(ctx_, singleNodePlan, ctx_.getRootAnalyzer());
     }
 
     SingleNodePlanner.validatePlan(ctx_, singleNodePlan);
@@ -192,7 +196,7 @@ public class Planner {
       // set up table sink for root fragment
       rootFragment.setSink(insertStmt.createDataSink());
     } else if (ctx_.isUpdate() || ctx_.isDelete() || ctx_.isOptimize()
-        || ctx_.isMerge()) {
+        || ctx_.isMerge() || ctx_.isMigrate()) {
       DmlStatementBase stmt;
       if (ctx_.isUpdate()) {
         stmt = ctx_.getAnalysisResult().getUpdateStmt();
@@ -200,6 +204,8 @@ public class Planner {
         stmt = ctx_.getAnalysisResult().getDeleteStmt();
       } else if (ctx_.isMerge()) {
         stmt = ctx_.getAnalysisResult().getMergeStmt();
+      } else if (ctx_.isMigrate()) {
+        stmt = ctx_.getAnalysisResult().getMigrateStmt();
       } else {
         stmt = ctx_.getAnalysisResult().getOptimizeStmt();
       }

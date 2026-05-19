@@ -95,7 +95,7 @@ import org.apache.impala.analysis.DropTableOrViewStmt;
 import org.apache.impala.analysis.GrantRevokePrivStmt;
 import org.apache.impala.analysis.GrantRevokeRoleStmt;
 import org.apache.impala.analysis.InsertStmt;
-import org.apache.impala.analysis.MergeStmt;
+import org.apache.impala.analysis.MigrateStmt;
 import org.apache.impala.analysis.OptimizeStmt;
 import org.apache.impala.analysis.ParsedStatement;
 import org.apache.impala.analysis.Parser;
@@ -3287,8 +3287,9 @@ public class Frontend {
             queryCtx, queryExecRequest, analysisResult.getInsertStmt());
       } else {
         Preconditions.checkState(
-            analysisResult.isUpdateStmt() || analysisResult.isDeleteStmt() ||
-                analysisResult.isOptimizeStmt() || analysisResult.isMergeStmt());
+            analysisResult.isUpdateStmt() || analysisResult.isDeleteStmt()
+            || analysisResult.isOptimizeStmt() || analysisResult.isMergeStmt()
+            || analysisResult.isMigrateStmt());
         result.stmt_type = TStmtType.DML;
         result.query_exec_request.stmt_type = TStmtType.DML;
         if (analysisResult.isDeleteStmt()) {
@@ -3301,10 +3302,13 @@ public class Frontend {
           addFinalizationParamsForIcebergOptimize(queryCtx, queryExecRequest,
               analysisResult.getOptimizeStmt());
         } else if (analysisResult.isMergeStmt()) {
-          MergeStmt mergeStmt = analysisResult.getMergeStmt();
           addFinalizationParamsForIcebergModify(queryCtx, queryExecRequest,
-              mergeStmt, TIcebergOperation.MERGE);
-          queryExecRequest.finalize_params.setHybrid_merge(mergeStmt.getHybridMerge());
+              analysisResult.getMergeStmt(), TIcebergOperation.MERGE);
+        } else if (analysisResult.isMigrateStmt()) {
+          MigrateStmt migrateStmt = analysisResult.getMigrateStmt();
+          addFinalizationParamsForIcebergModify(queryCtx, queryExecRequest,
+              migrateStmt, TIcebergOperation.MERGE);
+          queryExecRequest.finalize_params.setHybrid_merge(migrateStmt.getHybridMerge());
         }
       }
       return result;

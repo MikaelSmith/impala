@@ -199,6 +199,7 @@ import org.apache.impala.thrift.TReservedWordsVersion;
     keywordMap.put("merge", SqlParserSymbols.KW_MERGE);
     keywordMap.put("merge_fn", SqlParserSymbols.KW_MERGE_FN);
     keywordMap.put("metadata", SqlParserSymbols.KW_METADATA);
+    keywordMap.put("migrate", SqlParserSymbols.KW_MIGRATE);
     keywordMap.put("minus", SqlParserSymbols.KW_MINUS);
     keywordMap.put("non", SqlParserSymbols.KW_NON);
     keywordMap.put("norely", SqlParserSymbols.KW_NORELY);

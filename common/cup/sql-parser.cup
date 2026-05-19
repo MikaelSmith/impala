@@ -340,7 +340,7 @@ terminal
   KW_INTERMEDIATE, KW_INTERSECT, KW_INTERVAL, KW_INTO, KW_INVALIDATE, KW_IREGEXP, KW_IS,
   KW_JDBC, KW_JOIN, KW_JSONFILE, KW_KILL, KW_KUDU, KW_LAST, KW_LEADING, KW_LEFT, KW_LEXICAL,
   KW_LIKE, KW_LIMIT, KW_LINES, KW_LOAD, KW_LOCATION, KW_LOGICAL_OR, KW_MANAGED_LOCATION, KW_MAP,
-  KW_MATCHED, KW_MERGE, KW_MERGE_FN, KW_METADATA, KW_MINUS, KW_NON, KW_NORELY, KW_NOT,
+  KW_MATCHED, KW_MERGE, KW_MERGE_FN, KW_METADATA, KW_MIGRATE, KW_MINUS, KW_NON, KW_NORELY, KW_NOT,
   KW_NOVALIDATE, KW_NULL, KW_NULLS, KW_OF, KW_OFFSET, KW_ON, KW_OPTIMIZE, KW_OR,
   KW_ORC, KW_ORDER, KW_OUTER,
   KW_OVER, KW_OVERWRITE, KW_PARQUET, KW_PARQUETFILE, KW_PARTITION, KW_PARTITIONED, KW_PARTITIONS,
@@ -503,6 +503,7 @@ nonterminal MergeUpdate merge_update;
 nonterminal MergeDelete merge_delete;
 nonterminal MergeInsert merge_insert;
 nonterminal List<Expr> merge_then;
+nonterminal MigrateStmt migrate_stmt;
 nonterminal OptimizeStmt optimize_stmt;
 nonterminal List<Pair<SlotRef, Expr>> update_set_expr_list;
 nonterminal StatementBase explain_stmt;
@@ -728,6 +729,8 @@ stmt ::=
   {: RESULT = delete; :}
   | merge_stmt:merge
   {: RESULT = merge; :}
+  | migrate_stmt:migrate
+  {: RESULT = migrate; :}
   | optimize_stmt:optimize
   {: RESULT = optimize; :}
   | use_stmt:use
@@ -913,6 +916,11 @@ explain_stmt ::=
      merge.setIsExplain();
      RESULT = merge;
   :}
+  | KW_EXPLAIN migrate_stmt:migrate
+  {:
+     migrate.setIsExplain();
+     RESULT = migrate;
+  :}
   | KW_EXPLAIN optimize_stmt:optimize
   {:
      optimize.setIsExplain();
@@ -1068,12 +1076,7 @@ delete_stmt ::=
   ;
 
 merge_stmt ::=
-  KW_MERGE table_ref:table
-  {:
-    // Pre-defined merge for streaming tables.
-    RESULT = new MergeStmt(table);
-  :}
-  | KW_MERGE KW_INTO table_ref:target_table KW_USING table_ref:source
+  KW_MERGE KW_INTO table_ref:target_table KW_USING table_ref:source
   KW_ON expr:on merge_case_list:cases
   {:
     RESULT = new MergeStmt(target_table, source, on, cases);
@@ -1167,6 +1170,13 @@ merge_insert ::=
 
 merge_delete ::= KW_DELETE
   {: RESULT = new MergeDelete(); :};
+
+migrate_stmt ::=
+  KW_MIGRATE table_ref:table
+  {:
+    // Migrate for streaming tables.
+    RESULT = new MigrateStmt(table);
+  :};
 
 optimize_stmt ::=
   KW_OPTIMIZE KW_TABLE table_name:table
@@ -4856,6 +4866,8 @@ word ::=
   | KW_MERGE_FN:r
   {: RESULT = r.toString(); :}
   | KW_METADATA:r
+  {: RESULT = r.toString(); :}
+  | KW_MIGRATE:r
   {: RESULT = r.toString(); :}
   | KW_MINUS:r
   {: RESULT = r.toString(); :}
