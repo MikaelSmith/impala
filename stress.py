@@ -205,7 +205,7 @@ def load(table, source_db, table_type):
 
 def merge(table):
   start = time.perf_counter()
-  run(f"MERGE {table}")
+  run(f"MIGRATE {table}")
   return time.perf_counter() - start
 
 def delete(table, key, iter):
