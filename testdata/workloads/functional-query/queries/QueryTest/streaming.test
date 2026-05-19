@@ -28,8 +28,8 @@ select * from test order by i;
 INT, STRING, BIGINT
 ====
 ---- QUERY
-# Merge Kudu to Iceberg.
-merge test;
+# Migrate Kudu to Iceberg.
+migrate test;
 select * from test order by i;
 ---- RESULTS
 1,'a',10
@@ -78,7 +78,7 @@ select * from test order by i;
 INT, STRING, BIGINT
 ====
 ---- QUERY
-merge test;
+migrate test;
 select * from test order by i;
 ---- RESULTS
 2,'b',20

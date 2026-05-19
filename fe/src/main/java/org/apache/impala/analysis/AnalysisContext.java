@@ -119,6 +119,7 @@ public class AnalysisContext {
     public boolean isSetOperationStmt() { return stmt_ instanceof SetOperationStmt; }
     public boolean isInsertStmt() { return stmt_ instanceof InsertStmt; }
     public boolean isMergeStmt() { return stmt_ instanceof MergeStmt; }
+    public boolean isMigrateStmt() { return stmt_ instanceof MigrateStmt; }
     public boolean isOptimizeStmt() { return stmt_ instanceof OptimizeStmt; }
     public boolean isDropDbStmt() { return stmt_ instanceof DropDbStmt; }
     public boolean isDropTableOrViewStmt() {
@@ -225,7 +226,7 @@ public class AnalysisContext {
 
     public boolean isDmlStmt() {
       return isInsertStmt() || isUpdateStmt() || isDeleteStmt()
-          || isOptimizeStmt() || isMergeStmt();
+          || isOptimizeStmt() || isMergeStmt() | isMigrateStmt();
     }
 
     /**
@@ -235,7 +236,7 @@ public class AnalysisContext {
     public boolean isHierarchicalAuthStmt() {
       return isQueryStmt() || isInsertStmt() || isUpdateStmt() || isDeleteStmt()
           || isCreateTableAsSelectStmt() || isCreateViewStmt() || isAlterViewStmt()
-          || isOptimizeStmt() || isTestCaseStmt() || isMergeStmt();
+          || isOptimizeStmt() || isTestCaseStmt() || isMergeStmt() | isMigrateStmt();
     }
 
     /**
@@ -347,6 +348,11 @@ public class AnalysisContext {
     public MergeStmt getMergeStmt() {
       Preconditions.checkState(isMergeStmt());
       return (MergeStmt) stmt_;
+    }
+
+    public MigrateStmt getMigrateStmt() {
+      Preconditions.checkState(isMigrateStmt());
+      return (MigrateStmt) stmt_;
     }
 
     public InsertStmt getInsertStmt() {
@@ -733,7 +739,8 @@ public class AnalysisContext {
         return showStatsStmt.hasWhereClause();
       }
       return isQueryStmt() || isInsertStmt() || isCreateTableAsSelectStmt()
-          || isUpdateStmt() || isDeleteStmt() || isOptimizeStmt() || isMergeStmt();
+          || isUpdateStmt() || isDeleteStmt() || isOptimizeStmt() || isMergeStmt()
+          || isMigrateStmt();
     }
     public boolean requiresSetOperationRewrite() {
       return analyzer_.containsSetOperation() && canRewriteStatement();
@@ -750,6 +757,7 @@ public class AnalysisContext {
     public boolean isQueryStmt() { return stmt_ instanceof QueryStmt; }
     public boolean isInsertStmt() { return stmt_ instanceof InsertStmt; }
     public boolean isMergeStmt() { return stmt_ instanceof MergeStmt; }
+    public boolean isMigrateStmt() { return stmt_ instanceof MigrateStmt; }
     public boolean isDeleteStmt() { return stmt_ instanceof DeleteStmt; }
     public boolean isOptimizeStmt() { return stmt_ instanceof OptimizeStmt; }
     public boolean isUpdateStmt() { return stmt_ instanceof UpdateStmt; }
