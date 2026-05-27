@@ -1,9 +1,12 @@
-#!/bin/env python3
+#!/bin/env impala-python3
 
+import argparse
+import os
+import signal
 import subprocess
 import time
-import argparse
-from multiprocessing import Pool
+from impala import dbapi
+from multiprocessing import Pool, Process
 
 TARGET_DB = "stream_stress"
 # Table name, schema (without PRIMARY KEY), primary key columns, partition columns
@@ -87,8 +90,27 @@ TPCH_SCHEMA = [
   C_COMMENT STRING
   """, "C_CUSTKEY", "C_CUSTKEY")]
 
+CONNECTION_OPTIONS = {
+  "host": "localhost",
+  "port": 21050,
+  "user": None,
+}
+
 def parse_args():
   parser = argparse.ArgumentParser()
+  parser.add_argument(
+      "--host",
+      default=os.environ.get("IMPALA_HOST", "localhost"),
+      help="Impala coordinator hostname (default: %(default)s)")
+  parser.add_argument(
+      "--port",
+      type=int,
+      default=int(os.environ.get("IMPALA_PORT", "21050")),
+      help="Impala coordinator port (default: %(default)s)")
+  parser.add_argument(
+      "--user",
+      default=os.environ.get("IMPALA_USER"),
+      help="Username for Impala connections (default: current auth context)")
   parser.add_argument(
       "--source-db",
       default="tpch",
@@ -96,7 +118,7 @@ def parse_args():
   parser.add_argument(
       "--parallel-loads",
       type=int,
-      default=2,
+      default=8,
       help="Number of parallel load workers (default: %(default)s)")
   parser.add_argument(
       "--parallel-queries",
@@ -109,9 +131,23 @@ def parse_args():
       default="hybrid",
       help=("Create Kudu, Iceberg, or hybrid streaming table"))
   parser.add_argument(
-      "--with-deletes",
-      action="store_true",
-      help=("Periodically delete 1% of rows from a few tables while queries run"))
+      "--updates",
+      type=int,
+      default=3,
+      help=("Periodically update data from stress/table_name.tbl.u* files into the "
+            "specified table while queries run"))
+  parser.add_argument(
+      "--batch-size",
+      type=int,
+      default=100,
+      help=("Number of rows to update in each batch when applying updates from "
+            "stress/table_name.tbl.u* files (default: %(default)s)"))
+  parser.add_argument(
+      "--merge-interval",
+      type=int,
+      default=15,
+      help=("Interval in seconds between merge operations for a hybrid table "
+            "(default: %(default)s)"))
 
   options = parser.parse_args()
   if options.parallel_loads < 1:
@@ -151,8 +187,34 @@ def _format_iceberg_partition_spec(partitions):
   return f"PARTITIONED BY SPEC ({', '.join(f'BUCKET(9,{col})' for col in partition_columns)})"
 
 
-def run(query):
-  return subprocess.run(["impala-shell.sh", "--quiet", "-B", "-d", TARGET_DB, "-q", query], capture_output=True)
+def _connect(database):
+  kwargs = {
+    "host": CONNECTION_OPTIONS["host"],
+    "port": CONNECTION_OPTIONS["port"],
+  }
+  if CONNECTION_OPTIONS["user"]:
+    kwargs["user"] = CONNECTION_OPTIONS["user"]
+  if database:
+    kwargs["database"] = database
+  return dbapi.connect(**kwargs)
+
+
+def _query_result_to_stdout(rows):
+  if not rows:
+    return ""
+  lines = ["\t".join("" if value is None else str(value) for value in row) for row in rows]
+  return ("\n".join(lines) + "\n")
+
+
+def run(queries, use_target_db=True):
+  stdout_chunks = []
+  with _connect(TARGET_DB if use_target_db else None) as conn:
+    with conn.cursor() as cursor:
+      for statement in queries if isinstance(queries, list) else [queries]:
+        cursor.execute(statement)
+        if cursor.description:
+          stdout_chunks.append(_query_result_to_stdout(cursor.fetchall()))
+  return "".join(stdout_chunks)
 
 
 def _create_hybrid(table, schema, primary_key, partitions):
@@ -169,11 +231,12 @@ def _create_hybrid(table, schema, primary_key, partitions):
   dels_pk = ", ".join(pk_columns)
 
   statements = [
-      f"CREATE TABLE {table}_iceberg ({iceberg_schema}) {partition_spec} STORED AS ICEBERG",
+      (f"CREATE TABLE {table}_iceberg ({iceberg_schema}) {partition_spec} STORED AS ICEBERG "
+       f"TBLPROPERTIES('format-version'='3')"),
       (f"CREATE TABLE {table}_kudu ({iceberg_schema},\n"
        f"  {primary_key_clause}) {kudu_partition} STORED AS KUDU"),
-      f"CREATE TABLE {table}_dels ({dels_columns},\n"
-      f"  NON UNIQUE PRIMARY KEY({dels_pk})) STORED AS KUDU",
+      (f"CREATE TABLE {table}_dels ({dels_columns},\n"
+       f"  NON UNIQUE PRIMARY KEY({dels_pk})) STORED AS KUDU"),
       (f"CREATE TABLE {table}_pit (id INT PRIMARY KEY, migration_ts BIGINT, "
        f"snapshot_id BIGINT) STORED AS KUDU"),
       (f"CREATE TABLE {table} ({iceberg_schema}) STORED AS ICEBERG "
@@ -182,8 +245,7 @@ def _create_hybrid(table, schema, primary_key, partitions):
        f"'impala.streaming.pit'='{table}_pit', "
        f"'impala.streaming.dels'='{table}_dels')")
   ]
-
-  return run("; ".join(statements))
+  return run(statements)
 
 def create(table, schema, primary_key, partitions, table_type):
   match table_type:
@@ -195,105 +257,167 @@ def create(table, schema, primary_key, partitions, table_type):
       columns = _parse_columns(schema)
       iceberg_schema = _format_schema(columns).replace("SMALLINT", "INT")  # Iceberg doesn't support SMALLINT
       part = _format_iceberg_partition_spec(partitions)
-      return run(f"CREATE TABLE {table} ({iceberg_schema}) {part} STORED AS ICEBERG")
+      return run(f"CREATE TABLE {table} ({iceberg_schema}) {part} STORED AS ICEBERG "
+                 f"TBLPROPERTIES('format-version'='3')")
     case "hybrid":
       return _create_hybrid(table, schema, primary_key, partitions)
 
 def load(table, source_db, table_type):
   op = "UPSERT" if table_type == "hybrid" else "INSERT"
-  return run(f"{op} INTO TABLE {table} SELECT * FROM {source_db}.{table}; COMPUTE STATS {table}")
+  return run([f"{op} INTO TABLE {table} SELECT * FROM {source_db}.{table}",
+              f"COMPUTE STATS {table}"])
 
-def merge(table):
+def update_from_file(table, iter, table_type, batch_size):
+  """Update data from stress/table_name.tbl.u* files into the specified table."""
+  string_column_indexes = {
+    "lineitem": {8, 9, 10, 11, 12, 13, 14, 15},
+    "orders": {2, 4, 5, 6, 8},
+  }
+  orderkey = table[0] + "_orderkey"  # e.g. L_ORDERKEY or O_ORDERKEY
+  string_columns = string_column_indexes.get(table, set())
+  file_path = f"stress/{table}.tbl.u{iter}"
+  del_path = f"stress/delete.{iter}"
+
   start = time.perf_counter()
-  run(f"MIGRATE {table}")
-  return time.perf_counter() - start
+  with _connect(TARGET_DB) as conn:
+    with conn.cursor() as cursor:
+      dml_op = "INSERT" if table_type == "iceberg" else "UPSERT"
+      # Insert new data (RF1) in batches (to control file size)
+      # then delete by key (RF2) to simulate updates.
+      def run_dml(values_list):
+        query = f"{dml_op} INTO {table} VALUES {','.join(values_list)}"
+        cursor.execute(query)
+        if cursor.description:
+          print(f"Updated {cursor.fetchall()}")
 
-def delete(table, key, iter):
-  start = time.perf_counter()
-  run(f"DELETE {table} WHERE {key} % 100 = {iter}")
-  return time.perf_counter() - start
+      # Parse the rows from the file and build an INSERT/UPSERT statement
+      # TPC-H format uses pipe-delimited values
+      values_list = []
+      with open(file_path, 'r') as f:
+        for line in f:
+          line = line.rstrip('\n')
+          if not line:
+            continue
+          # Quote values for SQL
+          quoted_values = [f"'{v}'" if i in string_columns else v
+                          for i, v in enumerate(line.split('|'))]
+          values_list.append(f"({', '.join(quoted_values)})")
 
-STEP_CREATE = ["creating", "created"]
-STEP_LOAD = ["loading", "loaded"]
-STEP_QUERY = ["running", "ran"]
+          if len(values_list) > batch_size:
+            run_dml(values_list)
+            values_list = []
 
-def print_ready(step, results):
-  finished = set()
-  for label, future in results.items():
-    if future.ready():
-      result = future.get()
-      if result.returncode != 0:
-        print(f"Error {step[0]} {label}: {result}")
-      else:
-        print(f"{label} successfully {step[1]}")
-      finished.add(label)
-  for label in finished:
-    del results[label]
+      if values_list:
+        run_dml(values_list)
+
+      with open(del_path, 'r') as f:
+        del_ids = [line.strip() for line in f if line.strip()]
+        cursor.execute(f"DELETE FROM {table} WHERE {orderkey} IN ({','.join(del_ids)})")
+        if cursor.description:
+          print(f"Deleted {cursor.fetchall()}")
+
+      return time.perf_counter() - start
 
 def run_query(query_file):
-  return subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB,
-      "-f", query_file], capture_output=True)
+  with open(query_file, "r") as file_handle:
+    query = file_handle.read()
+  return run(query)
 
-def run_queries(pool):
-    results = {f"q{i}": pool.apply_async(run_query, (f"stress/q{i}.sql",)) for i in range(1, 23)}
-    while results:
-      time.sleep(0.01)
-      print_ready(STEP_QUERY, results)
+def do_updates(num_updates, table_type, batch_size):
+  with Pool(processes=4) as pool:
+    for update_iter in range(1, num_updates + 1):
+      # Update data from stress/table_name.tbl.u* files into the specified table.
+      start_update = time.perf_counter()
+      pool.starmap(update_from_file, [
+          (table, update_iter, table_type, batch_size) for table in ["lineitem", "orders"]])
+      update_time = time.perf_counter() - start_update
+      print(f"Completed update iteration {update_iter} in {update_time:.2f} seconds.")
+
+      start_counts = time.perf_counter()
+      table_counts = pool.map(run, [f"SELECT COUNT(*) FROM {table}" for table, _, _, _ in TPCH_SCHEMA])
+      counts_time = time.perf_counter() - start_counts
+      print(f"Table counts after iteration {update_iter} ({counts_time:.2f} seconds): "
+            f"{[count.strip() for count in table_counts]}")
+
+def do_merges(merge_interval):
+  continue_running = True
+  def _handle_sigterm(signum, frame):
+    del signum, frame
+    nonlocal continue_running
+    continue_running = False
+  signal.signal(signal.SIGTERM, _handle_sigterm)
+
+  with Pool(processes=4) as pool:
+    last_merge = 0
+    while continue_running:
+      seconds_until_merge = merge_interval - (time.perf_counter() - last_merge)
+      if seconds_until_merge > 0:
+        print(f"Waiting {seconds_until_merge:.2f} seconds until next merge...")
+        time.sleep(seconds_until_merge)
+        if not continue_running:
+          break
+
+      last_merge = time.perf_counter()
+      pool.map(run, [f"MIGRATE {table}" for table, _, _, _ in TPCH_SCHEMA])
+      print(f"Completed merges in {time.perf_counter() - last_merge:.2f} seconds.")
 
 def main():
   options = parse_args()
   do_merge = options.table == "hybrid"
 
-  subprocess.run(["impala-shell.sh",
-      "-q", f"drop database if exists {TARGET_DB} cascade; create database {TARGET_DB}"])
+  global CONNECTION_OPTIONS
+  CONNECTION_OPTIONS = {
+    "host": options.host,
+    "port": options.port,
+    "user": options.user,
+  }
 
-  with Pool(processes=options.parallel_loads) as load_pool, \
-       Pool(processes=options.parallel_queries) as query_pool, Pool(processes=4) as merge_pool:
-    print(f"Creating TPC-H {options.table} table in {TARGET_DB}...")
-    results = {table: merge_pool.apply_async(
-        create, (table, schema, primary_key, partitions, options.table))
-               for table, schema, primary_key, partitions in TPCH_SCHEMA}
-    while results:
-      time.sleep(0.01)
-      print_ready(STEP_CREATE, results)
+  print(f"Generating {options.updates} TPC-H incremental updates...")
+  subprocess.run([os.getenv("IMPALA_TOOLCHAIN_PACKAGES_HOME") + "/tpc-h-2.17.0/bin/dbgen",
+                  "-U", str(options.updates)],
+                  cwd=os.getenv("IMPALA_HOME") + "/stress",
+                  check=True)
 
-    print(f"Loading {options.source_db} data into {options.table} table...")
+  run([f"drop database if exists {TARGET_DB} cascade", f"create database {TARGET_DB}"],
+      use_target_db=False)
+
+  with Pool(processes=options.parallel_loads) as load_pool:
+    print(f"Creating TPC-H {options.table} tables in {TARGET_DB}...")
+    start_create = time.perf_counter()
+    load_pool.starmap(create, [(table, schema, primary_key, partitions, options.table)
+                               for table, schema, primary_key, partitions in TPCH_SCHEMA])
+    print(f"Created in {time.perf_counter() - start_create:.2f} seconds.")
+
+    print(f"Loading {options.source_db} data into {options.table} tables...")
     start_load = time.perf_counter()
-    results = {table: load_pool.apply_async(load, (table, options.source_db, options.table))
-               for table, _, _, _ in TPCH_SCHEMA}
+    load_pool.starmap(load, [(table, options.source_db, options.table)
+                             for table, _, _, _ in TPCH_SCHEMA])
+    print(f"Loaded in {time.perf_counter() - start_load:.2f} seconds.")
 
+  with Pool(processes=options.parallel_queries) as pool:
+    # Run options.updates incremental updates in parallel with options.parallel_queries test query runs.
+    # Stop new query runs after the last update has loaded. Do merges in parallel with updates.
+    start_run = time.perf_counter()
+    if do_merge:
+      merges = Process(target=do_merges, args=(options.merge_interval,))
+      merges.start()
+    updates = Process(target=do_updates, args=(options.updates, options.table, options.batch_size,))
+    updates.start()
+    print("Starting test queries while loading...")
     query_runs = 0
-    while results:
-      if options.with_deletes:
-        # Delete 1% of rows from a few tables
-        customer_del = merge_pool.apply_async(delete, ("customer", "C_CUSTKEY", query_runs))
-        supplier_del = merge_pool.apply_async(delete, ("supplier", "S_SUPPKEY", query_runs))
-      # Start table migration while queries run.
-      if do_merge:
-        merge_result = [merge_pool.apply_async(merge, (table,)) for table, _, _, _ in TPCH_SCHEMA]
-      # Optional; doesn't work on hybrid table yet.
-      # subprocess.run(["impala-shell.sh", "--quiet", "-d", TARGET_DB, "-q", f"COMPUTE STATS lineitem"])
-      print("Starting test queries while loading...")
+    while updates.is_alive():
       start_queries = time.perf_counter()
-      run_queries(query_pool)
+      pool.map(run_query, [f"stress/q{i}.sql" for i in range(1, 23)])
       end_queries = time.perf_counter()
       query_runs += 1
       print(f"Ran test queries in {end_queries - start_queries:.2f} seconds.")
-      # TODO: move before queries?
-      print_ready(STEP_LOAD, results)
-      if options.with_deletes:
-        print(f"Deleted 1% of rows from customer with iter={query_runs} in {customer_del.get():.2f} seconds.")
-        print(f"Deleted 1% of rows from supplier with iter={query_runs} in {supplier_del.get():.2f} seconds.")
-      if do_merge:
-        print(f"Merge completed in {sum([merge_result.get() for merge_result in merge_result]):.2f} seconds.")
-      start_counts = time.perf_counter()
-      table_counts = merge_pool.map(run, [f"SELECT COUNT(*) FROM {table}" for table, _, _, _ in TPCH_SCHEMA])
-      end_counts = time.perf_counter()
-      print(f"Table counts after iteration {query_runs} ({end_counts - start_counts:.2f} seconds): "
-            f"{[count.stdout.decode().strip() for count in table_counts]}")
-    end_load = time.perf_counter()
-    print(f"Loaded in {end_load - start_load:.2f} seconds with {query_runs} runs of the test queries.")
 
+    run_time = time.perf_counter() - start_run
+    if do_merge:
+      merges.terminate()
+      merges.join()
+    updates.join()
+    print(f"Completed {query_runs} query iterations in {run_time:.2f} seconds.")
 
 if __name__ == "__main__":
   main()
