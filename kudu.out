@@ -1,0 +1,215 @@
+# stress.py --table=kudu --updates=100 --batch-size=2000
+Creating TPC-H kudu tables in stream_stress...
+Created in 16.30 seconds.
+Loading tpch data into kudu tables...
+Loaded in 37.19 seconds.
+Starting test queries while loading...
+Completed update iteration 1 in 2.09 seconds.
+Table counts after iteration 1 (0.11 seconds): ['6001032', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 2 in 2.07 seconds.
+Table counts after iteration 2 (0.10 seconds): ['6001156', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 3 in 1.80 seconds.
+Table counts after iteration 3 (0.10 seconds): ['6000971', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 4 in 1.89 seconds.
+Table counts after iteration 4 (0.09 seconds): ['6000862', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 5 in 1.62 seconds.
+Table counts after iteration 5 (0.09 seconds): ['6000742', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 6 in 1.53 seconds.
+Table counts after iteration 6 (0.10 seconds): ['6000723', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 7 in 2.00 seconds.
+Table counts after iteration 7 (0.11 seconds): ['6000489', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 8 in 2.03 seconds.
+Table counts after iteration 8 (0.10 seconds): ['6000564', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 9 in 1.91 seconds.
+Table counts after iteration 9 (0.09 seconds): ['6000597', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 10 in 1.87 seconds.
+Table counts after iteration 10 (0.09 seconds): ['6000591', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 11 in 2.08 seconds.
+Table counts after iteration 11 (0.09 seconds): ['6000640', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 12 in 1.98 seconds.
+Table counts after iteration 12 (0.10 seconds): ['6000594', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 13 in 1.83 seconds.
+Table counts after iteration 13 (0.08 seconds): ['6000605', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 14 in 2.24 seconds.
+Table counts after iteration 14 (0.10 seconds): ['6000607', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 15 in 2.16 seconds.
+Table counts after iteration 15 (0.10 seconds): ['6000677', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 16 in 2.02 seconds.
+Table counts after iteration 16 (0.09 seconds): ['6000470', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 17 in 1.92 seconds.
+Table counts after iteration 17 (0.11 seconds): ['6000341', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 18 in 2.19 seconds.
+Table counts after iteration 18 (0.10 seconds): ['6000298', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 19 in 2.13 seconds.
+Table counts after iteration 19 (0.10 seconds): ['6000241', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 20 in 1.88 seconds.
+Table counts after iteration 20 (0.09 seconds): ['6000310', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 21 in 2.21 seconds.
+Table counts after iteration 21 (0.15 seconds): ['6000347', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 22 in 3.50 seconds.
+Table counts after iteration 22 (0.14 seconds): ['6000330', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 23 in 2.50 seconds.
+Table counts after iteration 23 (0.09 seconds): ['6000402', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 24 in 2.51 seconds.
+Table counts after iteration 24 (0.11 seconds): ['6000433', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 25 in 2.19 seconds.
+Table counts after iteration 25 (0.11 seconds): ['6000436', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 26 in 2.08 seconds.
+Table counts after iteration 26 (0.09 seconds): ['6000479', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 27 in 1.80 seconds.
+Table counts after iteration 27 (0.10 seconds): ['6000291', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 28 in 1.91 seconds.
+Table counts after iteration 28 (0.11 seconds): ['6000275', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 29 in 1.91 seconds.
+Table counts after iteration 29 (0.10 seconds): ['6000306', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 30 in 1.81 seconds.
+Table counts after iteration 30 (0.08 seconds): ['6000338', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 31 in 1.80 seconds.
+Table counts after iteration 31 (0.08 seconds): ['6000325', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed queries in 66.69 seconds.
+Ran test queries in 66.69 seconds.
+Completed update iteration 32 in 2.43 seconds.
+Table counts after iteration 32 (0.11 seconds): ['6000472', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 33 in 2.37 seconds.
+Table counts after iteration 33 (0.11 seconds): ['6000584', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 34 in 2.52 seconds.
+Table counts after iteration 34 (0.09 seconds): ['6000493', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 35 in 2.15 seconds.
+Table counts after iteration 35 (0.13 seconds): ['6000403', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 36 in 2.42 seconds.
+Table counts after iteration 36 (0.10 seconds): ['6000326', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 37 in 2.44 seconds.
+Table counts after iteration 37 (0.10 seconds): ['6000213', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 38 in 2.08 seconds.
+Table counts after iteration 38 (0.10 seconds): ['6000284', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 39 in 2.18 seconds.
+Table counts after iteration 39 (0.10 seconds): ['6000418', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 40 in 2.43 seconds.
+Table counts after iteration 40 (0.10 seconds): ['6000372', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 41 in 2.31 seconds.
+Table counts after iteration 41 (0.09 seconds): ['6000430', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 42 in 2.84 seconds.
+Table counts after iteration 42 (0.12 seconds): ['6000580', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 43 in 2.69 seconds.
+Table counts after iteration 43 (0.12 seconds): ['6000497', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 44 in 2.67 seconds.
+Table counts after iteration 44 (0.12 seconds): ['6000633', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 45 in 2.19 seconds.
+Table counts after iteration 45 (0.13 seconds): ['6000696', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 46 in 2.68 seconds.
+Table counts after iteration 46 (0.11 seconds): ['6000855', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 47 in 2.27 seconds.
+Table counts after iteration 47 (0.11 seconds): ['6001114', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 48 in 3.32 seconds.
+Table counts after iteration 48 (0.49 seconds): ['6001195', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 49 in 3.36 seconds.
+Table counts after iteration 49 (0.13 seconds): ['6001018', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 50 in 3.00 seconds.
+Table counts after iteration 50 (0.40 seconds): ['6000932', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 51 in 2.22 seconds.
+Table counts after iteration 51 (0.12 seconds): ['6000836', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 52 in 2.63 seconds.
+Table counts after iteration 52 (0.12 seconds): ['6000660', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 53 in 2.03 seconds.
+Table counts after iteration 53 (0.10 seconds): ['6000782', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 54 in 2.13 seconds.
+Table counts after iteration 54 (0.12 seconds): ['6000780', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 55 in 2.74 seconds.
+Table counts after iteration 55 (0.17 seconds): ['6000685', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 56 in 2.12 seconds.
+Table counts after iteration 56 (0.09 seconds): ['6000727', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 57 in 1.90 seconds.
+Table counts after iteration 57 (0.12 seconds): ['6000596', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 58 in 2.41 seconds.
+Table counts after iteration 58 (0.12 seconds): ['6000635', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed queries in 70.19 seconds.
+Ran test queries in 70.19 seconds.
+Completed update iteration 59 in 3.34 seconds.
+Table counts after iteration 59 (0.22 seconds): ['6000833', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 60 in 3.21 seconds.
+Table counts after iteration 60 (0.17 seconds): ['6000867', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 61 in 3.19 seconds.
+Table counts after iteration 61 (0.17 seconds): ['6000925', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 62 in 2.84 seconds.
+Table counts after iteration 62 (0.16 seconds): ['6000812', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 63 in 3.31 seconds.
+Table counts after iteration 63 (0.17 seconds): ['6000717', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 64 in 3.38 seconds.
+Table counts after iteration 64 (0.22 seconds): ['6000770', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 65 in 2.19 seconds.
+Table counts after iteration 65 (0.20 seconds): ['6000661', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 66 in 3.36 seconds.
+Table counts after iteration 66 (0.22 seconds): ['6000609', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 67 in 3.32 seconds.
+Table counts after iteration 67 (0.22 seconds): ['6000857', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 68 in 2.75 seconds.
+Table counts after iteration 68 (0.17 seconds): ['6000807', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 69 in 4.03 seconds.
+Table counts after iteration 69 (0.22 seconds): ['6000768', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 70 in 2.89 seconds.
+Table counts after iteration 70 (0.16 seconds): ['6000726', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 71 in 3.12 seconds.
+Table counts after iteration 71 (0.16 seconds): ['6000735', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 72 in 2.95 seconds.
+Table counts after iteration 72 (0.22 seconds): ['6000770', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 73 in 3.32 seconds.
+Table counts after iteration 73 (0.22 seconds): ['6000791', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 74 in 3.36 seconds.
+Table counts after iteration 74 (0.27 seconds): ['6000799', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 75 in 4.59 seconds.
+Table counts after iteration 75 (0.27 seconds): ['6000780', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 76 in 3.39 seconds.
+Table counts after iteration 76 (0.17 seconds): ['6000518', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 77 in 3.43 seconds.
+Table counts after iteration 77 (0.17 seconds): ['6000497', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 78 in 3.33 seconds.
+Table counts after iteration 78 (0.18 seconds): ['6000451', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 79 in 2.44 seconds.
+Table counts after iteration 79 (0.17 seconds): ['6000457', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 80 in 3.28 seconds.
+Table counts after iteration 80 (0.17 seconds): ['6000471', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 81 in 2.57 seconds.
+Table counts after iteration 81 (0.12 seconds): ['6000359', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 82 in 2.64 seconds.
+Table counts after iteration 82 (0.16 seconds): ['6000640', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed queries in 81.90 seconds.
+Ran test queries in 81.90 seconds.
+Completed update iteration 83 in 3.61 seconds.
+Table counts after iteration 83 (0.27 seconds): ['6000586', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 84 in 3.43 seconds.
+Table counts after iteration 84 (0.27 seconds): ['6000391', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 85 in 3.57 seconds.
+Table counts after iteration 85 (0.27 seconds): ['6000259', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 86 in 3.44 seconds.
+Table counts after iteration 86 (0.17 seconds): ['6000188', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 87 in 3.78 seconds.
+Table counts after iteration 87 (0.32 seconds): ['6000199', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 88 in 3.39 seconds.
+Table counts after iteration 88 (0.27 seconds): ['6000291', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 89 in 3.22 seconds.
+Table counts after iteration 89 (0.32 seconds): ['6000278', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 90 in 3.25 seconds.
+Table counts after iteration 90 (0.27 seconds): ['6000094', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 91 in 3.53 seconds.
+Table counts after iteration 91 (0.22 seconds): ['6000135', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 92 in 3.91 seconds.
+Table counts after iteration 92 (0.37 seconds): ['6000170', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 93 in 3.35 seconds.
+Table counts after iteration 93 (0.27 seconds): ['5999968', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 94 in 3.53 seconds.
+Table counts after iteration 94 (0.22 seconds): ['6000034', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 95 in 3.23 seconds.
+Table counts after iteration 95 (0.27 seconds): ['5999909', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 96 in 3.44 seconds.
+Table counts after iteration 96 (0.27 seconds): ['5999598', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 97 in 3.35 seconds.
+Table counts after iteration 97 (0.27 seconds): ['5999673', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 98 in 4.71 seconds.
+Table counts after iteration 98 (0.52 seconds): ['5999691', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 99 in 3.86 seconds.
+Table counts after iteration 99 (0.16 seconds): ['5999709', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed update iteration 100 in 3.79 seconds.
+Table counts after iteration 100 (0.17 seconds): ['5999607', '200000', '800000', '10000', '25', '5', '1500000', '150000']
+Completed queries in 79.66 seconds.
+Ran test queries in 79.66 seconds.
+Completed 4 query iterations in 298.43 seconds.
