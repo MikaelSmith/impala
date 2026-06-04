@@ -1,18 +1,6 @@
 ====
 ---- QUERY
-# Create tables for managing a streaming table.
-create table test_iceberg(i int, comm string, count bigint) stored as iceberg
-    tblproperties('format-version'='3');
-create table test_kudu (i int non unique primary key, comm string, count bigint)
-    stored as kudu;
-create table test_dels (i int non unique primary key, _row_id bigint) stored as kudu;
-create table test_pit (
-    id int primary key, migration_ts bigint, snapshot_id bigint) stored as kudu;
-create table test(i int, comm string, count bigint) stored as iceberg
-    tblproperties('impala.streaming.kudu'='test_kudu',
-                  'impala.streaming.iceberg'='test_iceberg',
-                  'impala.streaming.pit'='test_pit',
-                  'impala.streaming.dels'='test_dels');
+create table test (i int non unique primary key, comm string, count bigint) stored as streaming;
 ====
 ---- QUERY
 insert into test values (1, 'a', 10), (2, 'b', 20),
@@ -41,14 +29,6 @@ select * from test order by i;
 5,'e',50
 ---- TYPES
 INT, STRING, BIGINT
-====
----- QUERY
-# Drop/recreate to simulate aging out old data; in real world this would be done by TTL.
-drop table test_dels;
-drop table test_kudu;
-create table test_kudu (i int non unique primary key, comm string, count bigint)
-    stored as kudu;
-create table test_dels (i int non unique primary key, _row_id bigint) stored as kudu;
 ====
 ---- QUERY
 # Add new and modify existing data after migrate.

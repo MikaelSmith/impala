@@ -268,6 +268,7 @@ import org.apache.impala.thrift.TReservedWordsVersion;
     keywordMap.put("sort", SqlParserSymbols.KW_SORT);
     keywordMap.put("spec", SqlParserSymbols.KW_SPEC);
     keywordMap.put("stats", SqlParserSymbols.KW_STATS);
+    keywordMap.put("streaming", SqlParserSymbols.KW_STREAMING);
     keywordMap.put("stored", SqlParserSymbols.KW_STORED);
     keywordMap.put("storagehandler_uri", SqlParserSymbols.KW_STORAGE_HANDLER_URI);
     keywordMap.put("straight_join", SqlParserSymbols.KW_STRAIGHT_JOIN);

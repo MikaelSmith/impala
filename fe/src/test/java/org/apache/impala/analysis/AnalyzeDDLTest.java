@@ -3453,6 +3453,124 @@ public class AnalyzeDDLTest extends FrontendTestBase {
   }
 
   @Test
+  public void TestCreateStreamingTable() throws AnalysisException {
+    BackendConfig.INSTANCE.getBackendCfg().setKudu_master_hosts("127.0.0.1");
+
+    // Basic streaming table.
+    AnalyzesOk("create table new_streaming_table (i int primary key) " +
+        "stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int, j int, primary key (i)) " +
+        "stored as streaming");
+    AnalyzesOk("create table if not exists new_streaming_table (i int primary key) " +
+        "stored as streaming");
+
+    // Non-unique primary key.
+    AnalyzesOk("create table new_streaming_table (i int non unique primary key) " +
+        "stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int, j int, " +
+        "non unique primary key (i, j)) stored as streaming");
+
+    // COMMENT and TBLPROPERTIES pass through to the streaming table itself.
+    AnalyzesOk("create table new_streaming_table (i int primary key) " +
+        "comment 'my table' stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int primary key) " +
+        "stored as streaming tblproperties ('my.prop'='val')");
+
+    // Kudu column options are forwarded to the backing Kudu table.
+    AnalyzesOk("create table new_streaming_table " +
+        "(i int primary key not null encoding rle compression snappy, " +
+        "s string null encoding plain_encoding compression lz4) " +
+        "stored as streaming");
+    AnalyzesOk("create table new_streaming_table " +
+        "(i int primary key, j int default 0 block_size 4096) stored as streaming");
+
+    // Kudu HASH partitioning: partition spec is forwarded to the backing Kudu table.
+    AnalyzesOk("create table new_streaming_table (i int primary key) " +
+        "partition by hash(i) partitions 4 stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int, j int, primary key (i, j)) " +
+        "partition by hash(i) partitions 4, hash(j) partitions 2 " +
+        "stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int primary key) " +
+        "partition by hash partitions 8 stored as streaming");
+
+    // Kudu RANGE partitioning: partition spec is forwarded to the backing Kudu table.
+    AnalyzesOk("create table new_streaming_table (i int primary key) " +
+        "partition by range(i) (partition value = 10) stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int primary key) " +
+        "partition by range(i) " +
+        "(partition 1 <= values < 10, partition 10 <= values < 20, " +
+        "partition value = 50) stored as streaming");
+
+    // Combined Kudu HASH + RANGE.
+    AnalyzesOk("create table new_streaming_table (i int, j int, primary key (i, j)) " +
+        "partition by hash(i) partitions 4, range(j) " +
+        "(partition 1 <= values < 10, partition value = 50) stored as streaming");
+
+    // Iceberg partition specs: forwarded to the backing Iceberg table.
+    AnalyzesOk("create table new_streaming_table (i int primary key, ts timestamp) " +
+        "partitioned by spec (ts) stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int primary key, ts timestamp) " +
+        "partitioned by spec (year(ts)) stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int, ts timestamp, primary key (i)) " +
+        "partitioned by spec (year(ts)) stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int primary key, ts timestamp) " +
+        "partitioned by spec (year(ts), month(ts), day(ts)) stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int primary key, j int, " +
+        "ts timestamp) partitioned by spec (bucket(10, j), day(ts)) " +
+        "stored as streaming");
+    AnalyzesOk("create table new_streaming_table (i int primary key, j int) " +
+        "partitioned by spec (truncate(5, j)) stored as streaming");
+
+    // TINYINT and SMALLINT columns are widened to INT in the Iceberg backing table.
+    AnalyzesOk("create table new_streaming_table " +
+        "(i int primary key, t tinyint, s smallint) stored as streaming");
+    AnalyzesOk("create table new_streaming_table " +
+        "(i int primary key, t tinyint, s smallint, ts timestamp) " +
+        "partitioned by spec (year(ts)) stored as streaming");
+
+    // Kudu + Iceberg partition specs can be combined.
+    AnalyzesOk("create table new_streaming_table (i int, j int, ts timestamp, " +
+        "primary key (i, j)) partition by hash(i) partitions 4 " +
+        "partitioned by spec (bucket(4, i)) stored as streaming");
+
+    // A primary key is required.
+    AnalysisError("create table new_streaming_table (i int) stored as streaming",
+        "STORED AS STREAMING requires at least one PRIMARY KEY column.");
+    AnalysisError("create table new_streaming_table (i int) " +
+        "partition by hash(i) partitions 4 stored as streaming",
+        "STORED AS STREAMING requires at least one PRIMARY KEY column.");
+    AnalysisError("create table new_streaming_table (i int, ts timestamp) " +
+        "partitioned by spec (year(ts)) stored as streaming",
+        "STORED AS STREAMING requires at least one PRIMARY KEY column.");
+
+    // A Kudu partition spec must reference columns that exist in the table.
+    AnalysisError("create table new_streaming_table (i int primary key) " +
+        "partition by hash(nonexistent) partitions 4 stored as streaming",
+        "Column 'nonexistent' in 'HASH (nonexistent) PARTITIONS 4' is not a key column");
+
+    // An Iceberg partition field must reference a column that exists.
+    AnalysisError("create table new_streaming_table (i int primary key) " +
+        "partitioned by spec (year(nonexistent)) stored as streaming",
+        "Cannot find source column");
+
+    // BUCKET and TRUNCATE transforms require a parameter.
+    AnalysisError("create table new_streaming_table (i int primary key, j int) " +
+        "partitioned by spec (bucket(j)) stored as streaming",
+        "BUCKET and TRUNCATE partition transforms should have a parameter.");
+    AnalysisError("create table new_streaming_table (i int primary key, j int) " +
+        "partitioned by spec (truncate(j)) stored as streaming",
+        "BUCKET and TRUNCATE partition transforms should have a parameter.");
+
+    // The parameter of BUCKET / TRUNCATE must be positive.
+    AnalysisError("create table new_streaming_table (i int primary key, j int) " +
+        "partitioned by spec (bucket(0, j)) stored as streaming",
+        "The parameter of a partition transform should be greater than zero.");
+    AnalysisError("create table new_streaming_table (i int primary key, j int) " +
+        "partitioned by spec (truncate(0, j)) stored as streaming",
+        "The parameter of a partition transform should be greater than zero.");
+  }
+
+  @Test
   public void TestCreateAvroTest() {
     String alltypesSchemaLoc =
         "hdfs:///test-warehouse/avro_schemas/functional/alltypes.json";

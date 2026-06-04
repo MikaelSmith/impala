@@ -54,6 +54,11 @@ class TableDataLayout {
         icebergPartitionSpecs);
   }
 
+  static TableDataLayout createStreamingPartitionedLayout(
+      List<KuduPartitionParam> partitionParams, List<IcebergPartitionSpec> icebergPartitionSpecs) {
+    return new TableDataLayout(new ArrayList<>(), partitionParams, icebergPartitionSpecs);
+  }
+
   static TableDataLayout createEmptyLayout() {
     return new TableDataLayout(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
   }

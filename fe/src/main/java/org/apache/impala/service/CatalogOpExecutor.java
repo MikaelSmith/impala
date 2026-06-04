@@ -44,6 +44,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -277,6 +278,11 @@ import org.apache.impala.util.MetaStoreUtil;
 import org.apache.impala.util.MetaStoreUtil.TableInsertEventInfo;
 import org.apache.impala.util.NoOpEventSequence;
 import org.apache.impala.util.ThreadNameAnnotator;
+import org.apache.kudu.ColumnSchema;
+import org.apache.kudu.ColumnSchema.ColumnSchemaBuilder;
+import org.apache.kudu.Schema;
+import org.apache.kudu.client.CreateTableOptions;
+import org.apache.kudu.client.KuduClient;
 import org.apache.paimon.table.DataTable;
 import org.apache.thrift.TException;
 import org.slf4j.Logger;
@@ -3145,14 +3151,28 @@ public class CatalogOpExecutor {
       }
     }
     for (org.apache.hadoop.hive.metastore.api.Table msTable: msTables) {
-      if (!KuduTable.isKuduTable(msTable) || !KuduTable
-          .isSynchronizedTable(msTable)) continue;
-      // The operation will be aborted if the Kudu table cannot be dropped. If for
-      // some reason Kudu is permanently stuck in a non-functional state, the user is
-      // expected to ALTER TABLE to either set the table to UNMANAGED or set the format
-      // to something else.
-      KuduCatalogOpExecutor.dropTable(
-        msTable, /*if exists*/ true, kudu_table_reserve_seconds, catalogTimeline);
+      if (KuduTable.isKuduTable(msTable) && KuduTable.isSynchronizedTable(msTable)) {
+        // The operation will be aborted if the Kudu table cannot be dropped. If for
+        // some reason Kudu is permanently stuck in a non-functional state, the user is
+        // expected to ALTER TABLE to either set the table to UNMANAGED or set the format
+        // to something else.
+        KuduCatalogOpExecutor.dropTable(
+            msTable, /*if exists*/ true, kudu_table_reserve_seconds, catalogTimeline);
+      }
+      // For streaming tables, drop the direct-Kudu _pit table which is not registered
+      // in HMS and therefore won't be cleaned up by the HMS cascade drop.
+      Map<String, String> tblParams = msTable.getParameters();
+      if (tblParams == null) continue;
+      String pitBacking = tblParams.get(FeTable.STREAMING_PIT);
+      if (Strings.isNullOrEmpty(pitBacking)) continue;
+      String kuduMasters = tblParams.get(KuduTable.KEY_MASTER_HOSTS);
+      if (Strings.isNullOrEmpty(kuduMasters)) continue;
+      boolean isHmsIntegrationEnabled = KuduTable.isHMSIntegrationEnabled(kuduMasters);
+      String pitKuduName = KuduUtil.getDefaultKuduTableName(
+          db.getName(), pitBacking, isHmsIntegrationEnabled);
+      KuduClient kuduClient = KuduUtil.getKuduClient(kuduMasters, catalogTimeline);
+      dropDirectKuduTableIfExists(
+          kuduClient, pitKuduName, kudu_table_reserve_seconds, catalogTimeline);
     }
   }
 
@@ -3312,6 +3332,11 @@ public class CatalogOpExecutor {
         }
         existingTbl.updateHMSLoadTableSchemaTime(hmsLoadTime);
       }
+
+      // If this is a streaming table, first drop its backing tables.
+      dropStreamingBackingTablesIfAny(params, db, tableName, msTbl,
+          kudu_table_reserve_seconds, catalogTimeline);
+
       boolean isSynchronizedKuduTable = msTbl != null &&
               KuduTable.isKuduTable(msTbl) && KuduTable.isSynchronizedTable(msTbl);
       if (isSynchronizedKuduTable) {
@@ -3408,6 +3433,76 @@ public class CatalogOpExecutor {
     removedObject.getTable().setDb_name(tableName.getDb());
     removedObject.setCatalog_version(resp.result.getVersion());
     resp.result.addToRemoved_catalog_objects(removedObject);
+  }
+
+  private void dropStreamingBackingTablesIfAny(TDropTableOrViewParams params,
+      Db db, TableName tableName, org.apache.hadoop.hive.metastore.api.Table msTbl,
+      int kudu_table_reserve_seconds, EventSequence catalogTimeline)
+      throws ImpalaException {
+    if (!params.isSetIs_table() || !params.is_table || msTbl == null) return;
+    Map<String, String> tblProps = msTbl.getParameters();
+    if (tblProps == null) return;
+    String kuduBacking = tblProps.get(FeTable.STREAMING_KUDU);
+    String icebergBacking = tblProps.get(FeTable.STREAMING_ICEBERG);
+    String delsBacking = tblProps.get(FeTable.STREAMING_DELS);
+    String pitBacking = tblProps.get(FeTable.STREAMING_PIT);
+    if (Strings.isNullOrEmpty(kuduBacking) || Strings.isNullOrEmpty(icebergBacking)
+        || Strings.isNullOrEmpty(delsBacking) || Strings.isNullOrEmpty(pitBacking)) {
+      return;
+    }
+
+    String kuduMasters = tblProps.get(KuduTable.KEY_MASTER_HOSTS);
+    if (Strings.isNullOrEmpty(kuduMasters)) {
+      LOG.warn("Streaming table {} is missing Kudu master addresses for dropping pit table",
+          tableName);
+    } else {
+      boolean isHmsIntegrationEnabled = KuduTable.isHMSIntegrationEnabled(kuduMasters);
+      KuduClient kuduClient = KuduUtil.getKuduClient(kuduMasters, catalogTimeline);
+      String pitKuduName = KuduUtil.getDefaultKuduTableName(
+          tableName.getDb(), pitBacking, isHmsIntegrationEnabled);
+      dropDirectKuduTableIfExists(kuduClient, pitKuduName, kudu_table_reserve_seconds,
+          catalogTimeline);
+    }
+
+    for (String backingName : new String[]{delsBacking, kuduBacking, icebergBacking}) {
+      if (backingName.equalsIgnoreCase(tableName.getTbl())) continue;
+      if (db.getTable(backingName) == null) {
+        LOG.warn("Streaming backing table {}.{} does not exist while dropping {}",
+            tableName.getDb(), backingName, tableName);
+      }
+      TDropTableOrViewParams backingDropParams = new TDropTableOrViewParams();
+      backingDropParams.setTable_name(
+          new TTableName(tableName.getDb(), backingName));
+      backingDropParams.setIf_exists(true);
+      backingDropParams.setPurge(params.purge);
+      backingDropParams.setIs_table(true);
+      backingDropParams.setServer_name(params.server_name);
+
+      // Drop backing tables quietly: the user-visible summary should describe the
+      // original table drop request.
+      TDdlExecResponse backingResp = new TDdlExecResponse();
+      backingResp.setResult(new TCatalogUpdateResult());
+      dropTableOrViewInternal(backingDropParams,
+          new TableName(tableName.getDb(), backingName), backingResp,
+          kudu_table_reserve_seconds, catalogTimeline);
+    }
+  }
+
+  private static void dropDirectKuduTableIfExists(KuduClient client, String tableName,
+      int kuduTableReserveSeconds, EventSequence catalogTimeline)
+      throws ImpalaRuntimeException {
+    try {
+      if (!client.tableExists(tableName)) {
+        LOG.warn("Streaming Kudu table {} does not exist while attempting to drop it",
+            tableName);
+        return;
+      }
+      client.deleteTable(tableName, kuduTableReserveSeconds);
+      catalogTimeline.markEvent("Deleted table in Kudu");
+    } catch (Exception e) {
+      throw new ImpalaRuntimeException(
+          String.format("Error dropping streaming Kudu table '%s'", tableName), e);
+    }
   }
 
   /**
@@ -3862,6 +3957,7 @@ public class CatalogOpExecutor {
         String.format("Can't create blacklisted table: %s. %s", tableName,
             BLACKLISTED_TABLES_INCONSISTENT_ERR_STR));
 
+    // Honor IF NOT EXISTS before creating any backing or auxiliary tables.
     Table existingTbl = catalog_.getTableNoThrow(tableName.getDb(), tableName.getTbl());
     if (params.if_not_exists && existingTbl != null) {
       addSummary(response, "Table already exists.");
@@ -3893,25 +3989,157 @@ public class CatalogOpExecutor {
       }
       return false;
     }
-    org.apache.hadoop.hive.metastore.api.Table tbl = createMetaStoreTable(params);
-    LOG.trace("Creating table {}", tableName);
-    if (KuduTable.isKuduTable(tbl)) {
-      return createKuduTable(tbl, params, wantMinimalResult, response, catalogTimeline);
-    } else if (IcebergTable.isIcebergTable(tbl)) {
-      return createIcebergTable(tbl, wantMinimalResult, response, catalogTimeline,
-          params.if_not_exists, params.getColumns(), params.getPartition_spec(),
-          params.getPrimary_key_column_names(), params.getTable_properties(),
-          params.getComment(), debugAction);
-    } else if (PaimonUtil.isPaimonTable(tbl)) {
-      return createPaimonTable(
-          tbl, wantMinimalResult, response, catalogTimeline, params, debugAction);
+
+    // For STORED AS STREAMING: create the backing Kudu and Iceberg tables first.
+    // Track successfully created backing tables so we can clean them up on failure.
+    //
+    // To ensure atomicity, we hold metastoreDdlLock_ for the entire streaming table
+    // creation: all backing-table HMS entries and the streaming table HMS entry are
+    // created as a single critical section. This blocks concurrent CREATE TABLE
+    // STREAMING and DROP TABLE STREAMING calls (DROP already holds
+    // metastoreDdlLock_ from dropTableOrViewInternal throughout its own recursive
+    // backing-table drops). Inner calls that re-acquire metastoreDdlLock_ succeed
+    // because ReentrantLock allows reentrant acquisition by the same thread.
+    List<TableName> createdBackingTables = new ArrayList<>();
+    boolean heldStreamingDdlLock = false;
+    try {
+      if (params.isSetBacking_creates()) {
+        acquireMetastoreDdlLock(catalogTimeline);
+        heldStreamingDdlLock = true;
+        for (TCreateTableParams backingParams : params.getBacking_creates()) {
+          createTable(backingParams, response, catalogTimeline, syncDdl, wantMinimalResult,
+              debugAction);
+          // Track the table name for potential cleanup on failure
+          TableName backingTableName = TableName.fromThrift(backingParams.getTable_name());
+          createdBackingTables.add(backingTableName);
+        }
+        if (isStreamingCreateRequest(params)) {
+          // Create auxiliary streaming tables before creating the HMS table.
+          createStreamingAuxTables(params, catalogTimeline);
+        }
+      }
+
+      org.apache.hadoop.hive.metastore.api.Table tbl = createMetaStoreTable(params);
+      LOG.trace("Creating table {}", tableName);
+      if (KuduTable.isKuduTable(tbl)) {
+        return createKuduTable(tbl, params, wantMinimalResult, response, catalogTimeline);
+      } else if (IcebergTable.isIcebergTable(tbl)) {
+        return createIcebergTable(tbl, wantMinimalResult, response, catalogTimeline,
+            params.if_not_exists, params.getColumns(), params.getPartition_spec(),
+            params.getPrimary_key_column_names(), params.getTable_properties(),
+            params.getComment(), debugAction);
+      } else if (PaimonUtil.isPaimonTable(tbl)) {
+        return createPaimonTable(
+            tbl, wantMinimalResult, response, catalogTimeline, params, debugAction);
+      }
+      Preconditions.checkState(params.getColumns().size() > 0,
+          "Empty column list given as argument to Catalog.createTable");
+      MetastoreShim.setTableLocation(catalog_.getDb(tbl.getDbName()), tbl);
+      return createTable(tbl, params.if_not_exists, params.getCache_op(),
+          params.server_name, params.getPrimary_keys(), params.getForeign_keys(),
+          wantMinimalResult, response, catalogTimeline);
+    } catch (Exception e) {
+      // If any backing table creation failed, try to clean up the tables that were
+      // successfully created before the failure. This prevents orphaned tables.
+      // dropTableOrViewInternal re-acquires metastoreDdlLock_ (reentrant) so the
+      // cleanup also runs within the same critical section.
+      if (!createdBackingTables.isEmpty()) {
+        LOG.warn("Streaming table creation failed. Attempting to clean up " +
+            "successfully created backing tables: {}", createdBackingTables, e);
+        for (TableName backingTableName : createdBackingTables) {
+          try {
+            TDropTableOrViewParams dropParams = new TDropTableOrViewParams();
+            dropParams.setTable_name(backingTableName.toThrift());
+            dropParams.setIf_exists(true);
+            dropParams.setIs_table(true);
+            dropParams.setServer_name(params.server_name);
+            TDdlExecResponse cleanupResp = new TDdlExecResponse();
+            cleanupResp.setResult(new TCatalogUpdateResult());
+            dropTableOrViewInternal(dropParams, backingTableName,
+                cleanupResp, 0 /* kudu_table_reserve_seconds */, catalogTimeline);
+            LOG.info("Successfully cleaned up backing table: {}", backingTableName);
+          } catch (Exception cleanupException) {
+            LOG.error("Failed to clean up backing table {} after streaming table " +
+                "creation failure. This may leave orphaned tables.", backingTableName,
+                cleanupException);
+          }
+        }
+      }
+      // Re-throw the original exception
+      throw e;
+    } finally {
+      if (heldStreamingDdlLock) {
+        getMetastoreDdlLock().unlock();
+      }
     }
-    Preconditions.checkState(params.getColumns().size() > 0,
-        "Empty column list given as argument to Catalog.createTable");
-    MetastoreShim.setTableLocation(catalog_.getDb(tbl.getDbName()), tbl);
-    return createTable(tbl, params.if_not_exists, params.getCache_op(),
-        params.server_name, params.getPrimary_keys(), params.getForeign_keys(),
-        wantMinimalResult, response, catalogTimeline);
+  }
+
+  private static List<ColumnSchema> buildStreamingPitSchema() {
+    List<ColumnSchema> pitCols = new ArrayList<>();
+    pitCols.add(new ColumnSchemaBuilder("id", org.apache.kudu.Type.INT32).key(true).build());
+    pitCols.add(new ColumnSchemaBuilder("migration_ts", org.apache.kudu.Type.INT64)
+        .nullable(true)
+        .build());
+    pitCols.add(new ColumnSchemaBuilder("snapshot_id", org.apache.kudu.Type.INT64)
+        .nullable(true)
+        .build());
+    return pitCols;
+  }
+
+  private static void createDirectKuduTable(KuduClient client, String tableName,
+      List<ColumnSchema> columns, boolean ifNotExists) throws ImpalaRuntimeException {
+    try {
+      if (client.tableExists(tableName)) {
+        if (ifNotExists) return;
+        throw new ImpalaRuntimeException(
+            String.format("Table '%s' already exists in Kudu.", tableName));
+      }
+      CreateTableOptions opts = new CreateTableOptions();
+      // Create the aux tables unpartitioned; Kudu represents this as range partitioning
+      // by an empty key list.
+      opts.setRangePartitionColumns(Collections.emptyList());
+      client.createTable(tableName, new Schema(columns), opts);
+    } catch (Exception e) {
+      throw new ImpalaRuntimeException(
+          String.format("Error creating streaming Kudu table '%s'", tableName), e);
+    }
+  }
+
+  private void createStreamingAuxTables(TCreateTableParams params,
+      EventSequence catalogTimeline) throws ImpalaException {
+    Map<String, String> tblProperties = params.isSetTable_properties()
+        ? params.getTable_properties() : new HashMap<>();
+    params.setTable_properties(tblProperties);
+
+    TableName streamingName = TableName.fromThrift(params.getTable_name());
+    Preconditions.checkNotNull(streamingName);
+
+    String pitName = tblProperties.get(FeTable.STREAMING_PIT);
+    if (Strings.isNullOrEmpty(pitName)) pitName = streamingName.getTbl() + "_pit";
+
+    String kuduMasters = tblProperties.get(KuduTable.KEY_MASTER_HOSTS);
+    if (Strings.isNullOrEmpty(kuduMasters)) {
+      throw new ImpalaRuntimeException(
+          "Streaming table is missing kudu master addresses");
+    }
+
+    String pitKuduName = KuduUtil.getKuduTableName(
+        streamingName.getDb(), pitName, kuduMasters);
+
+    // _dels is defined in CreateStreamingTableStmt and arrives in backing_creates;
+    // it is handled by the main backing-create loop before this method is called.
+    KuduClient kuduClient = KuduUtil.getKuduClient(kuduMasters, catalogTimeline);
+    createDirectKuduTable(kuduClient, pitKuduName,
+        buildStreamingPitSchema(), params.if_not_exists);
+
+    tblProperties.put(FeTable.STREAMING_PIT, pitName);
+  }
+
+  private static boolean isStreamingCreateRequest(TCreateTableParams params) {
+    if (!params.isSetTable_properties()) return false;
+    Map<String, String> tblProperties = params.getTable_properties();
+    return tblProperties.containsKey(FeTable.STREAMING_KUDU)
+        && tblProperties.containsKey(FeTable.STREAMING_ICEBERG);
   }
 
   /**

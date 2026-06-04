@@ -3479,6 +3479,116 @@ public class ParserTest extends FrontendTestBase {
   }
 
   @Test
+  public void TestCreateStreamingTable() {
+    // Basic form: inline primary key.
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int, j int, PRIMARY KEY (i)) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE IF NOT EXISTS Foo (i int PRIMARY KEY) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE db.Foo (i int PRIMARY KEY) STORED AS STREAMING");
+
+    // Non-unique primary key.
+    ParsesOk("CREATE TABLE Foo (i int NON UNIQUE PRIMARY KEY) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int, j int, NON UNIQUE PRIMARY KEY (i, j)) " +
+        "STORED AS STREAMING");
+
+    // COMMENT and TBLPROPERTIES.
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) COMMENT 'hi' STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) STORED AS STREAMING " +
+        "TBLPROPERTIES ('a'='b')");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) COMMENT 'hi' STORED AS STREAMING " +
+        "TBLPROPERTIES ('a'='b', 'c'='d')");
+
+    // Kudu column options (forwarded to the backing Kudu table).
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY NOT NULL ENCODING RLE COMPRESSION " +
+        "SNAPPY, s string NULL ENCODING PLAIN_ENCODING COMPRESSION LZ4) " +
+        "STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, j int DEFAULT 0 BLOCK_SIZE 4096) " +
+        "STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, b float DEFAULT cast(1.0 as float)) " +
+        "STORED AS STREAMING");
+
+    // Kudu HASH partitioning (applies to the backing Kudu table).
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY HASH(i) PARTITIONS 4 STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int, j int, PRIMARY KEY (i, j)) " +
+        "PARTITION BY HASH(i) PARTITIONS 4, HASH(j) PARTITIONS 2 " +
+        "STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY HASH PARTITIONS 8 STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int, j int, PRIMARY KEY (i, j)) " +
+        "PARTITION BY HASH(i, j) PARTITIONS 4 STORED AS STREAMING");
+
+    // Kudu RANGE partitioning (applies to the backing Kudu table).
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY RANGE (PARTITION VALUE = 10) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY RANGE(i) (PARTITION VALUE = 10) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY RANGE(i) " +
+        "(PARTITION 1 <= VALUES < 10, PARTITION 10 <= VALUES < 20, " +
+        "PARTITION VALUE = 50) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY RANGE(i) (PARTITION VALUES < 10) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY RANGE(i) (PARTITION 1 <= VALUES) STORED AS STREAMING");
+
+    // Combined Kudu HASH + RANGE partitioning.
+    ParsesOk("CREATE TABLE Foo (i int, j int, PRIMARY KEY (i, j)) " +
+        "PARTITION BY HASH(i) PARTITIONS 4, RANGE(j) " +
+        "(PARTITION 1 <= VALUES < 10, PARTITION VALUE = 50) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY RANGE(i) (PARTITION VALUE = 10), HASH(i) PARTITIONS 3 " +
+        "STORED AS STREAMING");
+
+    // Iceberg partition specs (apply to the backing Iceberg table).
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "PARTITIONED BY SPEC (ts) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "PARTITIONED BY SPEC (year(ts)) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "PARTITIONED BY SPEC (month(ts)) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "PARTITIONED BY SPEC (day(ts)) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "PARTITIONED BY SPEC (hour(ts)) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "PARTITIONED BY SPEC (year(ts), month(ts), day(ts)) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, j int, ts timestamp) " +
+        "PARTITIONED BY SPEC (bucket(10, j), day(ts)) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, j int) " +
+        "PARTITIONED BY SPEC (truncate(5, j)) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, j int, ts timestamp) " +
+        "PARTITIONED BY SPEC (bucket(10, j), truncate(5, i), day(ts)) " +
+        "STORED AS STREAMING");
+
+    // Iceberg partition specs with TBLPROPERTIES.
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "PARTITIONED BY SPEC (year(ts)) STORED AS STREAMING " +
+        "TBLPROPERTIES ('a'='b')");
+
+    // Kudu partition specs with TBLPROPERTIES.
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "PARTITION BY HASH(i) PARTITIONS 4 STORED AS STREAMING " +
+        "TBLPROPERTIES ('kudu.tablet_replicas'='3')");
+
+    // Kudu + Iceberg partition specs.
+    ParsesOk("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "PARTITION BY HASH(i) PARTITIONS 4, RANGE(i) (PARTITION VALUE = 10) " +
+        "PARTITIONED BY SPEC (year(ts)) STORED AS STREAMING");
+
+    // Partition spec must precede STORED AS.
+    ParserError("CREATE TABLE Foo (i int PRIMARY KEY) " +
+        "STORED AS STREAMING PARTITION BY HASH(i) PARTITIONS 4");
+    ParserError("CREATE TABLE Foo (i int PRIMARY KEY, ts timestamp) " +
+        "STORED AS STREAMING PARTITIONED BY SPEC (year(ts))");
+
+    // Missing PRIMARY KEY is a parser-level non-issue; caught at analysis time.
+    ParsesOk("CREATE TABLE Foo (i int) STORED AS STREAMING");
+    ParsesOk("CREATE TABLE Foo (i int) " +
+        "PARTITION BY HASH(i) PARTITIONS 4 STORED AS STREAMING");
+  }
+
+  @Test
   public void TestCreateTableAsSelect() {
     ParsesOk("CREATE TABLE Foo AS SELECT 1, 2, 3");
     ParsesOk("CREATE TABLE Foo AS SELECT * from foo.bar");

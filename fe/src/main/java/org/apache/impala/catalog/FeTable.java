@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.impala.analysis.Expr;
@@ -121,10 +122,10 @@ public interface FeTable {
    */
   default boolean isStreaming() {
     return getMetaStoreTable() != null
-        && getMetaStoreTable().getParameters().containsKey(STREAMING_KUDU)
-        && getMetaStoreTable().getParameters().containsKey(STREAMING_ICEBERG)
-        && getMetaStoreTable().getParameters().containsKey(STREAMING_DELS)
-        && getMetaStoreTable().getParameters().containsKey(STREAMING_PIT);
+        && StringUtils.isNotEmpty(getMetaStoreTable().getParameters().get(STREAMING_KUDU))
+        && StringUtils.isNotEmpty(getMetaStoreTable().getParameters().get(STREAMING_ICEBERG))
+        && StringUtils.isNotEmpty(getMetaStoreTable().getParameters().get(STREAMING_DELS))
+        && StringUtils.isNotEmpty(getMetaStoreTable().getParameters().get(STREAMING_PIT));
   }
 
   /**

@@ -350,7 +350,7 @@ terminal
   KW_REVOKE, KW_RIGHT, KW_RLIKE, KW_ROLE, KW_ROLES, KW_ROLLUP, KW_ROW, KW_ROWS, KW_RWSTORAGE,
   KW_SCHEMA, KW_SCHEMAS, KW_SELECT, KW_SELECTIVITY, KW_SEMI, KW_SEQUENCEFILE, KW_SERDEPROPERTIES,
   KW_SERIALIZE_FN, KW_SET, KW_SHOW, KW_SMALLINT, KW_SETS, KW_SORT, KW_SPEC,
-  KW_STORAGE_HANDLER_URI, KW_STORED, KW_STRAIGHT_JOIN, KW_STRING, KW_STRUCT, KW_SYMBOL,
+  KW_STORAGE_HANDLER_URI, KW_STORED, KW_STRAIGHT_JOIN, KW_STREAMING, KW_STRING, KW_STRUCT, KW_SYMBOL,
   KW_SYSTEM_TIME, KW_SYSTEM_VERSION, KW_TABLE, KW_TABLES, KW_TABLESAMPLE, KW_TBLPROPERTIES,
   KW_TERMINATED, KW_TEXTFILE, KW_THEN, KW_TIMESTAMP, KW_TINYINT, KW_TRUNCATE, KW_STATS,
   KW_TO, KW_TRAILING, KW_TRUE, KW_UDF, KW_UNBOUNDED, KW_UNCACHED, KW_UNION, KW_UNIQUE, KW_UNKNOWN,
@@ -1775,7 +1775,11 @@ create_tbl_stmt ::=
     tbl_def.getKuduPartitionParams().addAll(data_layout.getKuduPartitionParams());
     tbl_def.getIcebergPartitionSpecs().addAll(data_layout.getIcebergPartitionSpecs());
     tbl_def.setOptions(options);
-    RESULT = new CreateTableStmt(tbl_def);
+    if (tbl_def.getFileFormat() == THdfsFileFormat.STREAMING) {
+      RESULT = new CreateStreamingTableStmt(tbl_def);
+    } else {
+      RESULT = new CreateTableStmt(tbl_def);
+    }
   :}
   | KW_CREATE tbl_def_with_col_defs:tbl_def
     KW_PRODUCED KW_BY KW_DATA source_ident:is_source_id ident_or_unreserved:data_src_name
@@ -2034,6 +2038,10 @@ partitioned_data_layout ::=
   {: RESULT = TableDataLayout.createKuduPartitionedLayout(partition_params); :}
   | iceberg_partition_spec_list:iceberg_partition_specs
   {: RESULT = TableDataLayout.createIcebergPartitionedLayout(iceberg_partition_specs); :}
+  | partition_param_list:partition_params iceberg_partition_spec_list:iceberg_partition_specs
+  {: RESULT = TableDataLayout.createStreamingPartitionedLayout(partition_params, iceberg_partition_specs); :}
+  | iceberg_partition_spec_list:iceberg_partition_specs partition_param_list:partition_params
+  {: RESULT = TableDataLayout.createStreamingPartitionedLayout(partition_params, iceberg_partition_specs); :}
   | /* empty */
   {: RESULT = TableDataLayout.createEmptyLayout(); :}
   ;
@@ -2464,6 +2472,8 @@ file_format_val ::=
   {: RESULT = THdfsFileFormat.JDBC; :}
   | KW_PAIMON
   {: RESULT = THdfsFileFormat.PAIMON; :}
+  | KW_STREAMING
+  {: RESULT = THdfsFileFormat.STREAMING; :}
   ;
 
 storage_engine_val ::=
@@ -5010,6 +5020,8 @@ word ::=
   | KW_STORED:r
   {: RESULT = r.toString(); :}
   | KW_STRAIGHT_JOIN:r
+  {: RESULT = r.toString(); :}
+  | KW_STREAMING:r
   {: RESULT = r.toString(); :}
   | KW_STRING:r
   {: RESULT = r.toString(); :}
