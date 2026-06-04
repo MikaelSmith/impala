@@ -88,6 +88,7 @@ public class MigrateStmt extends DmlStatementBase {
     hybridMerge_ = new THybridMergeOpts(kuduMasters, pitTable,
         KuduUtil.getKuduTableName(db, kuduTableName, kuduMasters),
         KuduUtil.getKuduTableName(db, delsTableName, kuduMasters));
+    // TODO: handle replan. Currently disabled in tests because analyze is called multiple times.
     KuduUtil.kuduPITStartMigration(kuduMasters, pitTable, endMigrationTs);
     try {
       Pair<Long, Long> kuduLastPIT = KuduUtil.kuduPITLookup(kuduMasters,

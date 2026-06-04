@@ -658,6 +658,10 @@ struct TCreateTableParams {
 
   // Primary key is unique (Kudu-only)
   23: optional bool is_primary_key_unique
+
+  // For STORED AS STREAMING: the backing Kudu and Iceberg tables to create first.
+  // The main create (the streaming table itself) runs after these succeed.
+  24: optional list<TCreateTableParams> backing_creates
 }
 
 // Parameters of a CREATE VIEW or ALTER VIEW AS SELECT command

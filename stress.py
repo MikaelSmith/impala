@@ -156,37 +156,6 @@ def parse_args():
     parser.error("--parallel-queries must be >= 1")
   return options
 
-
-def _parse_columns(schema):
-  columns = []
-  for raw_line in schema.splitlines():
-    line = raw_line.strip().rstrip(',')
-    if not line:
-      continue
-    col_name, col_type = line.split(None, 1)
-    columns.append((col_name, col_type.strip()))
-  return columns
-
-
-def _split_columns(csv_columns):
-  return [col.strip() for col in csv_columns.split(',') if col.strip()]
-
-
-def _format_schema(columns):
-  return ",\n  ".join(f"{col} {col_type}" for col, col_type in columns)
-
-
-def _format_kudu_partition_spec(partitions):
-  return f"PARTITION BY HASH ({partitions}) PARTITIONS 9" if partitions else ""
-
-
-def _format_iceberg_partition_spec(partitions):
-  if not partitions:
-    return ""
-  partition_columns = [col.strip() for col in partitions.split(',') if col.strip()]
-  return f"PARTITIONED BY SPEC ({', '.join(f'BUCKET(9,{col})' for col in partition_columns)})"
-
-
 def _connect(database):
   kwargs = {
     "host": CONNECTION_OPTIONS["host"],
@@ -198,13 +167,11 @@ def _connect(database):
     kwargs["database"] = database
   return dbapi.connect(**kwargs)
 
-
 def _query_result_to_stdout(rows):
   if not rows:
     return ""
   lines = ["\t".join("" if value is None else str(value) for value in row) for row in rows]
   return ("\n".join(lines) + "\n")
-
 
 def run(queries, use_target_db=True):
   stdout_chunks = []
@@ -216,51 +183,29 @@ def run(queries, use_target_db=True):
           stdout_chunks.append(_query_result_to_stdout(cursor.fetchall()))
   return "".join(stdout_chunks)
 
+def _format_kudu_partition_spec(partitions):
+  return f"PARTITION BY HASH ({partitions}) PARTITIONS 9" if partitions else ""
 
-def _create_hybrid(table, schema, primary_key, partitions):
-  columns = _parse_columns(schema)
-  pk_columns = _split_columns(primary_key)
-
-  iceberg_schema = _format_schema(columns).replace("SMALLINT", "INT")  # Iceberg doesn't support SMALLINT
-  partition_spec = _format_iceberg_partition_spec(partitions)
-  kudu_partition = _format_kudu_partition_spec(partitions)
-  primary_key_clause = f"PRIMARY KEY({', '.join(pk_columns)})"
-
-  type_by_column = {col_name: col_type for col_name, col_type in columns}
-  dels_columns = ",\n  ".join(f"{col} {type_by_column[col]}" for col in pk_columns)
-  dels_pk = ", ".join(pk_columns)
-
-  statements = [
-      (f"CREATE TABLE {table}_iceberg ({iceberg_schema}) {partition_spec} STORED AS ICEBERG "
-       f"TBLPROPERTIES('format-version'='3')"),
-      (f"CREATE TABLE {table}_kudu ({iceberg_schema},\n"
-       f"  {primary_key_clause}) {kudu_partition} STORED AS KUDU"),
-      (f"CREATE TABLE {table}_dels ({dels_columns},\n"
-       f"  NON UNIQUE PRIMARY KEY({dels_pk})) STORED AS KUDU"),
-      (f"CREATE TABLE {table}_pit (id INT PRIMARY KEY, migration_ts BIGINT, "
-       f"snapshot_id BIGINT) STORED AS KUDU"),
-      (f"CREATE TABLE {table} ({iceberg_schema}) STORED AS ICEBERG "
-       f"TBLPROPERTIES('impala.streaming.kudu'='{table}_kudu', "
-       f"'impala.streaming.iceberg'='{table}_iceberg', "
-       f"'impala.streaming.pit'='{table}_pit', "
-       f"'impala.streaming.dels'='{table}_dels')")
-  ]
-  return run(statements)
+def _format_iceberg_partition_spec(partitions):
+  if not partitions:
+    return ""
+  partition_columns = [col.strip() for col in partitions.split(',') if col.strip()]
+  return f"PARTITIONED BY SPEC ({', '.join(f'BUCKET(9,{col})' for col in partition_columns)})"
 
 def create(table, schema, primary_key, partitions, table_type):
   match table_type:
     case "kudu":
-      pk_clause = f"PRIMARY KEY({primary_key})"
-      part = f"PARTITION BY HASH ({partitions}) PARTITIONS 9" if partitions else ""
-      return run(f"CREATE TABLE {table} ({schema}, {pk_clause}) {part} STORED AS KUDU")
+      return run(f"CREATE TABLE {table} ({schema}, PRIMARY KEY({primary_key})) "
+                 f"{_format_kudu_partition_spec(partitions)} STORED AS KUDU")
     case "iceberg":
-      columns = _parse_columns(schema)
-      iceberg_schema = _format_schema(columns).replace("SMALLINT", "INT")  # Iceberg doesn't support SMALLINT
+      iceberg_schema = schema.replace("SMALLINT", "INT")  # Iceberg doesn't support SMALLINT
       part = _format_iceberg_partition_spec(partitions)
       return run(f"CREATE TABLE {table} ({iceberg_schema}) {part} STORED AS ICEBERG "
                  f"TBLPROPERTIES('format-version'='3')")
     case "hybrid":
-      return _create_hybrid(table, schema, primary_key, partitions)
+      return run(f"CREATE TABLE {table} ({schema}, PRIMARY KEY({primary_key})) "
+                f"{_format_kudu_partition_spec(partitions)} "
+                f"{_format_iceberg_partition_spec(partitions)} STORED AS STREAMING")
 
 def load(table, source_db, table_type):
   op = "UPSERT" if table_type == "hybrid" else "INSERT"

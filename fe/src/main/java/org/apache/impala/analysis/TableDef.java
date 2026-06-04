@@ -403,6 +403,14 @@ class TableDef {
     return dataLayout_.getKuduPartitionParams();
   }
 
+  /**
+   * Clears Kudu-specific partition parameters. Used by streaming tables which
+   * are stored as ICEBERG and don't support Kudu PARTITION BY syntax.
+   */
+  void clearKuduPartitionParams() {
+    dataLayout_.getKuduPartitionParams().clear();
+  }
+
   List<IcebergPartitionSpec> getIcebergPartitionSpecs() {
     return dataLayout_.getIcebergPartitionSpecs();
   }
@@ -410,6 +418,7 @@ class TableDef {
     Preconditions.checkNotNull(options);
     options_ = options;
   }
+  Options getOptions() { return options_; }
   List<String> getSortColumns() { return options_.sortCols; }
   String getComment() { return options_.comment; }
   Map<String, String> getTblProperties() { return options_.tblProperties; }
