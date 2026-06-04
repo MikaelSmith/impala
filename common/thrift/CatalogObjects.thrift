@@ -85,6 +85,7 @@ enum THdfsFileFormat {
   JDBC = 10
   PAIMON = 11
   PUFFIN = 12
+  STREAMING = 13
 }
 
 enum TVirtualColumnType {
