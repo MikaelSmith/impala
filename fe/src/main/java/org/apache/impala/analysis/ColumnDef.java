@@ -167,6 +167,26 @@ public class ColumnDef {
     analyze(null);
   }
 
+  /**
+   * Creates a copy of the given ColumnDef with any options that are incompatible with
+   * Iceberg tables removed and with TINYINT and SMALLINT types widened to INT. Primarily
+   * used when a ColumnDef is defined for Kudu and we need to derive a compatible
+   * ColumnDef for Iceberg.
+   */
+  public static ColumnDef copyForIceberg(ColumnDef colDef) {
+    TypeDef typeDef = colDef.getTypeDef();
+    if (typeDef.getType() == Type.TINYINT || typeDef.getType() == Type.SMALLINT) {
+      // Iceberg doesn't support TINYINT or SMALLINT; widen to INT.
+      typeDef = new TypeDef(Type.INT);
+    }
+    ColumnDef newColDef = new ColumnDef(colDef.getColName(), typeDef);
+    newColDef.comment_ = colDef.comment_;
+    newColDef.defaultValue_ = colDef.defaultValue_;
+    newColDef.isNullable_ = colDef.isNullable_;
+    Preconditions.checkState(!newColDef.hasIncompatibleIcebergOptions());
+    return newColDef;
+  }
+
   public String getColName() { return colName_; }
   public void setType(Type type) { type_ = type; }
   public Type getType() { return type_; }

@@ -136,6 +136,13 @@ public class AnalysisContext {
       return stmt_ instanceof CreateTableAsSelectStmt;
     }
     public boolean isCreateTableStmt() { return stmt_ instanceof CreateTableStmt; }
+    public boolean isCreateStreamingTableStmt() {
+      return stmt_ instanceof CreateStreamingTableStmt;
+    }
+    public CreateStreamingTableStmt getCreateStreamingTableStmt() {
+      Preconditions.checkState(isCreateStreamingTableStmt());
+      return (CreateStreamingTableStmt) stmt_;
+    }
     public boolean isCreateDbStmt() { return stmt_ instanceof CreateDbStmt; }
     public boolean isCreateUdfStmt() { return stmt_ instanceof CreateUdfStmt; }
     public boolean isCreateUdaStmt() { return stmt_ instanceof CreateUdaStmt; }
