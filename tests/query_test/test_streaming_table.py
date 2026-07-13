@@ -16,6 +16,7 @@
 # under the License.
 
 from __future__ import absolute_import, division, print_function
+from copy import deepcopy
 import threading
 import time
 
@@ -41,6 +42,12 @@ class TestStreamingTable(ImpalaTestSuite):
 
   def test_streaming_only_primary_key(self, vector, unique_database):
     self.run_test_case('QueryTest/streaming-only-primary-key', vector,
+                       use_db=unique_database)
+
+  def test_streaming_only_primary_key_direct(self, vector, unique_database):
+    new_vector = deepcopy(vector)
+    new_vector.get_value('exec_option')['direct_kudu_update'] = 1
+    self.run_test_case('QueryTest/streaming-only-primary-key', new_vector,
                        use_db=unique_database)
 
   def _create_streaming_table(self, table_name):

@@ -119,6 +119,34 @@ abstract class StreamingModifyImpl extends ModifyImpl {
     }
     keyColumnsOffset_ = selectList.size();
 
+    buildAndValidateAssignmentExprs(analyzer, selectList, colIndexMap);
+
+    // For unique primary key tables, auto_incrementing_id is not a Kudu key column but
+    // is always present in the streaming view output (as -_row_id for Iceberg rows, or
+    // the constant 1 for Kudu rows). Include it here so KuduTableSink can determine the
+    // row source: value <= 0 means Iceberg (skip the Kudu op, use delete table);
+    // value > 0 means Kudu (perform the Kudu op, skip the delete table insert).
+    // For non-unique PK tables, auto_incrementing_id is already included as a key column.
+    // Referenced column index -1 signals KuduTableSink to skip the Kudu table write.
+    // Skip when isKuduOnly_: in that mode the FROM clause is rewritten to the raw Kudu
+    // table, which has no auto_incrementing_id column for unique PK tables, and the
+    // delete table is not used so no row-source indicator is needed.
+    if (getKuduTable().isPrimaryKeyUnique() && !isKuduOnly_) {
+      Expr ref = makeSlotRef(analyzer, "auto_incrementing_id");
+      selectList.add(new SelectListItem(ref, null));
+      resultExprs_.add(ref);
+      referencedColumns_.add(-1);
+    }
+  }
+
+  /**
+   * Validates assignments_, builds select list items for each assignment, and
+   * (when not in isKuduOnly_ mode) appends the remaining non-key columns so the
+   * upsert produces a complete row. Called only when assignments_ is non-empty.
+   */
+  private void buildAndValidateAssignmentExprs(Analyzer analyzer,
+      List<SelectListItem> selectList, Map<String, Integer> colIndexMap)
+      throws AnalysisException {
     if (modifyStmt_.assignments_.isEmpty()) {
       return;
     }
