@@ -239,7 +239,7 @@ Status KuduScanner::OpenNextScanToken(const string& scan_token, bool* eos) {
     KUDU_RETURN_IF_ERROR(
         scanner_->SetReadMode(mode), BuildErrorString("Could not set scanner ReadMode"));
     KUDU_RETURN_IF_ERROR(
-        scanner_->SetDiffScan(scan_start_micros_ << 12, scan_stop_micros_ << 12),
+        scanner_->SetDiffScan(scan_start_micros_ << 12, scan_stop_micros_ << 12, true),
         BuildErrorString("Failed to set diff scan"));
   } else if (scan_stop_micros_ > 0) {
     mode = kudu::client::KuduScanner::READ_AT_SNAPSHOT;

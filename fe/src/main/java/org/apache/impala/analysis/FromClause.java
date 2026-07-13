@@ -107,13 +107,14 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
     String selectList = baseTable.getColumnNames().stream()
         .map(col -> "`%s`".formatted(col)).collect(Collectors.joining(", "));
     String iceAuto = "", kuduAuto = "";
-    if (isModify_ && !kuduTbl.isPrimaryKeyUnique()) {
-      // We need unique identifiers for the rows in both the Iceberg and Kudu tables to
-      // track deletes. Use auto_incrementing_id for Kudu and _row_id for Iceberg.
-      // auto_incrementing_id is 1-indexed, row_id is 0-indexed. To simplify layout put
-      // both in the same column and use negative numbers for _row_id to avoid collisions.
+    if (isModify_) {
+      // Always include auto_incrementing_id so KuduTableSink can distinguish the row
+      // source. For Iceberg rows, auto_incrementing_id = -_row_id (<=0). For Kudu rows,
+      // auto_incrementing_id > 0: the real auto_incrementing_id for non-unique PK tables,
+      // or the constant 1 for unique PK tables (which have no auto_incrementing column).
       iceAuto = ", -_row_id as auto_incrementing_id";
-      kuduAuto = ", auto_incrementing_id";
+      kuduAuto = kuduTbl.isPrimaryKeyUnique() ?
+          ", 1 as auto_incrementing_id" : ", auto_incrementing_id";
     }
 
     final String baseAlias = ObjectUtils.firstNonNull(tblRef.getExplicitAlias(), "base");
