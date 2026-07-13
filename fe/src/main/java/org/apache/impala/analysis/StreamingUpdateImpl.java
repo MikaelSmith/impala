@@ -35,12 +35,16 @@ public class StreamingUpdateImpl extends StreamingModifyImpl {
     // upsert new rows into Kudu.
     Preconditions.checkState(modifyStmt_.table_ instanceof FeKuduTable);
     TableSink.Op op = isKuduOnly_ ? TableSink.Op.UPDATE : TableSink.Op.UPSERT;
-    if (getKuduTable().isPrimaryKeyUnique()) {
+    if (getKuduTable().isPrimaryKeyUnique() || isKuduOnly_) {
       // For tables with unique primary keys we can directly upsert the modified rows
       // without deleting first.
       return new KuduTableSink(modifyStmt_.table_, op, referencedColumns_,
           sourceStmt_.getResultExprs(), modifyStmt_.getKuduTransactionToken());
     }
+    // With non-unique keys, migrate treats all modified rows as new rows, so we need to
+    // delete the old rows in Iceberg first by adding them to the delete table. Not needed
+    // for Kudu-only updates because a non-unique row can only be in Kudu or Iceberg and
+    // it won't match any in Iceberg.
     return new KuduTableSink(modifyStmt_.table_, op, referencedColumns_,
         sourceStmt_.getResultExprs(), modifyStmt_.getKuduTransactionToken(),
         deleteTableId_, deleteTableColumns_);
