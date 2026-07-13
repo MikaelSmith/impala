@@ -175,6 +175,9 @@ Status KuduTableSink::Open(RuntimeState* state) {
   for (int i = 0; i < output_expr_evals_.size(); ++i) {
     int col_idx = kudu_table_sink_.referenced_columns.empty() ?
         i : kudu_table_sink_.referenced_columns[i];
+    // col_idx == -1 is the synthetic row-source indicator for unique PK streaming
+    // tables; it has no corresponding Kudu column, so skip schema verification.
+    if (col_idx == -1) continue;
     if (col_idx >= table_->schema().num_columns()) {
       return Status(strings::Substitute(
           "Table $0 has fewer columns than expected.", table_desc_->name()));
@@ -325,6 +328,7 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
 
       void* value = output_expr_evals_[j]->GetValue(current_row);
       if (value == nullptr) {
+        DCHECK_GE(col, 0) << "Unexpected null for synthetic row-source indicator column.";
         if (kudu_column_nullabilities_[col]) {
           KUDU_RETURN_IF_ERROR(write->mutable_row()->SetNull(col),
               "Could not add Kudu WriteOp.");
@@ -339,11 +343,21 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
           add_row = false;
           break; // skip remaining columns for this row
         }
+      } else if (col == -1) {
+        // col == -1 is the synthetic row-source indicator for unique PK streaming tables
+        // (not a real Kudu column). For Kudu rows (value > 0) mark that no delete-table
+        // insert is needed; for Iceberg row deletes only write the delete-table.
+        if (*reinterpret_cast<int64_t*>(value) > 0) {
+          add_delete_row = false;
+        } else if (sink_action_ == TSinkAction::DELETE) {
+          add_row = false;
+        }
+        continue;
       } else if (auto_incrementing_column_idx_ == col
           && *reinterpret_cast<int64_t*>(value) <= 0) {
         if (sink_action_ == TSinkAction::UPSERT) {
-          // If auto-incrementing value is invalid and doing Upsert, switch to Insert and
-          // skip writing the value since Kudu will auto-generate it.
+          // If auto-incrementing value is invalid and doing Upsert on a non-unique table,
+          // switch to Insert and skip writing the value since Kudu will auto-generate it.
           KuduPartialRow saved_row{std::move(*write->mutable_row())};
           if (ignore_conflicts_) {
             write.reset(table_->NewInsertIgnore());
@@ -353,7 +367,8 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
           *write->mutable_row() = std::move(saved_row);
           continue;
         } else {
-          // It's an Iceberg _row_id. Skip modifying this row, but continue to delete.
+          // Deleting an Iceberg row. Skip the Kudu row, but continue to delete.
+          DCHECK_EQ(sink_action_, TSinkAction::DELETE);
           add_row = false;
         }
       }

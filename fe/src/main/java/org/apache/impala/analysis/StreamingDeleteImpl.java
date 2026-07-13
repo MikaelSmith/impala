@@ -35,6 +35,11 @@ public class StreamingDeleteImpl extends StreamingModifyImpl {
   public DataSink createDataSink() {
     // analyze() must have been called before.
     Preconditions.checkState(modifyStmt_.table_ instanceof FeKuduTable);
+    if (isKuduOnly_) {
+      // For Kudu-only deletes we can skip the dels table.
+      return new KuduTableSink(modifyStmt_.table_, TableSink.Op.DELETE,
+          referencedColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken());
+    }
     return new KuduTableSink(modifyStmt_.table_, TableSink.Op.DELETE,
         referencedColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken(),
         deleteTableId_, deleteTableColumns_);

@@ -624,7 +624,7 @@ public class KuduUtil {
       RowResult row = getPITRow(client, client.openTable(tableName),
           List.of(SNAPSHOT_ID, MIGRATION_TS), migrationId);
       if (row != null) {
-        LOG.warn("KuduPITLookup in {}: snapshot id {} and migration timestamp {}",
+        LOG.debug("KuduPITLookup in {}: snapshot id {} and migration timestamp {}",
             tableName, row.getLong(SNAPSHOT_ID), Instant.ofEpochMilli(row.getLong(MIGRATION_TS) / 1_000));
         return new Pair<>(row.getLong(SNAPSHOT_ID), row.getLong(MIGRATION_TS));
       }
@@ -662,6 +662,8 @@ public class KuduUtil {
         throw new AnalysisException("Could not start streaming migration for table "
             + tableName + ": " + response.getRowError().toString());
       }
+      LOG.info("Started streaming migration for table {} with timestamp {}",
+          tableName, Instant.ofEpochMilli(endTimestamp / 1_000));
     } catch (KuduException e) {
       throw new AnalysisException("Could not start streaming migration for table "
           + tableName, e);
@@ -729,6 +731,8 @@ public class KuduUtil {
         throw new AnalysisException("Could not end streaming migration for table "
             + hybridMerge.getPit_table() + ": " + response.getRowError().toString());
       }
+      LOG.info("Ended streaming migration for table {} with snapshot id {}",
+          hybridMerge.getPit_table(), snapshotId);
     } catch (KuduException e) {
       throw new AnalysisException("Could not end streaming migration for table "
           + hybridMerge.getPit_table(), e);
