@@ -1,0 +1,30 @@
+====
+---- QUERY
+create table test (i int primary key) stored as streaming;
+upsert into test values (1), (2);
+select * from test order by i;
+---- RESULTS
+1
+2
+---- TYPES
+INT
+====
+---- QUERY
+migrate test;
+select * from test order by i;
+---- RESULTS
+1
+2
+---- TYPES
+INT
+====
+---- QUERY
+upsert into test values (2);
+delete from test where i=2;
+migrate test;
+select * from test order by i;
+---- RESULTS
+1
+---- TYPES
+INT
+====
