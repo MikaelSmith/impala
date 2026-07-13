@@ -110,11 +110,19 @@ public class MigrateStmt extends DmlStatementBase {
         String delsPkJoinCondition = quotedPrimaryKeys.stream()
             .map(pk -> "updates.%1$s = dels.%1$s".formatted(pk))
             .collect(Collectors.joining(" and "));
+        // This can be empty, so we add a trailing column when non-empty and omit the
+        // comma in the substitution below.
+        StringBuilder nonPrimaryKeysBuilder = new StringBuilder();
+        for (String col : nonPrimaryKeys) {
+          nonPrimaryKeysBuilder.append(col).append(", ");
+        }
+        String updateStmt = updateList.isEmpty() ? "" :
+            "when matched and not src.is_delete then update set %s".formatted(updateList);
         return """
             merge into %1$s as tgt using (
               -- Collect Kudu updates since last migration. If a row is in kudu, use
               -- DiffScan is_deleted; otherwise is_delete=true for rows in delete log.
-              select %2$s, %3$s, coalesce(is_deleted, dels.is_delete) as is_delete from (
+              select %2$s, %3$s coalesce(is_deleted, dels.is_delete) as is_delete from (
                 select *, is_deleted from %4$s for system_time from %5$s as of %6$s %14$s
               ) updates full outer join (
                 select distinct %7$s, true as is_delete
@@ -122,20 +130,22 @@ public class MigrateStmt extends DmlStatementBase {
               on %9$s
             ) as src on %10$s
             when matched and src.is_delete then delete
-            when matched and not src.is_delete then update set %11$s
+            %11$s
             when not matched and not src.is_delete then insert (%12$s) values (%13$s);
-            """.formatted(icebergTable, delsList, String.join(", ", nonPrimaryKeys),
+            """.formatted(icebergTable, delsList, nonPrimaryKeysBuilder,
                 kuduTbl.getFullName(), startMigrationTs, endMigrationTs,
                 String.join(", ", quotedPrimaryKeys), delsTable, delsPkJoinCondition,
-                pkJoinCondition, updateList, columnList, valuesList, omitKuduRows);
+                pkJoinCondition, updateStmt, columnList, valuesList, omitKuduRows);
       } else {
+        String updateStmt = updateList.isEmpty() ? "" :
+            "when matched then update set %s".formatted(updateList);
         return """
             merge into %1$s as tgt
             using (select %6$s from %2$s for system_time as of %3$s) as src on %4$s
-            when matched then update set %5$s
+            %5$s
             when not matched then insert (%6$s) values (%7$s);
             """.formatted(icebergTable, kuduTbl.getFullName(), endMigrationTs,
-                pkJoinCondition, updateList, columnList, valuesList);
+                pkJoinCondition, updateStmt, columnList, valuesList);
       }
     } catch (TableLoadingException e) {
       // Cleanup the PIT entry if there is an error to avoid blocking future migrations.

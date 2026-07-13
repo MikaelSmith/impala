@@ -39,6 +39,10 @@ class TestStreamingTable(ImpalaTestSuite):
   def test_streaming_non_unique(self, vector, unique_database):
     self.run_test_case('QueryTest/streaming-non-unique', vector, use_db=unique_database)
 
+  def test_streaming_only_primary_key(self, vector, unique_database):
+    self.run_test_case('QueryTest/streaming-only-primary-key', vector,
+                       use_db=unique_database)
+
   def _create_streaming_table(self, table_name):
     """Helper method to create a streaming table with the given name."""
     create_sql = f"""
