@@ -51,6 +51,7 @@ INT, STRING, BIGINT
 delete from test where i=1;
 delete from test where i=3;
 insert into test values (6, 'ff', 61);
+insert into test values (8,'h',80);
 select * from test order by i, count;
 ---- RESULTS
 2,'b',20
@@ -59,6 +60,7 @@ select * from test order by i, count;
 6,'ff',61
 6,'f',NULL
 7,'g',70
+8,'h',80
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -72,11 +74,13 @@ select * from test order by i, count;
 6,'ff',61
 6,'f',NULL
 7,'g',70
+8,'h',80
 ---- TYPES
 INT, STRING, BIGINT
 ====
 ---- QUERY
-update test set comm='oops' where i>=5;
+update test set comm='oops' where i>=5 and i<8;
+insert into test values (8,'h',81);
 select * from test order by i, count;
 ---- RESULTS
 2,'b',20
@@ -85,13 +89,15 @@ select * from test order by i, count;
 6,'oops',61
 6,'oops',NULL
 7,'oops',70
+8,'h',80
+8,'h',81
 ---- TYPES
 INT, STRING, BIGINT
 ====
 ---- QUERY
 set direct_kudu_update=true;
 update test set comm='bb' where i=2;
-update test set comm='direct', count=count+1 where i=7;
+update test set comm='direct', count=count+1 where i>=7;
 delete test where i=2;
 delete test where i=6;
 select * from test order by i, count;
@@ -100,6 +106,8 @@ select * from test order by i, count;
 4,'d',40
 5,'oops',50
 7,'direct',71
+8,'h',80
+8,'direct',82
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -111,6 +119,8 @@ select * from test order by i, count;
 2,'b',20
 4,'d',40
 5,'oops',50
+8,'h',80
+8,'direct',82
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -126,6 +136,8 @@ select * from test order by i, count;
 2,'b',22
 4,'d',40
 5,'oops',50
+8,'h',80
+8,'direct',82
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -138,6 +150,8 @@ select * from test order by i, count;
 2,'b',22
 4,'d',40
 5,'oops',50
+8,'h',80
+8,'direct',82
 ---- TYPES
 INT, STRING, BIGINT
 ====
