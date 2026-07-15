@@ -48,6 +48,6 @@ public class StreamingUpdateImpl extends StreamingModifyImpl {
     // it won't match any in Iceberg.
     return new KuduTableSink(modifyStmt_.table_, op, referencedColumns_,
         sourceStmt_.getResultExprs(), modifyStmt_.getKuduTransactionToken(),
-        modifyStmt_.maxTableSinks_, deleteTableId_, deleteTableColumns_);
+        modifyStmt_.maxTableSinks_, deleteTableId_, deleteRowIdColIdx_);
   }
 }

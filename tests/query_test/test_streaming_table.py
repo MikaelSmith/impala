@@ -50,6 +50,14 @@ class TestStreamingTable(ImpalaTestSuite):
     self.run_test_case('QueryTest/streaming-only-primary-key', new_vector,
                        use_db=unique_database)
 
+  def test_streaming_repeated_primary_key(self, vector, unique_database):
+    """Regression test: inserting a second row with the same non-unique PK after a
+    migration, updating it via a secondary column, then migrating again must preserve
+    the original Iceberg row. Before the fix the incremental MERGE matched on the
+    user-visible PK and silently overwrote the older Iceberg row."""
+    self.run_test_case('QueryTest/streaming-repeated-primary-key', vector,
+                       use_db=unique_database)
+
   def _create_streaming_table(self, table_name):
     """Helper method to create a streaming table with the given name."""
     create_sql = f"""

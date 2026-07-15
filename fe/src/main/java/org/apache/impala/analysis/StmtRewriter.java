@@ -58,18 +58,12 @@ public class StmtRewriter {
     QueryStmt queryStmt;
     if (stmt instanceof QueryStmt) {
       queryStmt = (QueryStmt) stmt;
-    } else if (stmt instanceof InsertStmt) {
-      queryStmt = ((InsertStmt) stmt).getQueryStmt();
     } else if (stmt instanceof CreateTableAsSelectStmt) {
       queryStmt = ((CreateTableAsSelectStmt) stmt).getQueryStmt();
-    } else if (stmt instanceof UpdateStmt) {
-      queryStmt = ((UpdateStmt) stmt).getQueryStmt();
-    } else if (stmt instanceof DeleteStmt) {
-      queryStmt = ((DeleteStmt) stmt).getQueryStmt();
-    } else if (stmt instanceof MergeStmt) {
-      queryStmt = ((MergeStmt) stmt).getQueryStmt();
     } else if (stmt instanceof CopyTestCaseStmt) {
       queryStmt = ((CopyTestCaseStmt) stmt).getQueryStmt();
+    } else if (stmt instanceof DmlStatementBase) {
+      queryStmt = ((DmlStatementBase) stmt).getQueryStmt();
     } else {
       throw new AnalysisException("Unsupported statement: " + stmt.toSql());
     }
