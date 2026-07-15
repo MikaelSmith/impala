@@ -76,7 +76,7 @@ public class IcebergMergeQueryGenerator {
         buildPartitionMetaExpressions(targetTableRef, icebergTable);
 
     if (icebergTable.getFormatVersion() >= IcebergUtil.FORMAT_VERSION_3
-        && mergeStmt.hasUpdateCase()) {
+        && !mergeStmt.hasOnlyInsertCases()) {
       // To keep slot descriptor registration ordering, the previously registered
       // row meta expressions must be analyzed. Ordering has to be fixed for backend
       // evaluation in IcebergMergeNode
@@ -117,6 +117,30 @@ public class IcebergMergeQueryGenerator {
 
     return new MergeQuery(queryStmt, rowPresentExpression, targetExpressions,
         rowMetaExpressions, partitionMetaExpressions);
+  }
+
+  /**
+   * Pre-registers the V3 row-meta slots in the target tuple descriptor in the required
+   * order: INPUT__FILE__NAME, FILE__POSITION, [ICEBERG__DATA__SEQUENCE__NUMBER,]
+   * _file_row_id, ICEBERG__FIRST__ROW__ID.
+   *
+   * <p>Must be called <em>before</em> {@code sourceTableRef.analyze()} so that the
+   * synthetic {@code _row_id} virtual-column slot (registered when the JOIN ON clause
+   * {@code tgt._row_id = src.row_id} is analyzed) ends up <em>after</em> these slots
+   * in the tuple descriptor, keeping {@code combined_evaluators_} and
+   * {@code desc.slots()} in sync.
+   */
+  public static void preRegisterRowMetaSlots(TableRef targetTableRef,
+      FeIcebergTable icebergTable, Analyzer analyzer) throws AnalysisException {
+    new SlotRef(ImmutableList.of(targetTableRef.getUniqueAlias(),
+        VirtualColumn.INPUT_FILE_NAME.getName())).analyze(analyzer);
+    new SlotRef(ImmutableList.of(targetTableRef.getUniqueAlias(),
+        VirtualColumn.FILE_POSITION.getName())).analyze(analyzer);
+    if (!icebergTable.getContentFileStore().getEqualityDeleteFiles().isEmpty()) {
+      new SlotRef(ImmutableList.of(targetTableRef.getUniqueAlias(),
+          VirtualColumn.ICEBERG_DATA_SEQUENCE_NUMBER.getName())).analyze(analyzer);
+    }
+    IcebergUtil.getAnalyzedRowIdExpr(analyzer, targetTableRef);
   }
 
   /**

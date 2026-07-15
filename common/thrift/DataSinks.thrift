@@ -141,8 +141,8 @@ struct TKuduTableSink {
   // Delete table to write to as well.
   4: optional Types.TTableId delete_table_id
 
-  // Column indices of primary keys from exprs for the delete table.
-  5: optional list<i32> delete_columns
+  // Column index of _row_id in the dels table.
+  6: optional i32 delete_row_id_col
 }
 
 // Sink to create the build side of a JoinNode.

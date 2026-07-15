@@ -68,6 +68,7 @@ public abstract class DmlStatementBase extends StatementBase {
   public boolean hasClusteredHint() { return false; }
   public boolean hasNoClusteredHint() { return false; }
 
+  abstract public QueryStmt getQueryStmt();
   abstract public DataSink createDataSink();
   abstract public void substituteResultExprs(ExprSubstitutionMap smap, Analyzer analyzer);
   /**
