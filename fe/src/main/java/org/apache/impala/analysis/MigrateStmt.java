@@ -17,7 +17,6 @@
 
 package org.apache.impala.analysis;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -88,7 +87,6 @@ public class MigrateStmt extends DmlStatementBase {
     hybridMerge_ = new THybridMergeOpts(kuduMasters, pitTable,
         KuduUtil.getKuduTableName(db, kuduTableName, kuduMasters),
         KuduUtil.getKuduTableName(db, delsTableName, kuduMasters));
-    // TODO: handle replan. Currently disabled in tests because analyze is called multiple times.
     KuduUtil.kuduPITStartMigration(kuduMasters, pitTable, endMigrationTs);
     try {
       Pair<Long, Long> kuduLastPIT = KuduUtil.kuduPITLookup(kuduMasters,
@@ -174,8 +172,8 @@ public class MigrateStmt extends DmlStatementBase {
       }
       endMigrationTs = asOfMicros;
     } else {
-      Instant now = Instant.now();
-      endMigrationTs = now.getEpochSecond() * 1_000_000 + now.getNano() / 1_000;
+      // Convert query start time in milliseconds to microseconds.
+      endMigrationTs = analyzer.getQueryCtx().getStart_unix_millis() * 1_000;
     }
 
     String sql = getStreamingMergeSql(analyzer, endMigrationTs);
