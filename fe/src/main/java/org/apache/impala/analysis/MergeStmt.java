@@ -165,6 +165,7 @@ public class MergeStmt extends DmlStatementBase {
     }
   }
 
+  @Override
   public QueryStmt getQueryStmt() { return impl_.getQueryStmt(); }
 
   public TableRef getTargetTableRef() { return targetTableRef_; }

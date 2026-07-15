@@ -59,7 +59,8 @@ abstract class StreamingModifyImpl extends ModifyImpl {
   // target table. The i'th position in this list maps to the referencedColumns_[i]'th
   // position in the target table.
   protected List<Integer> referencedColumns_ = new ArrayList<>();
-  protected List<Integer> deleteTableColumns_ = new ArrayList<>();
+  // Column index of _row_id in the dels table (-1 when no dels table is used).
+  protected int deleteRowIdColIdx_ = -1;
 
   // END: Members that are set in buildAndValidateSelectExprs().
   /////////////////////////////////////////
@@ -112,11 +113,9 @@ abstract class StreamingModifyImpl extends ModifyImpl {
       selectList.add(new SelectListItem(ref, null));
       resultExprs_.add(ref);
       referencedColumns_.add(colIndexMap.get(kcol.getName()));
-      // If the primary key is not unique, we need to include the _row_id column in the
-      // delete table to ensure we can identify unique rows.
-      deleteTableColumns_.add(deleteTableColIndexMap.get(
-          kcol.isAutoIncrementing() ? "_row_id" : kcol.getName()));
     }
+    // dels stores only _row_id for all streaming tables; record its column index.
+    deleteRowIdColIdx_ = deleteTableColIndexMap.get("_row_id");
     keyColumnsOffset_ = selectList.size();
 
     buildAndValidateAssignmentExprs(analyzer, selectList, colIndexMap);
@@ -131,11 +130,12 @@ abstract class StreamingModifyImpl extends ModifyImpl {
     // Skip when isKuduOnly_: in that mode the FROM clause is rewritten to the raw Kudu
     // table, which has no auto_incrementing_id column for unique PK tables, and the
     // delete table is not used so no row-source indicator is needed.
-    if (getKuduTable().isPrimaryKeyUnique() && !isKuduOnly_) {
+    if (getKuduTable().isPrimaryKeyUnique() && modifyStmt_.assignments_.isEmpty()
+        && !isKuduOnly_) {
       Expr ref = makeSlotRef(analyzer, "auto_incrementing_id");
       selectList.add(new SelectListItem(ref, null));
       resultExprs_.add(ref);
-      referencedColumns_.add(-1);
+      referencedColumns_.add(-1); // Not a Kudu column; skip Kudu table write
     }
   }
 

@@ -1185,6 +1185,7 @@ public class InsertStmt extends DmlStatementBase {
   /**
    * Only valid after analysis
    */
+  @Override
   public QueryStmt getQueryStmt() { return queryStmt_; }
   @Override
   public List<Expr> getPartitionKeyExprs() { return partitionKeyExprs_; }
