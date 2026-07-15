@@ -649,6 +649,16 @@ public class KuduUtil {
       row.addLong(2, 0);
       org.apache.kudu.client.OperationResponse response = session.apply(insert);
       if (response.hasRowError()) {
+        // If the row details match, resume the migration.
+        RowResult lastRow = getPITRow(client, table, List.of(MIGRATION_TS), NEXT_MIGRATION_ID);
+        if (lastRow != null) {
+          long lastTimestamp = lastRow.getLong(MIGRATION_TS);
+          if (lastTimestamp == endTimestamp) {
+            LOG.warn("Resuming streaming migration for table {} with timestamp {}",
+                tableName, Instant.ofEpochMilli(endTimestamp / 1_000));
+            return;
+          }
+        }
         throw new AnalysisException("Could not start streaming migration for table "
             + tableName + ": " + response.getRowError().toString());
       }
