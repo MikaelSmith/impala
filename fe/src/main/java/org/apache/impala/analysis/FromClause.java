@@ -134,37 +134,30 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
       Preconditions.checkState(!primaryKeys.isEmpty(),
           "Kudu table %s has no primary keys", kuduTbl.getFullName());
 
-      // Build join conditions for primary keys
-      String deletedJoinCondition =
-          KuduUtil.buildJoinCondition(primaryKeys, baseAlias, "deleted");
-
-      if (isModify_ && !kuduTbl.isPrimaryKeyUnique()) {
-        // If the primary key is not unique, we need to include the _row_id column in the
-        // join condition to ensure we can identify unique rows.
-        deletedJoinCondition += " and %s._row_id = deleted._row_id".formatted(baseAlias);
-        primaryKeys.add("`_row_id`");
+      // The dels table stores only _row_id for all streaming tables. For unique PK
+      // tables, additionally exclude Iceberg rows whose pk already exists in Kudu
+      // (they have been migrated) via a separate anti-join.
+      String kuduAntiJoin = "";
+      if (kuduTbl.isPrimaryKeyUnique()) {
+        String pkList = String.join(", ", primaryKeys);
+        String pkJoinCond =
+            KuduUtil.buildJoinCondition(primaryKeys, baseAlias, "kudu_excl");
+        kuduAntiJoin = """
+            left anti join (
+              select %s from %s for system_time from %s as of now()
+            ) kudu_excl on %s
+            """.formatted(pkList, kuduTbl.getFullName(), kuduMigrationTs, pkJoinCond);
       }
-
-      // Build primary key select list for deleted subquery
-      String pkSelectList = String.join(", ", primaryKeys);
-
-      // If the primary key is unique, we want to ignore all Iceberg rows that match keys
-      // in the Kudu table. Otherwise we only omit rows from the delete log.
-      String omitKuduRows = kuduTbl.isPrimaryKeyUnique() ?
-          "union distinct select %1$s from %2$s for system_time from %3$s as of now()"
-          .formatted(pkSelectList, kuduTbl.getFullName(), kuduMigrationTs) : "";
       return """
-          select %10$s%11$s from %1$s for system_version as of %2$s %3$s
+          select %1$s%2$s from %3$s for system_version as of %4$s %5$s
           left anti join (
-            select %4$s from %5$s for system_time from %7$s as of now()
-            %9$s
-          ) deleted
-          on %8$s
-          union all select %10$s%12$s from %6$s for system_time
+            select `_row_id` from %6$s for system_time from %7$s as of now()
+          ) deleted using(_row_id)
+          %8$s
+          union all select %1$s%9$s from %10$s for system_time
             from %7$s as of now() where not is_deleted
-          """.formatted(icebergPath, icebergSnapshot, baseAlias, pkSelectList, delsPath,
-              kuduTbl.getFullName(), kuduMigrationTs, deletedJoinCondition, omitKuduRows,
-              selectList, iceAuto, kuduAuto);
+          """.formatted(selectList, iceAuto, icebergPath, icebergSnapshot, baseAlias,
+              delsPath, kuduMigrationTs, kuduAntiJoin, kuduAuto, kuduTbl.getFullName());
     } else {
       // If no snapshot exists, then no data has been migrated to Iceberg; ignore it.
       return "select %1$s%4$s from %2$s %3$s".formatted(selectList, kuduTbl.getFullName(),

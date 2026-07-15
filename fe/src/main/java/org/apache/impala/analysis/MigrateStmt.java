@@ -43,7 +43,7 @@ import com.google.common.base.Preconditions;
  */
 public class MigrateStmt extends DmlStatementBase {
   private TableRef streamingTableRef_;
-  private MergeStmt mergeStmt_ = null;
+  private DmlStatementBase stmt_ = null;
   private TimeTravelSpec asof_ = null;
   private THybridMergeOpts hybridMerge_ = null;
 
@@ -100,52 +100,76 @@ public class MigrateStmt extends DmlStatementBase {
       // If migration timestamp is available, use it to construct the MERGE statement to
       // capture changes since last migration. Otherwise, fallback to a full table scan.
       if (startMigrationTs > 0) {
-        // If the primary key is unique, we want to ignore all Iceberg rows that match
-        // keys in the Kudu table. Otherwise we only omit rows from the delete log.
-        String omitKuduRows = kuduTbl.isPrimaryKeyUnique() ? "" :
-            "where not is_deleted";
-        String delsList = quotedPrimaryKeys.stream()
-            .map(pk -> "coalesce(updates.%1$s, dels.%1$s) as %1$s".formatted(pk))
-            .collect(Collectors.joining(", "));
-        String delsPkJoinCondition = quotedPrimaryKeys.stream()
-            .map(pk -> "updates.%1$s = dels.%1$s".formatted(pk))
-            .collect(Collectors.joining(" and "));
-        // This can be empty, so we add a trailing column when non-empty and omit the
-        // comma in the substitution below.
-        StringBuilder nonPrimaryKeysBuilder = new StringBuilder();
-        for (String col : nonPrimaryKeys) {
-          nonPrimaryKeysBuilder.append(col).append(", ");
+        if (kuduTbl.isPrimaryKeyUnique()) {
+          // Unique PK: full outer join the Kudu DiffScan with an inline view that is
+          // the inner join of Iceberg and dels (on _row_id). COALESCE prefers the Kudu
+          // row so a re-upsert after a delete wins. No WHERE clause needed; the full
+          // outer join naturally covers all three cases: Kudu-only, dels-only, and both.
+          String icePrefixedColumnList = columnNames.stream()
+              .map(col -> "ice." + col).collect(Collectors.joining(", "));
+          String coalesceSelectList = columnNames.stream()
+              .map(col -> "coalesce(diff.%1$s, dels_ice.%1$s) as %1$s".formatted(col))
+              .collect(Collectors.joining(", "));
+          String kuduDelsPkJoinCond =
+              KuduUtil.buildJoinCondition(quotedPrimaryKeys, "diff", "dels_ice");
+          String updateStmt = updateList.isEmpty() ? "" :
+              "when matched and not src.is_delete then update set %s".formatted(updateList);
+          return """
+              merge into %1$s as tgt using (
+                select %2$s, coalesce(diff.is_deleted, true) as is_delete
+                from %3$s for system_time from %4$s as of %5$s as diff
+                full outer join (
+                  select %6$s from %1$s as ice
+                  join %7$s for system_time from %4$s as of %5$s as dels
+                    using(_row_id)
+                ) dels_ice on %8$s
+              ) as src on %9$s
+              when matched and src.is_delete then delete
+              %10$s
+              when not matched and not src.is_delete then insert (%11$s) values (%12$s);
+              """.formatted(icebergTable, coalesceSelectList, kuduTbl.getFullName(),
+                  startMigrationTs, endMigrationTs, icePrefixedColumnList, delsTable,
+                  kuduDelsPkJoinCond, pkJoinCondition, updateStmt, columnList, valuesList);
+        } else {
+          // Non-unique PK: join dels with the Iceberg snapshot to get rows to delete;
+          // insert new Kudu rows via UNION ALL. No subqueries.
+          String icePrefixedColumnList = columnNames.stream()
+              .map(col -> "ice." + col).collect(Collectors.joining(", "));
+          return """
+              merge into %1$s as tgt using (
+                select %2$s, ice._row_id as row_id, true as is_delete
+                from %1$s as ice
+                join %3$s for system_time from %4$s as of %5$s as dels
+                  using(_row_id)
+                union all
+                select %6$s, cast(null as bigint) as row_id, false as is_delete
+                from %7$s for system_time from %4$s as of %5$s where not is_deleted
+              ) as src on tgt._row_id = src.row_id
+              when matched and src.is_delete then delete
+              when not matched and not src.is_delete then insert (%6$s) values (%8$s);
+              """.formatted(icebergTable, icePrefixedColumnList, delsTable,
+                  startMigrationTs, endMigrationTs, columnList, kuduTbl.getFullName(), valuesList);
         }
-        String updateStmt = updateList.isEmpty() ? "" :
-            "when matched and not src.is_delete then update set %s".formatted(updateList);
-        return """
-            merge into %1$s as tgt using (
-              -- Collect Kudu updates since last migration. If a row is in kudu, use
-              -- DiffScan is_deleted; otherwise is_delete=true for rows in delete log.
-              select %2$s, %3$s coalesce(is_deleted, dels.is_delete) as is_delete from (
-                select *, is_deleted from %4$s for system_time from %5$s as of %6$s %14$s
-              ) updates full outer join (
-                select distinct %7$s, true as is_delete
-                from %8$s for system_time from %5$s as of %6$s) dels
-              on %9$s
-            ) as src on %10$s
-            when matched and src.is_delete then delete
-            %11$s
-            when not matched and not src.is_delete then insert (%12$s) values (%13$s);
-            """.formatted(icebergTable, delsList, nonPrimaryKeysBuilder,
-                kuduTbl.getFullName(), startMigrationTs, endMigrationTs,
-                String.join(", ", quotedPrimaryKeys), delsTable, delsPkJoinCondition,
-                pkJoinCondition, updateStmt, columnList, valuesList, omitKuduRows);
       } else {
-        String updateStmt = updateList.isEmpty() ? "" :
-            "when matched then update set %s".formatted(updateList);
-        return """
-            merge into %1$s as tgt
-            using (select %6$s from %2$s for system_time as of %3$s) as src on %4$s
-            %5$s
-            when not matched then insert (%6$s) values (%7$s);
-            """.formatted(icebergTable, kuduTbl.getFullName(), endMigrationTs,
-                pkJoinCondition, updateStmt, columnList, valuesList);
+        if (kuduTbl.isPrimaryKeyUnique()) {
+          // Unique PK: pk-based MERGE for the initial full migration.
+          String updateStmt = updateList.isEmpty() ? "" :
+              "when matched then update set %s".formatted(updateList);
+          return """
+              merge into %1$s as tgt
+              using (select %6$s from %2$s for system_time as of %3$s) as src
+              on %4$s
+              %5$s
+              when not matched then insert (%6$s) values (%7$s);
+              """.formatted(icebergTable, kuduTbl.getFullName(), endMigrationTs,
+                  pkJoinCondition, updateStmt, columnList, valuesList);
+        } else {
+          // Non-unique PK: the Iceberg table is empty on first migration so just
+          // insert all Kudu rows. NULL row_id in the source ensures all rows go
+          // to WHEN NOT MATCHED (src.row_id IS NOT NULL is always false).
+          return "insert into %1$s (%2$s) select %2$s from %3$s for system_time as of %4$s;"
+              .formatted(icebergTable, columnList, kuduTbl.getFullName(), endMigrationTs);
+        }
       }
     } catch (TableLoadingException e) {
       // Cleanup the PIT entry if there is an error to avoid blocking future migrations.
@@ -186,13 +210,15 @@ public class MigrateStmt extends DmlStatementBase {
       endMigrationTs = analyzer.getQueryCtx().getStart_unix_millis() * 1_000;
     }
 
-    String sql = getStreamingMergeSql(analyzer, endMigrationTs);
-    try {
+    if (stmt_ == null) {
+      String sql = getStreamingMergeSql(analyzer, endMigrationTs);
       StatementBase parsed = Parser.parse(sql.toString(), analyzer.getQueryOptions());
-      Preconditions.checkState(parsed instanceof MergeStmt);
-      mergeStmt_ = (MergeStmt) parsed;
-      mergeStmt_.analyze(analyzer);
-      table_ = mergeStmt_.getTargetTable();
+      Preconditions.checkState(parsed instanceof DmlStatementBase);
+      stmt_ = (DmlStatementBase) parsed;
+    }
+    try {
+      stmt_.analyze(analyzer);
+      table_ = stmt_.getTargetTable();
     } catch (Exception e) {
       try {
         KuduUtil.kuduPITEndMigration(hybridMerge_);
@@ -207,29 +233,29 @@ public class MigrateStmt extends DmlStatementBase {
   public void collectTableRefs(List<TableRef> tblRefs) {
     super.collectTableRefs(tblRefs);
     tblRefs.add(streamingTableRef_);
-    Preconditions.checkState(mergeStmt_ == null);
+    Preconditions.checkState(stmt_ == null);
   }
 
   @Override
-  public DataSink createDataSink() { return mergeStmt_.createDataSink(); }
+  public DataSink createDataSink() { return stmt_.createDataSink(); }
 
   @Override
   public void substituteResultExprs(ExprSubstitutionMap smap, Analyzer analyzer) {
-    mergeStmt_.substituteResultExprs(smap, analyzer);
+    stmt_.substituteResultExprs(smap, analyzer);
   }
 
   @Override
-  public List<Expr> getResultExprs() { return mergeStmt_.getResultExprs(); }
+  public List<Expr> getResultExprs() { return stmt_.getResultExprs(); }
   @Override
-  public List<Expr> getPartitionKeyExprs() { return mergeStmt_.getPartitionKeyExprs(); }
+  public List<Expr> getPartitionKeyExprs() { return stmt_.getPartitionKeyExprs(); }
   @Override
-  public List<Expr> getShuffleExprs() { return mergeStmt_.getShuffleExprs(); }
+  public List<Expr> getShuffleExprs() { return stmt_.getShuffleExprs(); }
 
   @Override
-  public List<Expr> getSortExprs() { return mergeStmt_.getSortExprs(); }
+  public List<Expr> getSortExprs() { return stmt_.getSortExprs(); }
 
   @Override
-  public TSortingOrder getSortingOrder() { return mergeStmt_.getSortingOrder(); }
+  public TSortingOrder getSortingOrder() { return stmt_.getSortingOrder(); }
 
   @Override
   public String toSql(ToSqlOptions options) {
@@ -245,24 +271,28 @@ public class MigrateStmt extends DmlStatementBase {
   @Override
   public void reset() {
     super.reset();
-    mergeStmt_.reset();
+    stmt_.reset();
   }
 
   @Override
   public boolean resolveTableMask(Analyzer analyzer) throws AnalysisException {
-    return mergeStmt_.resolveTableMask(analyzer);
+    return stmt_.resolveTableMask(analyzer);
   }
 
   @Override
   public void rewriteExprs(ExprRewriter rewriter) throws AnalysisException {
-    mergeStmt_.rewriteExprs(rewriter);
+    stmt_.rewriteExprs(rewriter);
   }
 
-  public QueryStmt getQueryStmt() { return mergeStmt_.getQueryStmt(); }
+  @Override
+  public QueryStmt getQueryStmt() { return stmt_.getQueryStmt(); }
 
   public PlanNode getPlanNode(PlannerContext ctx, PlanNode child, Analyzer analyzer)
       throws ImpalaException {
-    return mergeStmt_.getPlanNode(ctx, child, analyzer);
+    if (stmt_ instanceof MergeStmt) {
+      return ((MergeStmt) stmt_).getPlanNode(ctx, child, analyzer);
+    }
+    return child;
   }
 
   public THybridMergeOpts getHybridMerge() {

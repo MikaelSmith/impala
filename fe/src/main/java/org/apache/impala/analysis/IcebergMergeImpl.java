@@ -150,6 +150,16 @@ public class IcebergMergeImpl implements MergeImpl {
       analyzer.registerSlotRef(slotPath);
     }
 
+    // Pre-register V3 row meta slots before sourceTableRef_.analyze() processes the
+    // JOIN ON clause (e.g. tgt._row_id = src.row_id). That analysis registers the
+    // synthetic _row_id virtual column slot, which must appear AFTER the concrete row
+    // meta slots so that combined_evaluators_ and desc.slots() stay in sync.
+    if (icebergTable_.getFormatVersion() >= IcebergUtil.FORMAT_VERSION_3
+        && !mergeStmt_.hasOnlyInsertCases()) {
+      IcebergMergeQueryGenerator.preRegisterRowMetaSlots(
+          targetTableRef_, icebergTable_, analyzer);
+    }
+
     sourceTableRef_.analyze(analyzer);
 
     IcebergMergeQueryGenerator.MergeQuery mergeQuery =

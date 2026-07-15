@@ -1,0 +1,81 @@
+====
+---- QUERY
+-- Non-unique PK table where multiple rows may share the same primary key.
+create table test (i int non unique primary key, comm string, count bigint)
+    stored as streaming;
+====
+---- QUERY
+-- (1) Insert an initial row and migrate it to Iceberg.
+insert into test values (1, 'a', 10);
+migrate test;
+select * from test order by i, comm;
+---- RESULTS
+1,'a',10
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+-- (2) Insert a second row with the same primary key but different values.
+--     Both the Iceberg row (from the prior migration) and the new Kudu row
+--     must be visible.
+insert into test values (1, 'b', 20);
+select * from test order by i, comm;
+---- RESULTS
+1,'a',10
+1,'b',20
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+-- (3) Update the new Kudu-only row by matching its secondary column value.
+--     Only (1,'b',20) should be updated, the Iceberg row (1,'a',10) must
+--     remain untouched and must not receive a spurious dels entry.
+update test set count=count+1 where comm='b';
+select * from test order by i, comm;
+---- RESULTS
+1,'a',10
+1,'b',21
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+-- (4) Second migration. Before the fix, the incremental MERGE matched on the
+--     user-visible PK (i=1) and would overwrite (1,'a',10) with (1,'b',21).
+--     After the fix it matches on _row_id so both rows survive.
+migrate test;
+select * from test order by i, comm;
+---- RESULTS
+1,'a',10
+1,'b',21
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+-- Repeat the same scenario using direct_kudu_update=true (Kudu-only path).
+-- Before the fix, the non-unique PK table would still pass through the dels
+-- table even for Kudu-only updates, which caused incorrect behaviour.
+insert into test values (2, 'c', 30);
+migrate test;
+insert into test values (2, 'd', 40);
+set direct_kudu_update=true;
+update test set count=count+1 where comm='d';
+select * from test order by i, comm;
+---- RESULTS
+1,'a',10
+1,'b',21
+2,'c',30
+2,'d',41
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+migrate test;
+select * from test order by i, comm;
+---- RESULTS
+1,'a',10
+1,'b',21
+2,'c',30
+2,'d',41
+---- TYPES
+INT, STRING, BIGINT
+====

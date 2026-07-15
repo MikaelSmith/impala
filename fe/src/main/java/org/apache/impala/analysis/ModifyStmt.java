@@ -257,6 +257,7 @@ public abstract class ModifyStmt extends DmlStatementBase {
     modifyImpl_.rewriteExprs(rewriter);
   }
 
+  @Override
   public QueryStmt getQueryStmt() { return modifyImpl_.getQueryStmt(); }
 
   /**

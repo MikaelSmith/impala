@@ -58,29 +58,29 @@ public class KuduTableSink extends TableSink {
 
   // Table which is to be populated by this sink.
   private final int deleteTableId_;
-  // Kudu table column indices for the delete table.
-  private final List<Integer> deleteColIdxs_;
+  // Column index of _row_id in the dels table (-1 when no dels table is used).
+  private final int deleteRowIdColIdx_;
 
   // Indicate whether Kudu cluster supports IGNORE write operations or not.
   private boolean supportsIgnoreOperations_ = false;
 
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken) {
-    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, -1, null);
+    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, -1, -1);
   }
 
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int deleteTableId,
-      List<Integer> deleteTableColumns) {
+      int deleteRowIdColIdx) {
     super(targetTable, sinkOp, outputExprs);
     targetColIdxs_ = referencedColumns != null
         ? Lists.newArrayList(referencedColumns) : null;
     txnToken_ =
         txnToken != null ? org.apache.thrift.TBaseHelper.copyBinary(txnToken) : null;
     Preconditions.checkArgument(
-        deleteTableId > DescriptorTable.TABLE_SINK_ID ^ deleteTableColumns == null);
+        (deleteTableId > DescriptorTable.TABLE_SINK_ID) == (deleteRowIdColIdx >= 0));
     deleteTableId_ = deleteTableId;
-    deleteColIdxs_ = deleteTableColumns;
+    deleteRowIdColIdx_ = deleteRowIdColIdx;
 
     // Check if Kudu cluster supports IGNORE write operations.
     Preconditions.checkState(targetTable instanceof FeKuduTable);
@@ -138,7 +138,7 @@ public class KuduTableSink extends TableSink {
     if (txnToken_ != null) tKuduSink.setKudu_txn_token(txnToken_);
     if (deleteTableId_ > DescriptorTable.TABLE_SINK_ID) {
       tKuduSink.setDelete_table_id(deleteTableId_);
-      tKuduSink.setDelete_columns(deleteColIdxs_);
+      tKuduSink.setDelete_row_id_col(deleteRowIdColIdx_);
     }
     tKuduSink.setIgnore_not_found_or_duplicate(supportsIgnoreOperations_);
     tTableSink.setKudu_table_sink(tKuduSink);

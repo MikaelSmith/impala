@@ -79,7 +79,6 @@ public class CreateStreamingTableStmt extends CreateTableStmt {
 
   // Primary-key metadata captured from the original table definition.
   private final List<String> streamingPrimaryKeyColNames_;
-  private final boolean streamingPrimaryKeyUnique_;
 
   // Backing-table CreateTableStmt instances, populated during analyze().
   private CreateTableStmt kuduStmt_;
@@ -101,17 +100,11 @@ public class CreateStreamingTableStmt extends CreateTableStmt {
 
     LinkedHashSet<String> pkColNames = new LinkedHashSet<>(
         tableDef.getPrimaryKeyColumnNames());
-    boolean pkUnique = tableDef.isPrimaryKeyUnique();
     for (ColumnDef colDef : tableDef.getColumnDefs()) {
       if (!colDef.isPrimaryKey()) continue;
       pkColNames.add(colDef.getColName());
-      // If only inline PKs were supplied, derive uniqueness from the column option.
-      if (tableDef.getPrimaryKeyColumnNames().isEmpty()) {
-        pkUnique = colDef.isPrimaryKeyUnique();
-      }
     }
     streamingPrimaryKeyColNames_ = new ArrayList<>(pkColNames);
-    streamingPrimaryKeyUnique_ = pkUnique;
   }
 
   /**
@@ -286,33 +279,19 @@ public class CreateStreamingTableStmt extends CreateTableStmt {
 
   /**
    * Builds the {@link CreateTableStmt} for the backing dels (deletes) Kudu table.
-   * Only the primary-key columns are included; the table always uses non-unique
-   * primary keys so that multiple delete records can exist for the same key.
-   * If the original primary key is itself non-unique a synthetic {@code _row_id BIGINT}
-   * column is appended to distinguish individual delete rows.
+   * The dels table stores only the Iceberg row position ({@code _row_id BIGINT}) so
+   * that deletes can be expressed purely by row position for both unique and non-unique
+   * primary key streaming tables.
    */
   private CreateTableStmt buildDelsStmt(
       String db, String tblName, boolean ifNotExists, TQueryOptions queryOptions) {
     TableName delsTableName = new TableName(db, tblName);
     TableDef delsDef = new TableDef(delsTableName, false, ifNotExists);
 
-    Map<String, ColumnDef> colsByName =
-        ColumnDef.mapByColumnNames(kuduTableDef_.getColumnDefs());
-    for (String pkColName : streamingPrimaryKeyColNames_) {
-      ColumnDef src = colsByName.get(pkColName.toLowerCase());
-      if (src == null) continue;
-      ColumnDef col = new ColumnDef(src.getColName(), src.getTypeDef());
-      col.setNullable(false);
-      delsDef.getColumnDefs().add(col);
-    }
-
-    // Non-unique primary keys need an extra column to distinguish delete rows.
-    if (!streamingPrimaryKeyUnique_) {
-      delsDef.getColumnDefs().add(
-          new ColumnDef("_row_id", new TypeDef(Type.BIGINT)));
-    }
-
-    delsDef.getPrimaryKeyColumnNames().addAll(streamingPrimaryKeyColNames_);
+    ColumnDef rowIdCol = new ColumnDef("_row_id", new TypeDef(Type.BIGINT));
+    rowIdCol.setNullable(false);
+    delsDef.getColumnDefs().add(rowIdCol);
+    delsDef.getPrimaryKeyColumnNames().add("_row_id");
     delsDef.setPrimaryKeyUnique(false); // _dels always uses non-unique PKs
 
     Map<String, String> props = new HashMap<>();

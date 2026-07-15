@@ -42,6 +42,6 @@ public class StreamingDeleteImpl extends StreamingModifyImpl {
     }
     return new KuduTableSink(modifyStmt_.table_, TableSink.Op.DELETE,
         referencedColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken(),
-        deleteTableId_, deleteTableColumns_);
+        deleteTableId_, deleteRowIdColIdx_);
   }
 }

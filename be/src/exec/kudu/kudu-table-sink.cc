@@ -299,8 +299,7 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
   // Collect all write operations and apply them together so the time in Apply() can be
   // easily timed.
   vector<unique_ptr<kudu::client::KuduWriteOperation>> write_ops;
-  if (delete_table_desc_ != nullptr) write_ops.reserve(batch->num_rows() * 2);
-  else write_ops.reserve(batch->num_rows());
+  write_ops.reserve(batch->num_rows());
 
   // Count the number of rows with nulls in non-nullable columns, i.e. null constraint
   // violations.
@@ -310,14 +309,11 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
       DebugAction(state->query_options(), "FIS_KUDU_TABLE_SINK_WRITE_BEGIN"));
 
   // Since everything is set up just forward everything to the writer.
-  int64_t row_id;
   for (int i = 0; i < batch->num_rows(); ++i) {
     TupleRow* current_row = batch->GetRow(i);
-    unique_ptr<kudu::client::KuduWriteOperation> del;
-    if (delete_table_desc_ != nullptr) del.reset(delete_table_->NewInsert());
     unique_ptr<kudu::client::KuduWriteOperation> write(
         ignore_conflicts_ ? NewWriteIgnoreOp() : NewWriteOp());
-    bool add_row = true, add_delete_row = true;
+    bool add_row = true;
 
     for (int j = 0; j < output_expr_evals_.size(); ++j) {
       // output_expr_evals_ only contains the columns that the op
@@ -343,33 +339,48 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
           add_row = false;
           break; // skip remaining columns for this row
         }
-      } else if (col == -1) {
-        // col == -1 is the synthetic row-source indicator for unique PK streaming tables
-        // (not a real Kudu column). For Kudu rows (value > 0) mark that no delete-table
-        // insert is needed; for Iceberg row deletes only write the delete-table.
-        if (*reinterpret_cast<int64_t*>(value) > 0) {
-          add_delete_row = false;
-        } else if (sink_action_ == TSinkAction::DELETE) {
-          add_row = false;
-        }
-        continue;
-      } else if (auto_incrementing_column_idx_ == col
-          && *reinterpret_cast<int64_t*>(value) <= 0) {
-        if (sink_action_ == TSinkAction::UPSERT) {
-          // If auto-incrementing value is invalid and doing Upsert on a non-unique table,
-          // switch to Insert and skip writing the value since Kudu will auto-generate it.
-          KuduPartialRow saved_row{std::move(*write->mutable_row())};
-          if (ignore_conflicts_) {
-            write.reset(table_->NewInsertIgnore());
+      } else if (auto_incrementing_column_idx_ == col) {
+        // Processing the auto-incrementing column or synthetic row-source indicator
+        // (for unique PK streaming tables, where auto_incrementing_column_idx_ == -1).
+        if (*reinterpret_cast<int64_t*>(value) <= 0) {
+          // Iceberg row: either an Upsert or Delete.
+          DCHECK(delete_table_desc_ != nullptr)
+              << "Delete table must be specified for Iceberg row deletion.";
+          DCHECK(kudu_table_sink_.__isset.delete_row_id_col
+              && kudu_table_sink_.delete_row_id_col >= 0)
+              << "Delete table _row_id column must be specified for Iceberg row deletion.";
+          // Write _row_id to the dels table when at the auto-incrementing/synthetic column.
+          unique_ptr<kudu::client::KuduWriteOperation> del(delete_table_->NewInsert());
+          // Iceberg row: convert negative auto_incrementing_id back to positive _row_id.
+          int64_t row_id = -*reinterpret_cast<int64_t*>(value);
+          const ColumnType& type = output_expr_evals_[j]->root().type();
+          Status s = WriteKuduValue(kudu_table_sink_.delete_row_id_col, type, &row_id,
+              true, del->mutable_row());
+          DCHECK(s.ok()) << "WriteKuduValue (del _row_id) failed: " << s.GetDetail();
+          RETURN_IF_ERROR(s);
+          write_ops.push_back(move(del));
+
+          if (sink_action_ == TSinkAction::UPSERT) {
+            // If auto-incrementing value is invalid and doing Upsert, switch to Insert and
+            // skip writing the value since Kudu will auto-generate it.
+            KuduPartialRow saved_row{std::move(*write->mutable_row())};
+            if (ignore_conflicts_) {
+              write.reset(table_->NewInsertIgnore());
+            } else {
+              write.reset(table_->NewInsert());
+            }
+            *write->mutable_row() = std::move(saved_row);
+            DCHECK(col >= 0) << "Only non-unique PK Upserts delete by _row_id.";
+            continue;
           } else {
-            write.reset(table_->NewInsert());
+            DCHECK_EQ(sink_action_, TSinkAction::DELETE);
+            // Deleting an Iceberg row by _row_id, skip writing to the Kudu table.
+            add_row = false;
+            break; // skip remaining columns for this row
           }
-          *write->mutable_row() = std::move(saved_row);
+        } else if (col == -1) {
+          // Kudu row, skip writing the synthetic column.
           continue;
-        } else {
-          // Deleting an Iceberg row. Skip the Kudu row, but continue to delete.
-          DCHECK_EQ(sink_action_, TSinkAction::DELETE);
-          add_row = false;
         }
       }
 
@@ -382,32 +393,8 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
                      << "' of type '" << type << "': "
                      << s.GetDetail();
       RETURN_IF_ERROR(s);
-      if (del && j < kudu_table_sink_.delete_columns.size()) {
-        int delete_col = kudu_table_sink_.delete_columns[j];
-        if (auto_incrementing_column_idx_ == col) {
-          // If the value is 0 or less, it's an Iceberg _row_id. Convert to positive.
-          row_id = *reinterpret_cast<int64_t*>(value);
-          if (row_id <= 0) {
-            row_id = -row_id;
-            value = &row_id;
-          } else {
-            // Kudu auto_incrementing_id, so no need to add a delete row.
-            add_delete_row = false;
-            continue;
-          }
-        }
-        s = WriteKuduValue(delete_col, type, value, true, del->mutable_row());
-        // This can only fail if we set a col to an incorrect type, which would be a bug in
-        // planning, so we can DCHECK.
-        DCHECK(s.ok()) << "WriteKuduValue (delete) failed for col '"
-                       << delete_table_->schema().Column(delete_col).name()
-                       << "' of type '" << type << "': "
-                       << s.GetDetail();
-        RETURN_IF_ERROR(s);
-      }
     }
     if (add_row) write_ops.push_back(move(write));
-    if (del && add_delete_row) write_ops.push_back(move(del));
   }
 
   {
