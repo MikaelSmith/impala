@@ -16,7 +16,6 @@
 # under the License.
 
 from __future__ import absolute_import, division, print_function
-from copy import deepcopy
 import threading
 import time
 
@@ -35,14 +34,10 @@ class TestStreamingTable(ImpalaTestSuite):
       lambda v: v.get_value('table_format').file_format == 'parquet')
 
   def test_streaming(self, vector, unique_database):
-    new_vector = deepcopy(vector)
-    new_vector.get_value('exec_option')['test_replan'] = 0
-    self.run_test_case('QueryTest/streaming', new_vector, use_db=unique_database)
+    self.run_test_case('QueryTest/streaming', vector, use_db=unique_database)
 
   def test_streaming_non_unique(self, vector, unique_database):
-    new_vector = deepcopy(vector)
-    new_vector.get_value('exec_option')['test_replan'] = 0
-    self.run_test_case('QueryTest/streaming-non-unique', new_vector, use_db=unique_database)
+    self.run_test_case('QueryTest/streaming-non-unique', vector, use_db=unique_database)
 
   def _create_streaming_table(self, table_name):
     """Helper method to create a streaming table with the given name."""
@@ -228,7 +223,6 @@ class TestStreamingTable(ImpalaTestSuite):
     Writers perform upserts, updates and deletes in disjoint key ranges so the final
     state is deterministic and can be checked exactly.
     """
-    vector.get_value('exec_option')['test_replan'] = 0
     table_name = unique_database + ".test_streaming_concurrent"
     writer_threads = 4
     reader_threads = 3
