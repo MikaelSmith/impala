@@ -828,7 +828,7 @@ struct TQueryOptions {
   204: optional bool store_hbo_stats = false
 
   // See comment in ImpalaService.thrift
-  205: optional i32 cte_threshold = -1;
+  205: optional i32 cte_threshold = 2;
 }
 
 // Impala currently has three types of sessions: Beeswax, HiveServer2 and external
