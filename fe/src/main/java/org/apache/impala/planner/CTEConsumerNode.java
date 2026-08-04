@@ -137,6 +137,10 @@ public class CTEConsumerNode extends PlanNode {
       output.append(detailPrefix + "predicates: " +
           Expr.getExplainString(conjuncts_, detailLevel) + "\n");
     }
+    if (!runtimeFilters_.isEmpty()) {
+      output.append(detailPrefix + "runtime filters: ");
+      output.append(getRuntimeFilterExplainString(false, detailLevel));
+    }
     return output.toString();
   }
 }

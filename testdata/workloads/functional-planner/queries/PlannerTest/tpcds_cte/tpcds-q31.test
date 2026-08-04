@@ -70,8 +70,8 @@ WHERE ss1.d_qoy = 1
             END
 ORDER BY ss1.ca_county;
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=363.19MB Threads=1
-Per-Host Resource Estimates: Memory=117.80GB
+Max Per-Host Resource Reservation: Memory=388.19MB Threads=1
+Per-Host Resource Estimates: Memory=117.82GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC])
     ImpalaProjectRel(CA_COUNTY=[$4], D_YEAR=[$5], WEB_Q1_Q2_INCREASE=[/(CAST($1):DECIMAL(38, 6), $12)], STORE_Q1_Q2_INCREASE=[/(CAST($10):DECIMAL(38, 6), $6)], WEB_Q2_Q3_INCREASE=[/(CAST($3):DECIMAL(38, 6), $1)], STORE_Q2_Q3_INCREASE=[/(CAST($8):DECIMAL(38, 6), $10)])
@@ -157,7 +157,7 @@ ImpalaSequence
       ImpalaProjectRel(ss_addr_sk=[$5], ss_ext_sales_price=[$14], ss_sold_date_sk=[$22])
         ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, store_sales]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=117.80GB mem-reservation=363.19MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=117.82GB mem-reservation=388.19MB thread-reservation=1 runtime-filters-memory=25.00MB
 |  max-parallelism=1 segment-costs=[2767604599, 2767604599, 2767604599, 768945514, 768945514, 768945514, 10855316, 2104994723]
 PLAN-ROOT SINK
 |  output exprs: ca_county, CAST(2000 AS INT), divide(CAST(sum(ws_ext_sales_price) AS DECIMAL(38,6)), sum(ws_ext_sales_price)), divide(CAST(sum(ss_ext_sales_price) AS DECIMAL(38,6)), sum(ss_ext_sales_price)), divide(CAST(sum(ws_ext_sales_price) AS DECIMAL(38,6)), sum(ws_ext_sales_price)), divide(CAST(sum(ss_ext_sales_price) AS DECIMAL(38,6)), sum(ss_ext_sales_price))
@@ -287,6 +287,7 @@ PLAN-ROOT SINK
 |  hash predicates: ca_county = ca_county
 |  fk/pk conjuncts: none
 |  other join predicates: CASE WHEN sum(ws_ext_sales_price) > CAST(0 AS DECIMAL(38,2)) THEN divide(CAST(sum(ws_ext_sales_price) AS DECIMAL(38,6)), sum(ws_ext_sales_price)) ELSE NULL END > CASE WHEN sum(ss_ext_sales_price) > CAST(0 AS DECIMAL(38,2)) THEN divide(CAST(sum(ss_ext_sales_price) AS DECIMAL(38,6)), sum(ss_ext_sales_price)) ELSE NULL END, CASE WHEN sum(ws_ext_sales_price) > CAST(0 AS DECIMAL(38,2)) THEN divide(CAST(sum(ws_ext_sales_price) AS DECIMAL(38,6)), sum(ws_ext_sales_price)) ELSE NULL END > CASE WHEN sum(ss_ext_sales_price) > CAST(0 AS DECIMAL(38,2)) THEN divide(CAST(sum(ss_ext_sales_price) AS DECIMAL(38,6)), sum(ss_ext_sales_price)) ELSE NULL END
+|  runtime filters: RF000[bloom] <- ca_county, RF001[min_max] <- ca_county
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=27,31,23,35,19,15 row-size=252B cardinality=1.50M cost=658531
 |  in pipelines: 36(GETNEXT), 18(OPEN)
@@ -302,6 +303,7 @@ PLAN-ROOT SINK
 |  17:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_bill_addr_sk = ca_address_sk
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF031[min_max] <- ca_address_sk
 |  |  mem-estimate=799.76MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=13,14,12 row-size=32B cardinality=220.15M cost=110909055
 |  |  in pipelines: 14(GETNEXT), 13(OPEN)
@@ -314,6 +316,7 @@ PLAN-ROOT SINK
 |  16:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_sold_date_sk = d_date_sk
 |  |  fk/pk conjuncts: ws_sold_date_sk = d_date_sk
+|  |  runtime filters: RF032[bloom] <- d_date_sk, RF033[min_max] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=13,14 row-size=16B cardinality=220.15M cost=593638698
 |  |  in pipelines: 14(GETNEXT), 15(OPEN)
@@ -324,6 +327,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 15(GETNEXT)
 |  |
 |  14:CTE CONSUMER [cte_suggestion_2]
+|     runtime filters: RF032[bloom] -> ws_sold_date_sk, RF033[min_max] -> ws_sold_date_sk, RF031[min_max] -> ws_bill_addr_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=13 row-size=12B cardinality=2.16G cost=0
 |     in pipelines: 14(GETNEXT)
@@ -331,6 +335,7 @@ PLAN-ROOT SINK
 52:HASH JOIN [INNER JOIN]
 |  hash predicates: ca_county = ca_county
 |  fk/pk conjuncts: none
+|  runtime filters: RF002[bloom] <- ca_county, RF003[min_max] <- ca_county
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=27,31,23,35,19 row-size=210B cardinality=1.50M cost=658531
 |  in pipelines: 36(GETNEXT), 24(OPEN)
@@ -346,11 +351,13 @@ PLAN-ROOT SINK
 |  23:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_bill_addr_sk = ca_address_sk
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF027[min_max] <- ca_address_sk
 |  |  mem-estimate=799.76MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=17,18,16 row-size=32B cardinality=220.15M cost=110909055
 |  |  in pipelines: 20(GETNEXT), 19(OPEN)
 |  |
 |  |--19:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF000[bloom] -> ca_county, RF001[min_max] -> ca_county
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=16 row-size=30B cardinality=14.55M cost=0
 |  |     in pipelines: 19(GETNEXT)
@@ -358,6 +365,7 @@ PLAN-ROOT SINK
 |  22:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_sold_date_sk = d_date_sk
 |  |  fk/pk conjuncts: ws_sold_date_sk = d_date_sk
+|  |  runtime filters: RF028[bloom] <- d_date_sk, RF029[min_max] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=17,18 row-size=16B cardinality=220.15M cost=593638698
 |  |  in pipelines: 20(GETNEXT), 21(OPEN)
@@ -368,6 +376,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 21(GETNEXT)
 |  |
 |  20:CTE CONSUMER [cte_suggestion_2]
+|     runtime filters: RF028[bloom] -> ws_sold_date_sk, RF029[min_max] -> ws_sold_date_sk, RF027[min_max] -> ws_bill_addr_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=17 row-size=12B cardinality=2.16G cost=0
 |     in pipelines: 20(GETNEXT)
@@ -375,6 +384,7 @@ PLAN-ROOT SINK
 51:HASH JOIN [INNER JOIN]
 |  hash predicates: ca_county = ca_county
 |  fk/pk conjuncts: none
+|  runtime filters: RF004[bloom] <- ca_county, RF005[min_max] <- ca_county
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=27,31,23,35 row-size=168B cardinality=1.50M cost=658531
 |  in pipelines: 36(GETNEXT), 50(OPEN)
@@ -390,11 +400,13 @@ PLAN-ROOT SINK
 |  49:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_bill_addr_sk = ca_address_sk
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF023[min_max] <- ca_address_sk
 |  |  mem-estimate=799.76MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=33,34,32 row-size=32B cardinality=220.15M cost=110909055
 |  |  in pipelines: 46(GETNEXT), 45(OPEN)
 |  |
 |  |--45:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF000[bloom] -> ca_county, RF001[min_max] -> ca_county, RF002[bloom] -> ca_county, RF003[min_max] -> ca_county
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=32 row-size=30B cardinality=14.55M cost=0
 |  |     in pipelines: 45(GETNEXT)
@@ -402,6 +414,7 @@ PLAN-ROOT SINK
 |  48:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_sold_date_sk = d_date_sk
 |  |  fk/pk conjuncts: ws_sold_date_sk = d_date_sk
+|  |  runtime filters: RF024[bloom] <- d_date_sk, RF025[min_max] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=33,34 row-size=16B cardinality=220.15M cost=593638698
 |  |  in pipelines: 46(GETNEXT), 47(OPEN)
@@ -412,6 +425,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 47(GETNEXT)
 |  |
 |  46:CTE CONSUMER [cte_suggestion_2]
+|     runtime filters: RF024[bloom] -> ws_sold_date_sk, RF025[min_max] -> ws_sold_date_sk, RF023[min_max] -> ws_bill_addr_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=33 row-size=12B cardinality=2.16G cost=0
 |     in pipelines: 46(GETNEXT)
@@ -419,6 +433,7 @@ PLAN-ROOT SINK
 44:HASH JOIN [INNER JOIN]
 |  hash predicates: ca_county = ca_county
 |  fk/pk conjuncts: none
+|  runtime filters: RF007[min_max] <- ca_county
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=27,31,23 row-size=126B cardinality=1.50M cost=281317
 |  in pipelines: 36(GETNEXT), 30(OPEN)
@@ -434,11 +449,13 @@ PLAN-ROOT SINK
 |  29:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_addr_sk = ca_address_sk
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF019[min_max] <- ca_address_sk
 |  |  mem-estimate=799.76MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=21,22,20 row-size=32B cardinality=803.40M cost=366198132
 |  |  in pipelines: 26(GETNEXT), 25(OPEN)
 |  |
 |  |--25:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF000[bloom] -> ca_county, RF001[min_max] -> ca_county, RF002[bloom] -> ca_county, RF003[min_max] -> ca_county, RF004[bloom] -> ca_county, RF005[min_max] -> ca_county
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=20 row-size=30B cardinality=14.55M cost=0
 |  |     in pipelines: 25(GETNEXT)
@@ -446,6 +463,7 @@ PLAN-ROOT SINK
 |  28:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_date_sk = d_date_sk
 |  |  fk/pk conjuncts: ss_sold_date_sk = d_date_sk
+|  |  runtime filters: RF020[bloom] <- d_date_sk, RF021[min_max] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=21,22 row-size=16B cardinality=803.40M cost=2166407712
 |  |  in pipelines: 26(GETNEXT), 27(OPEN)
@@ -456,6 +474,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 27(GETNEXT)
 |  |
 |  26:CTE CONSUMER [cte_suggestion_1]
+|     runtime filters: RF020[bloom] -> ss_sold_date_sk, RF021[min_max] -> ss_sold_date_sk, RF019[min_max] -> ss_addr_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=21 row-size=12B cardinality=7.88G cost=0
 |     in pipelines: 26(GETNEXT)
@@ -463,6 +482,7 @@ PLAN-ROOT SINK
 43:HASH JOIN [INNER JOIN]
 |  hash predicates: ca_county = ca_county
 |  fk/pk conjuncts: none
+|  runtime filters: RF009[min_max] <- ca_county
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=27,31 row-size=84B cardinality=33.49K cost=6298
 |  in pipelines: 36(GETNEXT), 42(OPEN)
@@ -478,11 +498,13 @@ PLAN-ROOT SINK
 |  41:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_addr_sk = ca_address_sk
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF015[min_max] <- ca_address_sk
 |  |  mem-estimate=799.76MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=29,30,28 row-size=32B cardinality=803.40M cost=366198132
 |  |  in pipelines: 38(GETNEXT), 37(OPEN)
 |  |
 |  |--37:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF000[bloom] -> ca_county, RF001[min_max] -> ca_county, RF002[bloom] -> ca_county, RF003[min_max] -> ca_county, RF004[bloom] -> ca_county, RF005[min_max] -> ca_county, RF007[min_max] -> ca_county
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=28 row-size=30B cardinality=14.55M cost=0
 |  |     in pipelines: 37(GETNEXT)
@@ -490,6 +512,7 @@ PLAN-ROOT SINK
 |  40:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_date_sk = d_date_sk
 |  |  fk/pk conjuncts: ss_sold_date_sk = d_date_sk
+|  |  runtime filters: RF016[bloom] <- d_date_sk, RF017[min_max] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=29,30 row-size=16B cardinality=803.40M cost=2166407712
 |  |  in pipelines: 38(GETNEXT), 39(OPEN)
@@ -500,6 +523,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 39(GETNEXT)
 |  |
 |  38:CTE CONSUMER [cte_suggestion_1]
+|     runtime filters: RF016[bloom] -> ss_sold_date_sk, RF017[min_max] -> ss_sold_date_sk, RF015[min_max] -> ss_addr_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=29 row-size=12B cardinality=7.88G cost=0
 |     in pipelines: 38(GETNEXT)
@@ -515,11 +539,13 @@ PLAN-ROOT SINK
 35:HASH JOIN [INNER JOIN]
 |  hash predicates: ss_addr_sk = ca_address_sk
 |  fk/pk conjuncts: none
+|  runtime filters: RF010[bloom] <- ca_address_sk, RF011[min_max] <- ca_address_sk
 |  mem-estimate=799.76MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=25,26,24 row-size=32B cardinality=803.40M cost=366198132
 |  in pipelines: 32(GETNEXT), 31(OPEN)
 |
 |--31:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF000[bloom] -> ca_county, RF001[min_max] -> ca_county, RF002[bloom] -> ca_county, RF003[min_max] -> ca_county, RF004[bloom] -> ca_county, RF005[min_max] -> ca_county, RF007[min_max] -> ca_county, RF009[min_max] -> ca_county
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=24 row-size=30B cardinality=14.55M cost=0
 |     in pipelines: 31(GETNEXT)
@@ -527,6 +553,7 @@ PLAN-ROOT SINK
 34:HASH JOIN [INNER JOIN]
 |  hash predicates: ss_sold_date_sk = d_date_sk
 |  fk/pk conjuncts: ss_sold_date_sk = d_date_sk
+|  runtime filters: RF012[bloom] <- d_date_sk, RF013[min_max] <- d_date_sk
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=25,26 row-size=16B cardinality=803.40M cost=2166407712
 |  in pipelines: 32(GETNEXT), 33(OPEN)
@@ -537,6 +564,7 @@ PLAN-ROOT SINK
 |     in pipelines: 33(GETNEXT)
 |
 32:CTE CONSUMER [cte_suggestion_1]
+   runtime filters: RF012[bloom] -> ss_sold_date_sk, RF013[min_max] -> ss_sold_date_sk, RF010[bloom] -> ss_addr_sk, RF011[min_max] -> ss_addr_sk
    mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
    tuple-ids=25 row-size=12B cardinality=7.88G cost=0
    in pipelines: 32(GETNEXT)

@@ -21,6 +21,7 @@
 
 #include "codegen/codegen-fn-ptr.h"
 #include "exec/exec-node.h"
+#include "exec/filter-context.h"
 
 namespace impala {
 
@@ -36,6 +37,9 @@ class CTEConsumerPlanNode : public PlanNode {
 
   TupleDescriptor* tuple_desc_;
   std::vector<ScalarExpr*> input_exprs_;
+
+  /// Runtime filter expressions, one per filter in tnode.runtime_filters.
+  std::vector<ScalarExpr*> runtime_filter_exprs_;
 
   typedef void (*MaterializeBatchFn)(CTEConsumerNode*, RowBatch*, RowBatch*, uint8_t**);
   /// Vector of pointers to codegen'ed MaterializeBatch functions. The vector contains one
@@ -81,6 +85,29 @@ class CTEConsumerNode : public ExecNode {
       codegend_materialize_batch_fn_;
   int32_t consumer_index_;
   bool is_passthrough_;
+
+  /// Runtime filter contexts, one per filter assigned to this node.
+  std::vector<FilterContext> filter_ctxs_;
+
+  struct LocalFilterContext {
+    LocalFilterContext(const FilterContext& ctx) : filter_ctx(ctx) {}
+    const FilterContext& filter_ctx;
+    int64_t processed = 0, rejected = 0;
+  };
+
+  /// Returns true if 'row' passes all runtime filters, false if any filter rejects it.
+  /// Increments processed[f] for each filter evaluated and rejected[f] for the first
+  /// filter that rejects 'row' (short-circuit). Both arrays must have filter_ctxs_.size()
+  /// elements.
+  bool EvalRuntimeFilters(
+      TupleRow* row, std::vector<LocalFilterContext>& local_filter_ctxs) const noexcept;
+
+  /// Filters rows in 'batch' that fail the runtime filters, compacting the batch
+  /// in-place. Rows that pass remain; rows that fail are removed.
+  void FilterRowBatch(RowBatch* batch) const noexcept;
+
+  /// True after WaitForRuntimeFilters() has been called.
+  bool filters_waited_ = false;
 };
 
 }

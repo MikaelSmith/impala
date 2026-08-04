@@ -58,8 +58,8 @@ ORDER BY SUBSTRING(r_reason_desc,1,20) ,
          avg(wr_fee)
 LIMIT 100;
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=138.77MB Threads=1
-Per-Host Resource Estimates: Memory=425MB
+Max Per-Host Resource Reservation: Memory=140.77MB Threads=1
+Per-Host Resource Estimates: Memory=427MB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], sort2=[$2], sort3=[$3], dir0=[ASC], dir1=[ASC], dir2=[ASC], dir3=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(EXPR$0=[SUBSTRING($0, 1:BIGINT, 20:BIGINT)], EXPR$1=[$1], EXPR$2=[$2], EXPR$3=[$3])
@@ -99,7 +99,7 @@ ImpalaSequence
       ImpalaProjectRel(cd_demo_sk=[$0], cd_marital_status=[$2], cd_education_status=[$3])
         ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, customer_demographics]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=425.01MB mem-reservation=138.77MB thread-reservation=1 runtime-filters-memory=9.00MB
+|  Per-Instance Resources: mem-estimate=427.01MB mem-reservation=140.77MB thread-reservation=1 runtime-filters-memory=11.00MB
 |  max-parallelism=1 segment-costs=[525483899, 224, 997021]
 PLAN-ROOT SINK
 |  output exprs: substring(tpcds_partitioned_parquet_snap.reason.r_reason_desc, CAST(1 AS BIGINT), CAST(20 AS BIGINT)), avg(tpcds_partitioned_parquet_snap.web_sales.ws_quantity), avg(tpcds_partitioned_parquet_snap.web_returns.wr_refunded_cash), avg(tpcds_partitioned_parquet_snap.web_returns.wr_fee)
@@ -153,7 +153,7 @@ PLAN-ROOT SINK
 |--16:HASH JOIN [INNER JOIN]
 |  |  hash predicates: tpcds_partitioned_parquet_snap.web_returns.wr_refunded_cdemo_sk = cd_demo_sk, cd_marital_status = cd_marital_status, cd_education_status = cd_education_status
 |  |  fk/pk conjuncts: tpcds_partitioned_parquet_snap.web_returns.wr_refunded_cdemo_sk = cd_demo_sk
-|  |  runtime filters: RF008[bloom] <- cd_demo_sk, RF009[min_max] <- cd_demo_sk
+|  |  runtime filters: RF008[bloom] <- cd_demo_sk, RF009[bloom] <- cd_marital_status, RF010[bloom] <- cd_education_status, RF011[min_max] <- cd_demo_sk, RF012[min_max] <- cd_marital_status, RF013[min_max] <- cd_education_status
 |  |  mem-estimate=17.00MB mem-reservation=17.00MB spill-buffer=1.00MB thread-reservation=0
 |  |  tuple-ids=10,8,12,14,15 row-size=164B cardinality=431.30K cost=1299393
 |  |  in pipelines: 09(GETNEXT), 15(OPEN)
@@ -166,12 +166,13 @@ PLAN-ROOT SINK
 |  14:HASH JOIN [INNER JOIN]
 |  |  hash predicates: tpcds_partitioned_parquet_snap.web_returns.wr_returning_cdemo_sk = cd_demo_sk
 |  |  fk/pk conjuncts: tpcds_partitioned_parquet_snap.web_returns.wr_returning_cdemo_sk = cd_demo_sk
-|  |  runtime filters: RF010[bloom] <- cd_demo_sk, RF011[min_max] <- cd_demo_sk
+|  |  runtime filters: RF014[bloom] <- cd_demo_sk, RF015[min_max] <- cd_demo_sk
 |  |  mem-estimate=17.00MB mem-reservation=17.00MB spill-buffer=1.00MB thread-reservation=0
 |  |  tuple-ids=10,8,12,14 row-size=136B cardinality=3.93M cost=7007455
 |  |  in pipelines: 09(GETNEXT), 13(OPEN)
 |  |
 |  |--13:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF009[bloom] -> cd_marital_status, RF010[bloom] -> cd_education_status, RF012[min_max] -> cd_marital_status, RF013[min_max] -> cd_education_status
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=14 row-size=39B cardinality=213.47K cost=0
 |  |     in pipelines: 13(GETNEXT)
@@ -179,7 +180,7 @@ PLAN-ROOT SINK
 |  12:HASH JOIN [INNER JOIN]
 |  |  hash predicates: tpcds_partitioned_parquet_snap.web_returns.wr_reason_sk = tpcds_partitioned_parquet_snap.reason.r_reason_sk
 |  |  fk/pk conjuncts: tpcds_partitioned_parquet_snap.web_returns.wr_reason_sk = tpcds_partitioned_parquet_snap.reason.r_reason_sk
-|  |  runtime filters: RF012[bloom] <- tpcds_partitioned_parquet_snap.reason.r_reason_sk, RF013[min_max] <- tpcds_partitioned_parquet_snap.reason.r_reason_sk
+|  |  runtime filters: RF016[bloom] <- tpcds_partitioned_parquet_snap.reason.r_reason_sk, RF017[min_max] <- tpcds_partitioned_parquet_snap.reason.r_reason_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=10,8,12 row-size=108B cardinality=23.71M(filtered from 35.79M) cost=12567410
 |  |  in pipelines: 09(GETNEXT), 11(OPEN)
@@ -199,7 +200,7 @@ PLAN-ROOT SINK
 |  10:HASH JOIN [INNER JOIN]
 |  |  hash predicates: tpcds_partitioned_parquet_snap.web_returns.wr_refunded_addr_sk = tpcds_partitioned_parquet_snap.customer_address.ca_address_sk
 |  |  fk/pk conjuncts: none
-|  |  runtime filters: RF014[bloom] <- tpcds_partitioned_parquet_snap.customer_address.ca_address_sk, RF015[min_max] <- tpcds_partitioned_parquet_snap.customer_address.ca_address_sk
+|  |  runtime filters: RF018[bloom] <- tpcds_partitioned_parquet_snap.customer_address.ca_address_sk, RF019[min_max] <- tpcds_partitioned_parquet_snap.customer_address.ca_address_sk
 |  |  mem-estimate=154.91MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=10,8 row-size=79B cardinality=23.71M(filtered from 36.32M) cost=15271235
 |  |  in pipelines: 09(GETNEXT), 08(OPEN)
@@ -220,7 +221,7 @@ PLAN-ROOT SINK
 |  09:SCAN HDFS [tpcds_partitioned_parquet_snap.web_returns]
 |     HDFS partitions=2114/2114 files=2114 size=16.74GB
 |     predicates: tpcds_partitioned_parquet_snap.web_returns.wr_refunded_addr_sk IS NOT NULL, tpcds_partitioned_parquet_snap.web_returns.wr_reason_sk IS NOT NULL, tpcds_partitioned_parquet_snap.web_returns.wr_refunded_cdemo_sk IS NOT NULL, tpcds_partitioned_parquet_snap.web_returns.wr_returning_cdemo_sk IS NOT NULL, tpcds_partitioned_parquet_snap.web_returns.wr_item_sk IS NOT NULL, tpcds_partitioned_parquet_snap.web_returns.wr_order_number IS NOT NULL
-|     runtime filters: RF009[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_refunded_cdemo_sk, RF011[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_cdemo_sk, RF015[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_refunded_addr_sk, RF013[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_reason_sk, RF008[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_refunded_cdemo_sk, RF010[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_cdemo_sk, RF014[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_refunded_addr_sk, RF012[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_reason_sk
+|     runtime filters: RF011[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_refunded_cdemo_sk, RF015[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_cdemo_sk, RF019[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_refunded_addr_sk, RF017[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_reason_sk, RF008[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_refunded_cdemo_sk, RF014[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_cdemo_sk, RF018[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_refunded_addr_sk, RF016[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_reason_sk
 |     stored statistics:
 |       table: rows=216.00M size=16.74GB
 |       partitions: 2114/2114 rows=216.00M

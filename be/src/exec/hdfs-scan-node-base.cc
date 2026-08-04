@@ -719,7 +719,7 @@ Status HdfsScanNodeBase::IssueInitialScanRanges(RuntimeState* state) {
     return Status::OK();
   }
 
-  if (filter_ctxs_.size() > 0) WaitForRuntimeFilters();
+  if (filter_ctxs_.size() > 0) WaitForRuntimeFilters(state, filter_ctxs_);
   // Apply dynamic partition-pruning per-file.
   HdfsFileDesc::FileFormatsMap matching_per_type_files;
   std::vector<HdfsFileDesc*>* file_list =

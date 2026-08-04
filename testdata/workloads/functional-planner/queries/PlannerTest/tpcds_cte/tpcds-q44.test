@@ -47,8 +47,8 @@ WHERE asceding.rnk = descending.rnk
 ORDER BY asceding.rnk
 LIMIT 100
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=102.19MB Threads=1
-Per-Host Resource Estimates: Memory=173MB
+Max Per-Host Resource Reservation: Memory=104.19MB Threads=1
+Per-Host Resource Estimates: Memory=175MB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(RNK=[$3], BEST_PERFORMING=[$1], WORST_PERFORMING=[$5])
@@ -90,7 +90,7 @@ ImpalaSequence
       ImpalaProjectRel(i_item_sk=[$0], i_product_name=[$21])
         ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, item]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=173.15MB mem-reservation=102.19MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=175.15MB mem-reservation=104.19MB thread-reservation=1 runtime-filters-memory=2.00MB
 |  max-parallelism=1 segment-costs=[1740398017, 1979329186, 3822129, 1740398017, 1979329186, 3822129, 184743, 149317]
 PLAN-ROOT SINK
 |  output exprs: rank(), i_product_name, i_product_name
@@ -134,6 +134,7 @@ PLAN-ROOT SINK
 |--22:HASH JOIN [INNER JOIN]
 |  |  hash predicates: i_item_sk = tpcds_partitioned_parquet_snap.store_sales_1.ss_item_sk
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF002[bloom] <- tpcds_partitioned_parquet_snap.store_sales_1.ss_item_sk, RF003[min_max] <- tpcds_partitioned_parquet_snap.store_sales_1.ss_item_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=17,30,29 row-size=48B cardinality=1 cost=92341
 |  |  in pipelines: 13(GETNEXT), 19(OPEN)
@@ -209,6 +210,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 14(GETNEXT)
 |  |
 |  13:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF002[bloom] -> i_item_sk, RF003[min_max] -> i_item_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=17 row-size=39B cardinality=360.00K cost=0
 |     in pipelines: 13(GETNEXT)
@@ -216,6 +218,7 @@ PLAN-ROOT SINK
 12:HASH JOIN [INNER JOIN]
 |  hash predicates: i_item_sk = tpcds_partitioned_parquet_snap.store_sales.ss_item_sk
 |  fk/pk conjuncts: none
+|  runtime filters: RF000[bloom] <- tpcds_partitioned_parquet_snap.store_sales.ss_item_sk, RF001[min_max] <- tpcds_partitioned_parquet_snap.store_sales.ss_item_sk
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=2,15,14 row-size=48B cardinality=1 cost=92341
 |  in pipelines: 03(GETNEXT), 09(OPEN)
@@ -291,6 +294,7 @@ PLAN-ROOT SINK
 |     in pipelines: 04(GETNEXT)
 |
 03:CTE CONSUMER [cte_suggestion_0]
+   runtime filters: RF000[bloom] -> i_item_sk, RF001[min_max] -> i_item_sk
    mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
    tuple-ids=2 row-size=39B cardinality=360.00K cost=0
    in pipelines: 03(GETNEXT)

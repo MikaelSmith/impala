@@ -81,7 +81,7 @@ order by
   d_week_seq1
 limit 100
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=103.54MB Threads=1
+Max Per-Host Resource Reservation: Memory=107.54MB Threads=1
 Per-Host Resource Estimates: Memory=2.31GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], sort2=[$2], dir0=[ASC], dir1=[ASC], dir2=[ASC], fetch=[100:TINYINT])
@@ -121,7 +121,7 @@ ImpalaSequence
             ImpalaProjectRel(d_date_sk=[$0], d_week_seq=[$4], d_day_name=[$14])
               ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, date_dim]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=2.31GB mem-reservation=103.54MB thread-reservation=1 runtime-filters-memory=3.00MB
+|  Per-Instance Resources: mem-estimate=2.31GB mem-reservation=107.54MB thread-reservation=1 runtime-filters-memory=7.00MB
 |  max-parallelism=1 segment-costs=[19272221811, 76041384, 1000]
 PLAN-ROOT SINK
 |  output exprs: s_store_name, s_store_id, D_WEEK_SEQ, divide(SUN_SALES, SUN_SALES), divide(MON_SALES, MON_SALES), divide(TUE_SALES, TUE_SALES), divide(WED_SALES, WED_SALES), divide(THU_SALES, THU_SALES), divide(FRI_SALES, FRI_SALES), divide(SAT_SALES, SAT_SALES)
@@ -188,7 +188,7 @@ PLAN-ROOT SINK
 16:HASH JOIN [INNER JOIN]
 |  hash predicates: SS_STORE_SK = tpcds_partitioned_parquet_snap.store_0.s_store_sk, tpcds_partitioned_parquet_snap.store.s_store_id = tpcds_partitioned_parquet_snap.store_0.s_store_id
 |  fk/pk conjuncts: SS_STORE_SK = tpcds_partitioned_parquet_snap.store_0.s_store_sk
-|  runtime filters: RF001[bloom] <- tpcds_partitioned_parquet_snap.store_0.s_store_id, RF003[min_max] <- tpcds_partitioned_parquet_snap.store_0.s_store_id
+|  runtime filters: RF000[bloom] <- tpcds_partitioned_parquet_snap.store_0.s_store_sk, RF001[bloom] <- tpcds_partitioned_parquet_snap.store_0.s_store_id, RF002[min_max] <- tpcds_partitioned_parquet_snap.store_0.s_store_sk, RF003[min_max] <- tpcds_partitioned_parquet_snap.store_0.s_store_id
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=5,6,8,10,11,13 row-size=336B cardinality=4.77M cost=2089251
 |  in pipelines: 06(GETNEXT), 15(OPEN)
@@ -216,6 +216,7 @@ PLAN-ROOT SINK
 |--13:HASH JOIN [INNER JOIN]
 |  |  hash predicates: D_WEEK_SEQ = tpcds_partitioned_parquet_snap.date_dim_1.d_week_seq
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF010[bloom] <- tpcds_partitioned_parquet_snap.date_dim_1.d_week_seq, RF011[min_max] <- tpcds_partitioned_parquet_snap.date_dim_1.d_week_seq
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=10,11 row-size=128B cardinality=4.77M cost=2654135
 |  |  in pipelines: 11(GETNEXT), 12(OPEN)
@@ -234,6 +235,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 12(GETNEXT)
 |  |
 |  11:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF010[bloom] -> D_WEEK_SEQ, RF011[min_max] -> D_WEEK_SEQ, RF000[bloom] -> SS_STORE_SK, RF002[min_max] -> SS_STORE_SK
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=10 row-size=120B cardinality=6.95M cost=0
 |     in pipelines: 11(GETNEXT)
@@ -241,6 +243,7 @@ PLAN-ROOT SINK
 10:HASH JOIN [INNER JOIN]
 |  hash predicates: SS_STORE_SK = tpcds_partitioned_parquet_snap.store.s_store_sk
 |  fk/pk conjuncts: SS_STORE_SK = tpcds_partitioned_parquet_snap.store.s_store_sk
+|  runtime filters: RF006[bloom] <- tpcds_partitioned_parquet_snap.store.s_store_sk, RF007[min_max] <- tpcds_partitioned_parquet_snap.store.s_store_sk
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=5,6,8 row-size=176B cardinality=4.77M cost=2089251
 |  in pipelines: 06(GETNEXT), 09(OPEN)
@@ -261,6 +264,7 @@ PLAN-ROOT SINK
 08:HASH JOIN [INNER JOIN]
 |  hash predicates: D_WEEK_SEQ = tpcds_partitioned_parquet_snap.date_dim_0.d_week_seq
 |  fk/pk conjuncts: none
+|  runtime filters: RF008[bloom] <- tpcds_partitioned_parquet_snap.date_dim_0.d_week_seq, RF009[min_max] <- tpcds_partitioned_parquet_snap.date_dim_0.d_week_seq
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=5,6 row-size=128B cardinality=4.77M cost=2654135
 |  in pipelines: 06(GETNEXT), 07(OPEN)
@@ -280,6 +284,7 @@ PLAN-ROOT SINK
 |     in pipelines: 07(GETNEXT)
 |
 06:CTE CONSUMER [cte_suggestion_0]
+   runtime filters: RF008[bloom] -> D_WEEK_SEQ, RF009[min_max] -> D_WEEK_SEQ, RF004[bloom] -> D_WEEK_SEQ, RF005[min_max] -> D_WEEK_SEQ, RF006[bloom] -> SS_STORE_SK, RF007[min_max] -> SS_STORE_SK
    mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
    tuple-ids=5 row-size=120B cardinality=6.95M cost=0
    in pipelines: 06(GETNEXT)

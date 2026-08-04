@@ -49,8 +49,8 @@ ORDER BY c_customer_id,
          ctr_total_return
 LIMIT 100;
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=268.42MB Threads=1
-Per-Host Resource Estimates: Memory=4.66GB
+Max Per-Host Resource Reservation: Memory=269.42MB Threads=1
+Per-Host Resource Estimates: Memory=4.67GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], sort2=[$2], sort3=[$3], sort4=[$4], sort5=[$5], sort6=[$6], sort7=[$7], sort8=[$8], sort9=[$9], sort10=[$10], sort11=[$11], sort12=[$12], dir0=[ASC], dir1=[ASC], dir2=[ASC], dir3=[ASC], dir4=[ASC], dir5=[ASC], dir6=[ASC], dir7=[ASC], dir8=[ASC], dir9=[ASC], dir10=[ASC], dir11=[ASC], dir12=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(C_CUSTOMER_ID=[$1], C_SALUTATION=[$3], C_FIRST_NAME=[$4], C_LAST_NAME=[$5], C_PREFERRED_CUST_FLAG=[$6], C_BIRTH_DAY=[$7], C_BIRTH_MONTH=[$8], C_BIRTH_YEAR=[$9], C_BIRTH_COUNTRY=[$10], C_LOGIN=[$11], C_EMAIL_ADDRESS=[$12], C_LAST_REVIEW_DATE_SK=[$13], CTR_TOTAL_RETURN=[$17])
@@ -94,7 +94,7 @@ ImpalaSequence
         ImpalaProjectRel(d_date_sk=[$0], d_year=[$6])
           ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, date_dim]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=4.66GB mem-reservation=268.42MB thread-reservation=1 runtime-filters-memory=36.00MB
+|  Per-Instance Resources: mem-estimate=4.67GB mem-reservation=269.42MB thread-reservation=1 runtime-filters-memory=37.00MB
 |  max-parallelism=1 segment-costs=[256208779, 260348056, 10182545, 118196734, 2152820]
 PLAN-ROOT SINK
 |  output exprs: c_customer_id, c_salutation, c_first_name, c_last_name, c_preferred_cust_flag, c_birth_day, c_birth_month, c_birth_year, c_birth_country, c_login, c_email_address, c_last_review_date_sk, sum(tpcds_partitioned_parquet_snap.web_returns.wr_return_amt)
@@ -157,7 +157,7 @@ PLAN-ROOT SINK
 |--08:HASH JOIN [INNER JOIN]
 |  |  hash predicates: tpcds_partitioned_parquet_snap.customer.c_current_addr_sk = ca_address_sk
 |  |  fk/pk conjuncts: tpcds_partitioned_parquet_snap.customer.c_current_addr_sk = ca_address_sk
-|  |  runtime filters: RF010[bloom] <- ca_address_sk, RF011[min_max] <- ca_address_sk
+|  |  runtime filters: RF012[bloom] <- ca_address_sk, RF013[min_max] <- ca_address_sk
 |  |  mem-estimate=17.00MB mem-reservation=17.00MB spill-buffer=1.00MB thread-reservation=0
 |  |  tuple-ids=4,6 row-size=204B cardinality=641.56K cost=566121
 |  |  in pipelines: 05(GETNEXT), 06(OPEN)
@@ -176,7 +176,7 @@ PLAN-ROOT SINK
 |  05:SCAN HDFS [tpcds_partitioned_parquet_snap.customer]
 |     HDFS partitions=1/1 files=1 size=1.55GB
 |     predicates: tpcds_partitioned_parquet_snap.customer.c_current_addr_sk IS NOT NULL, tpcds_partitioned_parquet_snap.customer.c_customer_sk IS NOT NULL
-|     runtime filters: RF011[min_max] -> tpcds_partitioned_parquet_snap.customer.c_current_addr_sk, RF010[bloom] -> tpcds_partitioned_parquet_snap.customer.c_current_addr_sk
+|     runtime filters: RF013[min_max] -> tpcds_partitioned_parquet_snap.customer.c_current_addr_sk, RF012[bloom] -> tpcds_partitioned_parquet_snap.customer.c_current_addr_sk
 |     stored statistics:
 |       table: rows=30.00M size=1.55GB
 |       columns: all
@@ -190,6 +190,7 @@ PLAN-ROOT SINK
 |  hash predicates: ca_state = ca_state
 |  fk/pk conjuncts: none
 |  other join predicates: sum(tpcds_partitioned_parquet_snap.web_returns.wr_return_amt) > multiply(avg(sum(tpcds_partitioned_parquet_snap.web_returns_0.wr_return_amt)), CAST(1.2 AS DECIMAL(2,1)))
+|  runtime filters: RF002[bloom] <- ca_state, RF003[min_max] <- ca_state
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=11,18 row-size=64B cardinality=15.00M cost=3590661
 |  in pipelines: 14(GETNEXT), 21(OPEN)
@@ -211,7 +212,7 @@ PLAN-ROOT SINK
 |  19:HASH JOIN [INNER JOIN]
 |  |  hash predicates: tpcds_partitioned_parquet_snap.web_returns_0.wr_returning_addr_sk = ca_address_sk
 |  |  fk/pk conjuncts: none
-|  |  runtime filters: RF006[bloom] <- ca_address_sk, RF007[min_max] <- ca_address_sk
+|  |  runtime filters: RF008[bloom] <- ca_address_sk, RF009[min_max] <- ca_address_sk
 |  |  mem-estimate=633.78MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=13,15,12 row-size=36B cardinality=34.81M cost=29787997
 |  |  in pipelines: 16(GETNEXT), 15(OPEN)
@@ -224,7 +225,7 @@ PLAN-ROOT SINK
 |  18:HASH JOIN [INNER JOIN]
 |  |  hash predicates: tpcds_partitioned_parquet_snap.web_returns_0.wr_returned_date_sk = d_date_sk
 |  |  fk/pk conjuncts: tpcds_partitioned_parquet_snap.web_returns_0.wr_returned_date_sk = d_date_sk
-|  |  runtime filters: RF008[bloom] <- d_date_sk
+|  |  runtime filters: RF010[bloom] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=13,15 row-size=20B cardinality=34.81M cost=15658032
 |  |  in pipelines: 16(GETNEXT), 17(OPEN)
@@ -238,7 +239,7 @@ PLAN-ROOT SINK
 |     partition predicates: tpcds_partitioned_parquet_snap.web_returns_0.wr_returned_date_sk IS NOT NULL
 |     HDFS partitions=2113/2114 files=2113 size=16.73GB
 |     predicates: tpcds_partitioned_parquet_snap.web_returns_0.wr_returning_addr_sk IS NOT NULL
-|     runtime filters: RF007[min_max] -> tpcds_partitioned_parquet_snap.web_returns_0.wr_returning_addr_sk, RF006[bloom] -> tpcds_partitioned_parquet_snap.web_returns_0.wr_returning_addr_sk, RF008[bloom] -> tpcds_partitioned_parquet_snap.web_returns_0.wr_returned_date_sk
+|     runtime filters: RF009[min_max] -> tpcds_partitioned_parquet_snap.web_returns_0.wr_returning_addr_sk, RF010[bloom] -> tpcds_partitioned_parquet_snap.web_returns_0.wr_returned_date_sk, RF008[bloom] -> tpcds_partitioned_parquet_snap.web_returns_0.wr_returning_addr_sk
 |     stored statistics:
 |       table: rows=216.00M size=16.74GB
 |       partitions: 2113/2113 rows=206.59M
@@ -260,12 +261,13 @@ PLAN-ROOT SINK
 13:HASH JOIN [INNER JOIN]
 |  hash predicates: tpcds_partitioned_parquet_snap.web_returns.wr_returning_addr_sk = ca_address_sk
 |  fk/pk conjuncts: none
-|  runtime filters: RF002[bloom] <- ca_address_sk, RF003[min_max] <- ca_address_sk
+|  runtime filters: RF004[bloom] <- ca_address_sk, RF005[min_max] <- ca_address_sk
 |  mem-estimate=633.78MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=8,10,7 row-size=36B cardinality=34.02M cost=29441437
 |  in pipelines: 10(GETNEXT), 09(OPEN)
 |
 |--09:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF002[bloom] -> ca_state, RF003[min_max] -> ca_state
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=7 row-size=18B cardinality=14.55M cost=0
 |     in pipelines: 09(GETNEXT)
@@ -273,7 +275,7 @@ PLAN-ROOT SINK
 12:HASH JOIN [INNER JOIN]
 |  hash predicates: tpcds_partitioned_parquet_snap.web_returns.wr_returned_date_sk = d_date_sk
 |  fk/pk conjuncts: tpcds_partitioned_parquet_snap.web_returns.wr_returned_date_sk = d_date_sk
-|  runtime filters: RF004[bloom] <- d_date_sk
+|  runtime filters: RF006[bloom] <- d_date_sk
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=8,10 row-size=20B cardinality=34.02M cost=15514562
 |  in pipelines: 10(GETNEXT), 11(OPEN)
@@ -287,7 +289,7 @@ PLAN-ROOT SINK
    partition predicates: tpcds_partitioned_parquet_snap.web_returns.wr_returned_date_sk IS NOT NULL
    HDFS partitions=2113/2114 files=2113 size=16.73GB
    predicates: tpcds_partitioned_parquet_snap.web_returns.wr_returning_addr_sk IS NOT NULL, tpcds_partitioned_parquet_snap.web_returns.wr_returning_customer_sk IS NOT NULL
-   runtime filters: RF001[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_customer_sk, RF003[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_addr_sk, RF000[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_customer_sk, RF002[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_addr_sk, RF004[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_returned_date_sk
+   runtime filters: RF001[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_customer_sk, RF005[min_max] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_addr_sk, RF006[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_returned_date_sk, RF000[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_customer_sk, RF004[bloom] -> tpcds_partitioned_parquet_snap.web_returns.wr_returning_addr_sk
    stored statistics:
      table: rows=216.00M size=16.74GB
      partitions: 2113/2113 rows=206.59M

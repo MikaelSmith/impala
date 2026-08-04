@@ -80,8 +80,8 @@ ORDER BY t_s_secyear.customer_id,
          t_s_secyear.customer_preferred_cust_flag
 LIMIT 100;
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=466.38MB Threads=1
-Per-Host Resource Estimates: Memory=221.98GB
+Max Per-Host Resource Reservation: Memory=566.38MB Threads=1
+Per-Host Resource Estimates: Memory=222.08GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], sort2=[$2], sort3=[$3], dir0=[ASC], dir1=[ASC], dir2=[ASC], dir3=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(CUSTOMER_ID=[$2], CUSTOMER_FIRST_NAME=[$3], CUSTOMER_LAST_NAME=[$4], CUSTOMER_PREFERRED_CUST_FLAG=[$5])
@@ -145,7 +145,7 @@ ImpalaSequence
       ImpalaProjectRel(ss_customer_sk=[$2], ss_ext_discount_amt=[$13], ss_ext_list_price=[$16], ss_sold_date_sk=[$22])
         ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, store_sales]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=221.98GB mem-reservation=466.38MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=222.08GB mem-reservation=566.38MB thread-reservation=1 runtime-filters-memory=100.00MB
 |  max-parallelism=1 segment-costs=[11753665434, 3462843749, 5192077540, 1599467804, 600091089, 2722338716]
 PLAN-ROOT SINK
 |  output exprs: c_customer_id, c_first_name, c_last_name, c_preferred_cust_flag
@@ -257,6 +257,7 @@ PLAN-ROOT SINK
 |  hash predicates: c_customer_id = c_customer_id
 |  fk/pk conjuncts: c_customer_id = c_customer_id
 |  other join predicates: CASE WHEN sum(subtract(ws_ext_list_price, ws_ext_discount_amt)) > CAST(0 AS DECIMAL(38,2)) THEN divide(CAST(sum(subtract(ws_ext_list_price, ws_ext_discount_amt)) AS DECIMAL(38,6)), sum(subtract(ws_ext_list_price, ws_ext_discount_amt))) ELSE CAST(0 AS DECIMAL(38,6)) END > CASE WHEN sum(subtract(ss_ext_list_price, ss_ext_discount_amt)) > CAST(0 AS DECIMAL(38,2)) THEN divide(CAST(sum(subtract(ss_ext_list_price, ss_ext_discount_amt)) AS DECIMAL(38,6)), sum(subtract(ss_ext_list_price, ss_ext_discount_amt))) ELSE CAST(0 AS DECIMAL(38,6)) END
+|  runtime filters: RF000[bloom] <- c_customer_id, RF001[min_max] <- c_customer_id
 |  mem-estimate=5.36GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=25,21,17,13 row-size=661B cardinality=30.00M cost=43131000
 |  in pipelines: 34(GETNEXT), 16(OPEN)
@@ -271,6 +272,7 @@ PLAN-ROOT SINK
 |  15:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_bill_customer_sk = c_customer_sk
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF019[min_max] <- c_customer_sk
 |  |  mem-estimate=5.03GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=11,12,10 row-size=108B cardinality=441.48M cost=223234710
 |  |  in pipelines: 12(GETNEXT), 11(OPEN)
@@ -283,6 +285,7 @@ PLAN-ROOT SINK
 |  14:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_sold_date_sk = d_date_sk
 |  |  fk/pk conjuncts: ws_sold_date_sk = d_date_sk
+|  |  runtime filters: RF020[bloom] <- d_date_sk, RF021[min_max] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=11,12 row-size=20B cardinality=441.48M cost=633743836
 |  |  in pipelines: 12(GETNEXT), 13(OPEN)
@@ -293,6 +296,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 13(GETNEXT)
 |  |
 |  12:CTE CONSUMER [cte_suggestion_2]
+|     runtime filters: RF020[bloom] -> ws_sold_date_sk, RF021[min_max] -> ws_sold_date_sk, RF019[min_max] -> ws_bill_customer_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=11 row-size=16B cardinality=2.16G cost=0
 |     in pipelines: 12(GETNEXT)
@@ -300,6 +304,7 @@ PLAN-ROOT SINK
 36:HASH JOIN [INNER JOIN]
 |  hash predicates: c_customer_id = c_customer_id
 |  fk/pk conjuncts: c_customer_id = c_customer_id
+|  runtime filters: RF002[bloom] <- c_customer_id, RF003[min_max] <- c_customer_id
 |  mem-estimate=5.36GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=25,21,17 row-size=495B cardinality=30.00M cost=46759898
 |  in pipelines: 34(GETNEXT), 22(OPEN)
@@ -314,11 +319,13 @@ PLAN-ROOT SINK
 |  21:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_customer_sk = c_customer_sk
 |  |  fk/pk conjuncts: ss_customer_sk = c_customer_sk
+|  |  runtime filters: RF014[bloom] <- c_customer_sk, RF015[min_max] <- c_customer_sk
 |  |  mem-estimate=5.03GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=14,15,16 row-size=108B cardinality=1.48G cost=711235853
 |  |  in pipelines: 17(GETNEXT), 20(OPEN)
 |  |
 |  |--20:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF000[bloom] -> c_customer_id, RF001[min_max] -> c_customer_id
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=16 row-size=153B cardinality=30.00M cost=0
 |  |     in pipelines: 20(GETNEXT)
@@ -326,6 +333,7 @@ PLAN-ROOT SINK
 |  19:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_date_sk = d_date_sk
 |  |  fk/pk conjuncts: ss_sold_date_sk = d_date_sk
+|  |  runtime filters: RF016[bloom] <- d_date_sk, RF017[min_max] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=14,15 row-size=20B cardinality=1.61G cost=2312756085
 |  |  in pipelines: 17(GETNEXT), 18(OPEN)
@@ -336,6 +344,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 18(GETNEXT)
 |  |
 |  17:CTE CONSUMER [cte_suggestion_1]
+|     runtime filters: RF016[bloom] -> ss_sold_date_sk, RF017[min_max] -> ss_sold_date_sk, RF014[bloom] -> ss_customer_sk, RF015[min_max] -> ss_customer_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=14 row-size=16B cardinality=7.88G cost=0
 |     in pipelines: 17(GETNEXT)
@@ -343,6 +352,7 @@ PLAN-ROOT SINK
 35:HASH JOIN [INNER JOIN]
 |  hash predicates: c_customer_id = c_customer_id
 |  fk/pk conjuncts: c_customer_id = c_customer_id
+|  runtime filters: RF004[bloom] <- c_customer_id, RF005[min_max] <- c_customer_id
 |  mem-estimate=7.75GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=25,21 row-size=330B cardinality=44.15M cost=90082493
 |  in pipelines: 34(GETNEXT), 28(OPEN)
@@ -358,11 +368,13 @@ PLAN-ROOT SINK
 |  27:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_bill_customer_sk = c_customer_sk
 |  |  fk/pk conjuncts: none
+|  |  runtime filters: RF010[bloom] <- c_customer_sk, RF011[min_max] <- c_customer_sk
 |  |  mem-estimate=5.03GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=19,20,18 row-size=108B cardinality=441.48M cost=223234710
 |  |  in pipelines: 24(GETNEXT), 23(OPEN)
 |  |
 |  |--23:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF002[bloom] -> c_customer_id, RF003[min_max] -> c_customer_id, RF000[bloom] -> c_customer_id, RF001[min_max] -> c_customer_id
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=18 row-size=153B cardinality=30.00M cost=0
 |  |     in pipelines: 23(GETNEXT)
@@ -370,6 +382,7 @@ PLAN-ROOT SINK
 |  26:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ws_sold_date_sk = d_date_sk
 |  |  fk/pk conjuncts: ws_sold_date_sk = d_date_sk
+|  |  runtime filters: RF012[bloom] <- d_date_sk, RF013[min_max] <- d_date_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=19,20 row-size=20B cardinality=441.48M cost=633743836
 |  |  in pipelines: 24(GETNEXT), 25(OPEN)
@@ -380,6 +393,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 25(GETNEXT)
 |  |
 |  24:CTE CONSUMER [cte_suggestion_2]
+|     runtime filters: RF012[bloom] -> ws_sold_date_sk, RF013[min_max] -> ws_sold_date_sk, RF010[bloom] -> ws_bill_customer_sk, RF011[min_max] -> ws_bill_customer_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=19 row-size=16B cardinality=2.16G cost=0
 |     in pipelines: 24(GETNEXT)
@@ -395,11 +409,13 @@ PLAN-ROOT SINK
 33:HASH JOIN [INNER JOIN]
 |  hash predicates: ss_customer_sk = c_customer_sk
 |  fk/pk conjuncts: ss_customer_sk = c_customer_sk
+|  runtime filters: RF006[bloom] <- c_customer_sk, RF007[min_max] <- c_customer_sk
 |  mem-estimate=5.03GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=22,23,24 row-size=108B cardinality=1.48G cost=711235853
 |  in pipelines: 29(GETNEXT), 32(OPEN)
 |
 |--32:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF004[bloom] -> c_customer_id, RF005[min_max] -> c_customer_id, RF002[bloom] -> c_customer_id, RF003[min_max] -> c_customer_id, RF000[bloom] -> c_customer_id, RF001[min_max] -> c_customer_id
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=24 row-size=153B cardinality=30.00M cost=0
 |     in pipelines: 32(GETNEXT)
@@ -407,6 +423,7 @@ PLAN-ROOT SINK
 31:HASH JOIN [INNER JOIN]
 |  hash predicates: ss_sold_date_sk = d_date_sk
 |  fk/pk conjuncts: ss_sold_date_sk = d_date_sk
+|  runtime filters: RF008[bloom] <- d_date_sk, RF009[min_max] <- d_date_sk
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=22,23 row-size=20B cardinality=1.61G cost=2312756085
 |  in pipelines: 29(GETNEXT), 30(OPEN)
@@ -417,6 +434,7 @@ PLAN-ROOT SINK
 |     in pipelines: 30(GETNEXT)
 |
 29:CTE CONSUMER [cte_suggestion_1]
+   runtime filters: RF008[bloom] -> ss_sold_date_sk, RF009[min_max] -> ss_sold_date_sk, RF006[bloom] -> ss_customer_sk, RF007[min_max] -> ss_customer_sk
    mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
    tuple-ids=22 row-size=16B cardinality=7.88G cost=0
    in pipelines: 29(GETNEXT)

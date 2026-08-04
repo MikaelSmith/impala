@@ -90,8 +90,8 @@ from
           (household_demographics.hd_dep_count = 2 and household_demographics.hd_vehicle_count<=2+2))
      and store.s_store_name = 'ese') s8
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=126.02MB Threads=1
-Per-Host Resource Estimates: Memory=9.76GB
+Max Per-Host Resource Reservation: Memory=135.02MB Threads=1
+Per-Host Resource Estimates: Memory=9.77GB
 ImpalaSequence
   ImpalaProjectRel(H8_30_TO_9=[$0], H9_TO_9_30=[$7], H9_30_TO_10=[$6], H10_TO_10_30=[$5], H10_30_TO_11=[$4], H11_TO_11_30=[$3], H11_30_TO_12=[$2], H12_TO_12_30=[$1])
     ImpalaJoinRel(condition=[true], joinType=[inner])
@@ -196,7 +196,7 @@ ImpalaSequence
         ImpalaProjectRel(s_store_sk=[$0], s_store_name=[$5])
           ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, store]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=9.76GB mem-reservation=126.02MB thread-reservation=1 runtime-filters-memory=1.00MB
+|  Per-Instance Resources: mem-estimate=9.77GB mem-reservation=135.02MB thread-reservation=1 runtime-filters-memory=10.00MB
 |  max-parallelism=1 segment-costs=[113709078, 113709078, 113709078, 113709078, 113709078, 113709078, 113709078, 113709078, 2416566781]
 PLAN-ROOT SINK
 |  output exprs: count(), count(), count(), count(), count(), count(), count(), count()
@@ -233,7 +233,7 @@ PLAN-ROOT SINK
 |  04:HASH JOIN [INNER JOIN]
 |  |  hash predicates: tpcds_partitioned_parquet_snap.store_sales.ss_hdemo_sk = tpcds_partitioned_parquet_snap.household_demographics.hd_demo_sk
 |  |  fk/pk conjuncts: tpcds_partitioned_parquet_snap.store_sales.ss_hdemo_sk = tpcds_partitioned_parquet_snap.household_demographics.hd_demo_sk
-|  |  runtime filters: RF016[bloom] <- tpcds_partitioned_parquet_snap.household_demographics.hd_demo_sk, RF017[min_max] <- tpcds_partitioned_parquet_snap.household_demographics.hd_demo_sk
+|  |  runtime filters: RF032[bloom] <- tpcds_partitioned_parquet_snap.household_demographics.hd_demo_sk, RF033[min_max] <- tpcds_partitioned_parquet_snap.household_demographics.hd_demo_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=0,2 row-size=24B cardinality=424.16M cost=195236140
 |  |  in pipelines: 02(GETNEXT), 03(OPEN)
@@ -254,7 +254,7 @@ PLAN-ROOT SINK
 |  02:SCAN HDFS [tpcds_partitioned_parquet_snap.store_sales]
 |     HDFS partitions=1824/1824 files=1824 size=389.90GB
 |     predicates: tpcds_partitioned_parquet_snap.store_sales.ss_sold_time_sk IS NOT NULL, tpcds_partitioned_parquet_snap.store_sales.ss_hdemo_sk IS NOT NULL, tpcds_partitioned_parquet_snap.store_sales.ss_store_sk IS NOT NULL
-|     runtime filters: RF017[min_max] -> tpcds_partitioned_parquet_snap.store_sales.ss_hdemo_sk, RF016[bloom] -> tpcds_partitioned_parquet_snap.store_sales.ss_hdemo_sk
+|     runtime filters: RF033[min_max] -> tpcds_partitioned_parquet_snap.store_sales.ss_hdemo_sk, RF032[bloom] -> tpcds_partitioned_parquet_snap.store_sales.ss_hdemo_sk
 |     stored statistics:
 |       table: rows=8.64G size=389.90GB
 |       partitions: 1824/1824 rows=8.64G
@@ -279,6 +279,7 @@ PLAN-ROOT SINK
 |  59:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_store_sk = s_store_sk
 |  |  fk/pk conjuncts: ss_store_sk = s_store_sk
+|  |  runtime filters: RF029[min_max] <- s_store_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=41,42,44 row-size=32B cardinality=2.01M cost=2933718
 |  |  in pipelines: 55(GETNEXT), 58(OPEN)
@@ -291,6 +292,7 @@ PLAN-ROOT SINK
 |  57:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_6.t_time_sk
 |  |  fk/pk conjuncts: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_6.t_time_sk
+|  |  runtime filters: RF030[bloom] <- tpcds_partitioned_parquet_snap.time_dim_6.t_time_sk, RF031[min_max] <- tpcds_partitioned_parquet_snap.time_dim_6.t_time_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=41,42 row-size=28B cardinality=10.02M cost=110612548
 |  |  in pipelines: 55(GETNEXT), 56(OPEN)
@@ -309,6 +311,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 56(GETNEXT)
 |  |
 |  55:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF030[bloom] -> ss_sold_time_sk, RF031[min_max] -> ss_sold_time_sk, RF029[min_max] -> ss_store_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=41 row-size=24B cardinality=424.16M cost=0
 |     in pipelines: 55(GETNEXT)
@@ -327,6 +330,7 @@ PLAN-ROOT SINK
 |  52:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_store_sk = s_store_sk
 |  |  fk/pk conjuncts: ss_store_sk = s_store_sk
+|  |  runtime filters: RF025[min_max] <- s_store_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=36,37,39 row-size=32B cardinality=2.01M cost=2933718
 |  |  in pipelines: 48(GETNEXT), 51(OPEN)
@@ -339,6 +343,7 @@ PLAN-ROOT SINK
 |  50:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_5.t_time_sk
 |  |  fk/pk conjuncts: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_5.t_time_sk
+|  |  runtime filters: RF026[bloom] <- tpcds_partitioned_parquet_snap.time_dim_5.t_time_sk, RF027[min_max] <- tpcds_partitioned_parquet_snap.time_dim_5.t_time_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=36,37 row-size=28B cardinality=10.02M cost=110612548
 |  |  in pipelines: 48(GETNEXT), 49(OPEN)
@@ -357,6 +362,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 49(GETNEXT)
 |  |
 |  48:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF026[bloom] -> ss_sold_time_sk, RF027[min_max] -> ss_sold_time_sk, RF025[min_max] -> ss_store_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=36 row-size=24B cardinality=424.16M cost=0
 |     in pipelines: 48(GETNEXT)
@@ -375,6 +381,7 @@ PLAN-ROOT SINK
 |  45:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_store_sk = s_store_sk
 |  |  fk/pk conjuncts: ss_store_sk = s_store_sk
+|  |  runtime filters: RF021[min_max] <- s_store_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=31,32,34 row-size=32B cardinality=2.01M cost=2933718
 |  |  in pipelines: 41(GETNEXT), 44(OPEN)
@@ -387,6 +394,7 @@ PLAN-ROOT SINK
 |  43:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_4.t_time_sk
 |  |  fk/pk conjuncts: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_4.t_time_sk
+|  |  runtime filters: RF022[bloom] <- tpcds_partitioned_parquet_snap.time_dim_4.t_time_sk, RF023[min_max] <- tpcds_partitioned_parquet_snap.time_dim_4.t_time_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=31,32 row-size=28B cardinality=10.02M cost=110612548
 |  |  in pipelines: 41(GETNEXT), 42(OPEN)
@@ -405,6 +413,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 42(GETNEXT)
 |  |
 |  41:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF022[bloom] -> ss_sold_time_sk, RF023[min_max] -> ss_sold_time_sk, RF021[min_max] -> ss_store_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=31 row-size=24B cardinality=424.16M cost=0
 |     in pipelines: 41(GETNEXT)
@@ -423,6 +432,7 @@ PLAN-ROOT SINK
 |  38:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_store_sk = s_store_sk
 |  |  fk/pk conjuncts: ss_store_sk = s_store_sk
+|  |  runtime filters: RF017[min_max] <- s_store_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=26,27,29 row-size=32B cardinality=2.01M cost=2933718
 |  |  in pipelines: 34(GETNEXT), 37(OPEN)
@@ -435,6 +445,7 @@ PLAN-ROOT SINK
 |  36:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_3.t_time_sk
 |  |  fk/pk conjuncts: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_3.t_time_sk
+|  |  runtime filters: RF018[bloom] <- tpcds_partitioned_parquet_snap.time_dim_3.t_time_sk, RF019[min_max] <- tpcds_partitioned_parquet_snap.time_dim_3.t_time_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=26,27 row-size=28B cardinality=10.02M cost=110612548
 |  |  in pipelines: 34(GETNEXT), 35(OPEN)
@@ -453,6 +464,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 35(GETNEXT)
 |  |
 |  34:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF018[bloom] -> ss_sold_time_sk, RF019[min_max] -> ss_sold_time_sk, RF017[min_max] -> ss_store_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=26 row-size=24B cardinality=424.16M cost=0
 |     in pipelines: 34(GETNEXT)
@@ -471,6 +483,7 @@ PLAN-ROOT SINK
 |  31:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_store_sk = s_store_sk
 |  |  fk/pk conjuncts: ss_store_sk = s_store_sk
+|  |  runtime filters: RF013[min_max] <- s_store_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=21,22,24 row-size=32B cardinality=2.01M cost=2933718
 |  |  in pipelines: 27(GETNEXT), 30(OPEN)
@@ -483,6 +496,7 @@ PLAN-ROOT SINK
 |  29:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_2.t_time_sk
 |  |  fk/pk conjuncts: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_2.t_time_sk
+|  |  runtime filters: RF014[bloom] <- tpcds_partitioned_parquet_snap.time_dim_2.t_time_sk, RF015[min_max] <- tpcds_partitioned_parquet_snap.time_dim_2.t_time_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=21,22 row-size=28B cardinality=10.02M cost=110612548
 |  |  in pipelines: 27(GETNEXT), 28(OPEN)
@@ -501,6 +515,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 28(GETNEXT)
 |  |
 |  27:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF014[bloom] -> ss_sold_time_sk, RF015[min_max] -> ss_sold_time_sk, RF013[min_max] -> ss_store_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=21 row-size=24B cardinality=424.16M cost=0
 |     in pipelines: 27(GETNEXT)
@@ -519,6 +534,7 @@ PLAN-ROOT SINK
 |  24:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_store_sk = s_store_sk
 |  |  fk/pk conjuncts: ss_store_sk = s_store_sk
+|  |  runtime filters: RF009[min_max] <- s_store_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=16,17,19 row-size=32B cardinality=2.01M cost=2933718
 |  |  in pipelines: 20(GETNEXT), 23(OPEN)
@@ -531,6 +547,7 @@ PLAN-ROOT SINK
 |  22:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_1.t_time_sk
 |  |  fk/pk conjuncts: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_1.t_time_sk
+|  |  runtime filters: RF010[bloom] <- tpcds_partitioned_parquet_snap.time_dim_1.t_time_sk, RF011[min_max] <- tpcds_partitioned_parquet_snap.time_dim_1.t_time_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=16,17 row-size=28B cardinality=10.02M cost=110612548
 |  |  in pipelines: 20(GETNEXT), 21(OPEN)
@@ -549,6 +566,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 21(GETNEXT)
 |  |
 |  20:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF010[bloom] -> ss_sold_time_sk, RF011[min_max] -> ss_sold_time_sk, RF009[min_max] -> ss_store_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=16 row-size=24B cardinality=424.16M cost=0
 |     in pipelines: 20(GETNEXT)
@@ -567,6 +585,7 @@ PLAN-ROOT SINK
 |  17:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_store_sk = s_store_sk
 |  |  fk/pk conjuncts: ss_store_sk = s_store_sk
+|  |  runtime filters: RF005[min_max] <- s_store_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=11,12,14 row-size=32B cardinality=2.01M cost=2933718
 |  |  in pipelines: 13(GETNEXT), 16(OPEN)
@@ -579,6 +598,7 @@ PLAN-ROOT SINK
 |  15:HASH JOIN [INNER JOIN]
 |  |  hash predicates: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_0.t_time_sk
 |  |  fk/pk conjuncts: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim_0.t_time_sk
+|  |  runtime filters: RF006[bloom] <- tpcds_partitioned_parquet_snap.time_dim_0.t_time_sk, RF007[min_max] <- tpcds_partitioned_parquet_snap.time_dim_0.t_time_sk
 |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  tuple-ids=11,12 row-size=28B cardinality=10.02M cost=110612548
 |  |  in pipelines: 13(GETNEXT), 14(OPEN)
@@ -597,6 +617,7 @@ PLAN-ROOT SINK
 |  |     in pipelines: 14(GETNEXT)
 |  |
 |  13:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF006[bloom] -> ss_sold_time_sk, RF007[min_max] -> ss_sold_time_sk, RF005[min_max] -> ss_store_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=11 row-size=24B cardinality=424.16M cost=0
 |     in pipelines: 13(GETNEXT)
@@ -610,6 +631,7 @@ PLAN-ROOT SINK
 11:HASH JOIN [INNER JOIN]
 |  hash predicates: ss_store_sk = s_store_sk
 |  fk/pk conjuncts: ss_store_sk = s_store_sk
+|  runtime filters: RF000[bloom] <- s_store_sk, RF001[min_max] <- s_store_sk
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=6,7,9 row-size=32B cardinality=2.01M cost=2933718
 |  in pipelines: 07(GETNEXT), 10(OPEN)
@@ -622,6 +644,7 @@ PLAN-ROOT SINK
 09:HASH JOIN [INNER JOIN]
 |  hash predicates: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim.t_time_sk
 |  fk/pk conjuncts: ss_sold_time_sk = tpcds_partitioned_parquet_snap.time_dim.t_time_sk
+|  runtime filters: RF002[bloom] <- tpcds_partitioned_parquet_snap.time_dim.t_time_sk, RF003[min_max] <- tpcds_partitioned_parquet_snap.time_dim.t_time_sk
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=6,7 row-size=28B cardinality=10.02M cost=110612548
 |  in pipelines: 07(GETNEXT), 08(OPEN)
@@ -640,6 +663,7 @@ PLAN-ROOT SINK
 |     in pipelines: 08(GETNEXT)
 |
 07:CTE CONSUMER [cte_suggestion_0]
+   runtime filters: RF002[bloom] -> ss_sold_time_sk, RF003[min_max] -> ss_sold_time_sk, RF000[bloom] -> ss_store_sk, RF001[min_max] -> ss_store_sk
    mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
    tuple-ids=6 row-size=24B cardinality=424.16M cost=0
    in pipelines: 07(GETNEXT)

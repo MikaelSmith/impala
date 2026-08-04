@@ -29,8 +29,8 @@ and ws1.ws_order_number in (select wr_order_number
 order by count(distinct ws_order_number)
 limit 100;
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=337.52MB Threads=1
-Per-Host Resource Estimates: Memory=152.35GB
+Max Per-Host Resource Reservation: Memory=369.52MB Threads=1
+Per-Host Resource Estimates: Memory=152.38GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC], fetch=[100:TINYINT])
     ImpalaAggRel(group=[{}], order count=[COUNT(DISTINCT $0)], total shipping cost=[SUM($1)], total net profit=[SUM($2)])
@@ -73,7 +73,7 @@ ImpalaSequence
       ImpalaProjectRel(ws_warehouse_sk=[$14], ws_order_number=[$16])
         ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, web_sales]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=152.35GB mem-reservation=337.52MB thread-reservation=1 runtime-filters-memory=51.00MB
+|  Per-Instance Resources: mem-estimate=152.38GB mem-reservation=369.52MB thread-reservation=1 runtime-filters-memory=83.00MB
 |  max-parallelism=1 segment-costs=[15703258029, 20393376385, 16780609, 0, 494632667]
 PLAN-ROOT SINK
 |  output exprs: count(tpcds_partitioned_parquet_snap.web_sales_0.ws_order_number), sum(tpcds_partitioned_parquet_snap.web_sales_0.ws_ext_ship_cost), sum(tpcds_partitioned_parquet_snap.web_sales_0.ws_net_profit)
@@ -187,6 +187,7 @@ PLAN-ROOT SINK
 |  |  |  hash predicates: ws_order_number = ws_order_number
 |  |  |  fk/pk conjuncts: none
 |  |  |  other join predicates: ws_warehouse_sk != ws_warehouse_sk
+|  |  |  runtime filters: RF014[bloom] <- ws_order_number, RF015[min_max] <- ws_order_number
 |  |  |  mem-estimate=50.00GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  tuple-ids=2,3 row-size=24B cardinality=26.45G cost=7506381834
 |  |  |  in pipelines: 03(GETNEXT), 04(OPEN)
@@ -197,6 +198,7 @@ PLAN-ROOT SINK
 |  |  |     in pipelines: 04(GETNEXT)
 |  |  |
 |  |  03:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF014[bloom] -> ws_order_number, RF015[min_max] -> ws_order_number
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=2 row-size=12B cardinality=2.16G cost=0
 |  |     in pipelines: 03(GETNEXT)
@@ -246,6 +248,7 @@ PLAN-ROOT SINK
 |  in pipelines: 15(GETNEXT), 18(OPEN)
 |
 |--18:CTE CONSUMER [cte_suggestion_0]
+|     runtime filters: RF000[bloom] -> ws_order_number, RF001[min_max] -> ws_order_number
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=16 row-size=12B cardinality=2.16G cost=0
 |     in pipelines: 18(GETNEXT)
@@ -253,6 +256,7 @@ PLAN-ROOT SINK
 17:HASH JOIN [INNER JOIN]
 |  hash predicates: ws_order_number = tpcds_partitioned_parquet_snap.web_returns.wr_order_number
 |  fk/pk conjuncts: none
+|  runtime filters: RF004[bloom] <- tpcds_partitioned_parquet_snap.web_returns.wr_order_number, RF005[min_max] <- tpcds_partitioned_parquet_snap.web_returns.wr_order_number
 |  mem-estimate=8.96GB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=13,14 row-size=20B cardinality=2.65G cost=1249334976
 |  in pipelines: 15(GETNEXT), 16(OPEN)
@@ -272,6 +276,7 @@ PLAN-ROOT SINK
 |     in pipelines: 16(GETNEXT)
 |
 15:CTE CONSUMER [cte_suggestion_0]
+   runtime filters: RF000[bloom] -> ws_order_number, RF001[min_max] -> ws_order_number, RF004[bloom] -> ws_order_number, RF005[min_max] -> ws_order_number, RF002[bloom] -> ws_order_number, RF003[min_max] -> ws_order_number
    mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
    tuple-ids=13 row-size=12B cardinality=2.16G cost=0
    in pipelines: 15(GETNEXT)

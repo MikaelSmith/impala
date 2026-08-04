@@ -37,7 +37,7 @@ select
   ,rank_within_parent
  limit 100
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=70.48MB Threads=1
+Max Per-Host Resource Reservation: Memory=72.48MB Threads=1
 Per-Host Resource Estimates: Memory=146.91GB
 ImpalaSequence
   ImpalaProjectRel(TOTAL_SUM=[$0], S_STATE=[$1], S_COUNTY=[$2], LOCHIERARCHY=[$3], RANK_WITHIN_PARENT=[$4])
@@ -73,7 +73,7 @@ ImpalaSequence
           ImpalaProjectRel(d_date_sk=[$0], d_month_seq=[$3])
             ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, date_dim]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=146.91GB mem-reservation=70.48MB thread-reservation=1 runtime-filters-memory=2.00MB
+|  Per-Instance Resources: mem-estimate=146.91GB mem-reservation=72.48MB thread-reservation=1 runtime-filters-memory=4.00MB
 |  max-parallelism=1 segment-costs=[5752900389, 79, 9123043593, 8242, 3284, 9372, 5105820189]
 PLAN-ROOT SINK
 |  output exprs: aggif(valid_tid(17,18,19) IN (17, 18, 19), CASE valid_tid(17,18,19) WHEN 17 THEN sum(ss_net_profit) WHEN 18 THEN sum(ss_net_profit) WHEN 19 THEN sum(ss_net_profit) END), CASE valid_tid(17,18,19) WHEN 17 THEN tpcds_partitioned_parquet_snap.store.s_state WHEN 18 THEN tpcds_partitioned_parquet_snap.store.s_state WHEN 19 THEN NULL END, CASE valid_tid(17,18,19) WHEN 17 THEN tpcds_partitioned_parquet_snap.store.s_county WHEN 18 THEN NULL WHEN 19 THEN NULL END, add(CAST(aggif(valid_tid(17,18,19) IN (17, 18, 19), CASE valid_tid(17,18,19) WHEN 17 THEN 0 WHEN 18 THEN 0 WHEN 19 THEN 1 END) AS SMALLINT), CAST(aggif(valid_tid(17,18,19) IN (17, 18, 19), CASE valid_tid(17,18,19) WHEN 17 THEN 0 WHEN 18 THEN 1 WHEN 19 THEN 1 END) AS SMALLINT)), rank()
@@ -170,6 +170,7 @@ PLAN-ROOT SINK
 15:HASH JOIN [INNER JOIN]
 |  hash predicates: ss_store_sk = tpcds_partitioned_parquet_snap.store.s_store_sk
 |  fk/pk conjuncts: ss_store_sk = tpcds_partitioned_parquet_snap.store.s_store_sk
+|  runtime filters: RF000[bloom] <- tpcds_partitioned_parquet_snap.store.s_store_sk, RF001[min_max] <- tpcds_partitioned_parquet_snap.store.s_store_sk
 |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  tuple-ids=4,5,15,14 row-size=98B cardinality=1.65G cost=2319881543
 |  in pipelines: 05(GETNEXT), 06(OPEN)
@@ -216,6 +217,7 @@ PLAN-ROOT SINK
 |  |  09:HASH JOIN [INNER JOIN]
 |  |  |  hash predicates: ss_store_sk = tpcds_partitioned_parquet_snap.store_0.s_store_sk
 |  |  |  fk/pk conjuncts: ss_store_sk = tpcds_partitioned_parquet_snap.store_0.s_store_sk
+|  |  |  runtime filters: RF004[bloom] <- tpcds_partitioned_parquet_snap.store_0.s_store_sk, RF005[min_max] <- tpcds_partitioned_parquet_snap.store_0.s_store_sk
 |  |  |  mem-estimate=1.94MB mem-reservation=1.94MB spill-buffer=64.00KB thread-reservation=0
 |  |  |  tuple-ids=7,8 row-size=34B cardinality=7.88G cost=3448431655
 |  |  |  in pipelines: 07(GETNEXT), 08(OPEN)
@@ -233,6 +235,7 @@ PLAN-ROOT SINK
 |  |  |     in pipelines: 08(GETNEXT)
 |  |  |
 |  |  07:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF004[bloom] -> ss_store_sk, RF005[min_max] -> ss_store_sk
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=7 row-size=20B cardinality=7.88G cost=0
 |  |     in pipelines: 07(GETNEXT)
@@ -251,6 +254,7 @@ PLAN-ROOT SINK
 |     in pipelines: 06(GETNEXT)
 |
 05:CTE CONSUMER [cte_suggestion_0]
+   runtime filters: RF000[bloom] -> ss_store_sk, RF001[min_max] -> ss_store_sk
    mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
    tuple-ids=4 row-size=20B cardinality=7.88G cost=0
    in pipelines: 05(GETNEXT)

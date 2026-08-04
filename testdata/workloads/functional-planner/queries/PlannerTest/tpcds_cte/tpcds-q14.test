@@ -592,6 +592,7 @@ PLAN-ROOT SINK
 |  |--127:HASH JOIN [INNER JOIN]
 |  |  |  hash predicates: BRAND_ID = tpcds_partitioned_parquet_snap.item_3.i_brand_id, CATEGORY_ID = tpcds_partitioned_parquet_snap.item_3.i_category_id, CLASS_ID = tpcds_partitioned_parquet_snap.item_3.i_class_id
 |  |  |  fk/pk conjuncts: assumed fk/pk
+|  |  |  runtime filters: RF069[min_max] <- tpcds_partitioned_parquet_snap.item_3.i_brand_id, RF070[min_max] <- tpcds_partitioned_parquet_snap.item_3.i_category_id, RF071[min_max] <- tpcds_partitioned_parquet_snap.item_3.i_class_id
 |  |  |  mem-estimate=34.00MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  tuple-ids=111,91 row-size=36B cardinality=57.33M cost=10823891
 |  |  |  in pipelines: 126(GETNEXT), 104(OPEN)
@@ -651,6 +652,7 @@ PLAN-ROOT SINK
 |  |  |  |  |  in pipelines: 113(GETNEXT), 116(OPEN)
 |  |  |  |  |
 |  |  |  |  |--116:CTE CONSUMER [cte_suggestion_0]
+|  |  |  |  |     runtime filters: RF069[min_max] -> i_brand_id, RF070[min_max] -> i_category_id, RF071[min_max] -> i_class_id
 |  |  |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  |  |     tuple-ids=101 row-size=16B cardinality=358.34K cost=0
 |  |  |  |  |     in pipelines: 116(GETNEXT)
@@ -697,6 +699,7 @@ PLAN-ROOT SINK
 |  |  |  |  in pipelines: 107(GETNEXT), 110(OPEN)
 |  |  |  |
 |  |  |  |--110:CTE CONSUMER [cte_suggestion_0]
+|  |  |  |     runtime filters: RF069[min_max] -> i_brand_id, RF070[min_max] -> i_category_id, RF071[min_max] -> i_class_id
 |  |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  |     tuple-ids=96 row-size=16B cardinality=358.34K cost=0
 |  |  |  |     in pipelines: 110(GETNEXT)
@@ -743,6 +746,7 @@ PLAN-ROOT SINK
 |  |  |  in pipelines: 120(GETNEXT), 123(OPEN)
 |  |  |
 |  |  |--123:CTE CONSUMER [cte_suggestion_0]
+|  |  |     runtime filters: RF069[min_max] -> i_brand_id, RF070[min_max] -> i_category_id, RF071[min_max] -> i_class_id
 |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |     tuple-ids=108 row-size=16B cardinality=358.34K cost=0
 |  |  |     in pipelines: 123(GETNEXT)
@@ -783,6 +787,7 @@ PLAN-ROOT SINK
 |  |  in pipelines: 99(GETNEXT), 102(OPEN)
 |  |
 |  |--102:CTE CONSUMER [cte_suggestion_2]
+|  |     runtime filters: RF061[min_max] -> i_item_sk
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=90 row-size=16B cardinality=360.00K cost=0
 |  |     in pipelines: 102(GETNEXT)
@@ -934,6 +939,7 @@ PLAN-ROOT SINK
 |  |--83:HASH JOIN [INNER JOIN]
 |  |  |  hash predicates: BRAND_ID = tpcds_partitioned_parquet_snap.item_2.i_brand_id, CATEGORY_ID = tpcds_partitioned_parquet_snap.item_2.i_category_id, CLASS_ID = tpcds_partitioned_parquet_snap.item_2.i_class_id
 |  |  |  fk/pk conjuncts: assumed fk/pk
+|  |  |  runtime filters: RF039[min_max] <- tpcds_partitioned_parquet_snap.item_2.i_brand_id, RF040[min_max] <- tpcds_partitioned_parquet_snap.item_2.i_category_id, RF041[min_max] <- tpcds_partitioned_parquet_snap.item_2.i_class_id
 |  |  |  mem-estimate=34.00MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  tuple-ids=71,51 row-size=36B cardinality=57.33M cost=10823891
 |  |  |  in pipelines: 82(GETNEXT), 60(OPEN)
@@ -993,6 +999,7 @@ PLAN-ROOT SINK
 |  |  |  |  |  in pipelines: 69(GETNEXT), 72(OPEN)
 |  |  |  |  |
 |  |  |  |  |--72:CTE CONSUMER [cte_suggestion_0]
+|  |  |  |  |     runtime filters: RF039[min_max] -> i_brand_id, RF040[min_max] -> i_category_id, RF041[min_max] -> i_class_id
 |  |  |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  |  |     tuple-ids=61 row-size=16B cardinality=358.34K cost=0
 |  |  |  |  |     in pipelines: 72(GETNEXT)
@@ -1039,6 +1046,7 @@ PLAN-ROOT SINK
 |  |  |  |  in pipelines: 63(GETNEXT), 66(OPEN)
 |  |  |  |
 |  |  |  |--66:CTE CONSUMER [cte_suggestion_0]
+|  |  |  |     runtime filters: RF039[min_max] -> i_brand_id, RF040[min_max] -> i_category_id, RF041[min_max] -> i_class_id
 |  |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  |     tuple-ids=56 row-size=16B cardinality=358.34K cost=0
 |  |  |  |     in pipelines: 66(GETNEXT)
@@ -1085,6 +1093,7 @@ PLAN-ROOT SINK
 |  |  |  in pipelines: 76(GETNEXT), 79(OPEN)
 |  |  |
 |  |  |--79:CTE CONSUMER [cte_suggestion_0]
+|  |  |     runtime filters: RF039[min_max] -> i_brand_id, RF040[min_max] -> i_category_id, RF041[min_max] -> i_class_id
 |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |     tuple-ids=68 row-size=16B cardinality=358.34K cost=0
 |  |  |     in pipelines: 79(GETNEXT)
@@ -1125,6 +1134,7 @@ PLAN-ROOT SINK
 |  |  in pipelines: 55(GETNEXT), 58(OPEN)
 |  |
 |  |--58:CTE CONSUMER [cte_suggestion_2]
+|  |     runtime filters: RF031[min_max] -> i_item_sk
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=50 row-size=16B cardinality=360.00K cost=0
 |  |     in pipelines: 58(GETNEXT)
@@ -1271,6 +1281,7 @@ PLAN-ROOT SINK
 |--39:HASH JOIN [INNER JOIN]
 |  |  hash predicates: BRAND_ID = tpcds_partitioned_parquet_snap.item_1.i_brand_id, CATEGORY_ID = tpcds_partitioned_parquet_snap.item_1.i_category_id, CLASS_ID = tpcds_partitioned_parquet_snap.item_1.i_class_id
 |  |  fk/pk conjuncts: assumed fk/pk
+|  |  runtime filters: RF009[min_max] <- tpcds_partitioned_parquet_snap.item_1.i_brand_id, RF010[min_max] <- tpcds_partitioned_parquet_snap.item_1.i_category_id, RF011[min_max] <- tpcds_partitioned_parquet_snap.item_1.i_class_id
 |  |  mem-estimate=34.00MB mem-reservation=34.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=32,12 row-size=36B cardinality=57.33M cost=10823891
 |  |  in pipelines: 38(GETNEXT), 16(OPEN)
@@ -1330,6 +1341,7 @@ PLAN-ROOT SINK
 |  |  |  |  in pipelines: 25(GETNEXT), 28(OPEN)
 |  |  |  |
 |  |  |  |--28:CTE CONSUMER [cte_suggestion_0]
+|  |  |  |     runtime filters: RF009[min_max] -> i_brand_id, RF010[min_max] -> i_category_id, RF011[min_max] -> i_class_id
 |  |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  |     tuple-ids=22 row-size=16B cardinality=358.34K cost=0
 |  |  |  |     in pipelines: 28(GETNEXT)
@@ -1376,6 +1388,7 @@ PLAN-ROOT SINK
 |  |  |  in pipelines: 19(GETNEXT), 22(OPEN)
 |  |  |
 |  |  |--22:CTE CONSUMER [cte_suggestion_0]
+|  |  |     runtime filters: RF009[min_max] -> i_brand_id, RF010[min_max] -> i_category_id, RF011[min_max] -> i_class_id
 |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |     tuple-ids=17 row-size=16B cardinality=358.34K cost=0
 |  |  |     in pipelines: 22(GETNEXT)
@@ -1422,6 +1435,7 @@ PLAN-ROOT SINK
 |  |  in pipelines: 32(GETNEXT), 35(OPEN)
 |  |
 |  |--35:CTE CONSUMER [cte_suggestion_0]
+|  |     runtime filters: RF009[min_max] -> i_brand_id, RF010[min_max] -> i_category_id, RF011[min_max] -> i_class_id
 |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |  |     tuple-ids=29 row-size=16B cardinality=358.34K cost=0
 |  |     in pipelines: 35(GETNEXT)
@@ -1462,6 +1476,7 @@ PLAN-ROOT SINK
 |  in pipelines: 11(GETNEXT), 14(OPEN)
 |
 |--14:CTE CONSUMER [cte_suggestion_2]
+|     runtime filters: RF001[min_max] -> i_item_sk
 |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
 |     tuple-ids=11 row-size=16B cardinality=360.00K cost=0
 |     in pipelines: 14(GETNEXT)
