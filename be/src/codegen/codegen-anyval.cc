@@ -109,7 +109,7 @@ llvm::Type* CodegenAnyVal::GetLoweredType(LlvmCodeGen* cg, const ColumnType& typ
 
 llvm::PointerType* CodegenAnyVal::GetLoweredPtrType(
     LlvmCodeGen* cg, const ColumnType& type) {
-  return GetLoweredType(cg, type)->getPointerTo();
+  return cg->ptr_type();
 }
 
 llvm::Type* CodegenAnyVal::GetUnloweredType(LlvmCodeGen* cg, const ColumnType& type) {
@@ -166,11 +166,11 @@ llvm::Type* CodegenAnyVal::GetUnloweredType(LlvmCodeGen* cg, const ColumnType& t
 
 llvm::PointerType* CodegenAnyVal::GetUnloweredPtrType(
     LlvmCodeGen* cg, const ColumnType& type) {
-  return GetUnloweredType(cg, type)->getPointerTo();
+  return cg->ptr_type();
 }
 
 llvm::PointerType* CodegenAnyVal::GetAnyValPtrType(LlvmCodeGen* cg) {
-  return cg->GetNamedType(LLVM_ANYVAL_NAME)->getPointerTo();
+  return cg->ptr_type();
 }
 
 llvm::Value* CodegenAnyVal::CreateCall(LlvmCodeGen* cg, LlvmBuilder* builder,
@@ -182,8 +182,6 @@ llvm::Value* CodegenAnyVal::CreateCall(LlvmCodeGen* cg, LlvmBuilder* builder,
     llvm::Function::arg_iterator ret_arg = fn->arg_begin();
     DCHECK(ret_arg->getType()->isPointerTy());
     llvm::Type* ret_type = cg->GetNamedType(LLVM_DECIMALVAL_NAME);
-    DCHECK(llvm::cast<llvm::PointerType>(
-        ret_arg->getType())->isOpaqueOrPointeeTypeMatches(ret_type));
 
     // We need to pass a DecimalVal pointer to 'fn' that will be populated with the result
     // value. Use 'result_ptr' if specified, otherwise alloca one.
@@ -1087,7 +1085,7 @@ void CodegenAnyVal::StructChildToReadWriteInfo(
       || type.type == TYPE_CHAR || type.type == TYPE_UUID ?
     codegen->i8_type() : slot_type;
   llvm::Value* cast_child_ptr = builder->CreateBitCast(child_ptr,
-      child_type->getPointerTo(), "cast_child_ptr");
+      codegen->ptr_type(), "cast_child_ptr");
 
   switch (type.type) {
     case TYPE_CHAR:
