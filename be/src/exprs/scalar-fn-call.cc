@@ -19,8 +19,6 @@
 
 #include <vector>
 #include <gutil/strings/substitute.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/IR/Attributes.h>
 
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/repetition/enum_params.hpp>

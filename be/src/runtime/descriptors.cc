@@ -22,7 +22,7 @@
 #include <ios>
 #include <sstream>
 
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
 #include <llvm/IR/DataLayout.h>
 
 #include "codegen/codegen-anyval.h"
@@ -1652,7 +1652,7 @@ llvm::StructType* TupleDescriptor::CreateLlvmStructTypeFromFieldTypes(
   llvm::StructType* tuple_struct = llvm::StructType::get(codegen->context(),
       llvm::ArrayRef<llvm::Type*>(field_types), true);
   DCHECK(tuple_struct != nullptr);
-  const llvm::DataLayout& data_layout = codegen->execution_engine()->getDataLayout();
+  const llvm::DataLayout& data_layout = codegen->lljit()->getDataLayout();
   const llvm::StructLayout* layout = data_layout.getStructLayout(tuple_struct);
   for (SlotDescriptor* slot: slots()) {
     // Verify that the byte offset in the llvm struct matches the tuple offset

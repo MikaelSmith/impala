@@ -31,8 +31,14 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include <llvm/ExecutionEngine/MCJIT.h>
+#include <llvm/ExecutionEngine/Orc/CompileUtils.h>
+#include <llvm/ExecutionEngine/Orc/ExecutionUtils.h>
+#include <llvm/ExecutionEngine/Orc/IRCompileLayer.h>
+#include <llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
+#include <llvm/ExecutionEngine/SectionMemoryManager.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/DiagnosticInfo.h>
@@ -107,7 +113,6 @@
 #include "codegen/codegen-symbol-emitter.h"
 #include "codegen/impala-ir-data.h"
 #include "codegen/instruction-counter.h"
-#include "codegen/mcjit-mem-mgr.h"
 #include "common/logging.h"
 #include "exprs/anyval-util.h"
 #include "gutil/sysinfo.h"
@@ -272,7 +277,6 @@ LlvmCodeGen::LlvmCodeGen(FragmentState* state, ObjectPool* pool,
     is_compiled_(false),
     context_(new llvm::LLVMContext()),
     module_(nullptr),
-    memory_manager_(nullptr),
     cross_compiled_functions_(IRFunction::FN_END, nullptr) {
   DCHECK(llvm_initialized_) << "Must call LlvmCodeGen::InitializeLlvm first.";
 
@@ -420,8 +424,8 @@ Status LlvmCodeGen::LinkModuleFromLocalFs(const string& file) {
   unique_ptr<llvm::Module> new_module;
   RETURN_IF_ERROR(LoadModuleFromFile(file, &new_module));
 
-  // The module data layout must match the one selected by the execution engine.
-  new_module->setDataLayout(execution_engine()->getDataLayout());
+  // The module data layout must match the one selected by the JIT.
+  new_module->setDataLayout(lljit_->getDataLayout());
 
   // Parse all functions' names from the new module and find those which also exist in
   // the main module. They are declarations in the new module or duplicated definitions
@@ -489,7 +493,7 @@ Status LlvmCodeGen::CreateImpalaCodegen(FragmentState* state,
   codegen->collection_value_type_ = codegen->GetStructType<CollectionValue>();
 
   // Verify size is correct
-  const llvm::DataLayout& data_layout = codegen->execution_engine()->getDataLayout();
+  const llvm::DataLayout& data_layout = codegen->lljit_->getDataLayout();
   const llvm::StructLayout* layout = data_layout.getStructLayout(
       static_cast<llvm::StructType*>(codegen->string_value_type_));
   if (layout->getSizeInBytes() != sizeof(StringValue)) {
@@ -516,34 +520,89 @@ Status LlvmCodeGen::Init(unique_ptr<llvm::Module> module) {
   // blows up the fe tests (which take ~10-20 ms each).
   opt_level = llvm::CodeGenOpt::None;
 #endif
+
   module_ = module.get();
-  llvm::EngineBuilder builder(move(module));
-  builder.setEngineKind(llvm::EngineKind::JIT);
-  builder.setOptLevel(opt_level);
-  unique_ptr<ImpalaMCJITMemoryManager> memory_manager(new ImpalaMCJITMemoryManager);
-  memory_manager_ = memory_manager.get();
-  builder.setMCJITMemoryManager(move(memory_manager));
-  builder.setMCPU(cpu_name_);
-  builder.setMAttrs(cpu_attrs_);
-  builder.setErrorStr(&error_string_);
+  module_owned_ = std::move(module);
 
-  execution_engine_ = unique_ptr<llvm::ExecutionEngine>(builder.create());
-  if (execution_engine_ == nullptr) {
-    module_ = nullptr; // module_ was owned by builder.
-    stringstream ss;
-    ss << "Could not create ExecutionEngine: " << error_string_;
-    return Status(ss.str());
+  // Build a JITTargetMachineBuilder for the host CPU with Impala's feature set.
+  auto jtmb_or_err = llvm::orc::JITTargetMachineBuilder::detectHost();
+  if (!jtmb_or_err) {
+    return Status(llvm::toString(jtmb_or_err.takeError()));
   }
+  jtmb_or_err->setCPU(cpu_name_);
+  jtmb_or_err->addFeatures(
+      std::vector<std::string>(cpu_attrs_.begin(), cpu_attrs_.end()));
 
-  // The module data layout must match the one selected by the execution engine.
-  module_->setDataLayout(execution_engine_->getDataLayout());
+  // Build a separate TargetMachine for the optimization pass pipeline.
+  auto tm_or_err = jtmb_or_err->createTargetMachine();
+  if (!tm_or_err) {
+    return Status(llvm::toString(tm_or_err.takeError()));
+  }
+  target_machine_ = std::move(*tm_or_err);
+
+  // Create the symbol emitter before building LLJIT so the layer creator can register it.
+  symbol_emitter_ = SetupSymbolEmitter();
+
+  llvm::orc::SimpleCompiler* compiler_raw = nullptr;
+  auto lljit_or_err = llvm::orc::LLJITBuilder()
+      .setJITTargetMachineBuilder(*jtmb_or_err)
+      .setCompileFunctionCreator(
+          [&compiler_raw, opt_level](
+              llvm::orc::JITTargetMachineBuilder jtmb)
+          -> llvm::Expected<
+              std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
+            jtmb.setCodeGenOptLevel(opt_level);
+            auto tm = jtmb.createTargetMachine();
+            if (!tm) return tm.takeError();
+            auto compiler =
+                std::make_unique<llvm::orc::TMOwningSimpleCompiler>(std::move(*tm));
+            compiler_raw = compiler.get();
+            return std::move(compiler);
+          })
+      .setObjectLinkingLayerCreator(
+          [this](llvm::orc::ExecutionSession& ES, const llvm::Triple&)
+          -> std::unique_ptr<llvm::orc::ObjectLayer> {
+            auto layer = std::make_unique<llvm::orc::RTDyldObjectLinkingLayer>(
+                ES, []() { return std::make_unique<llvm::SectionMemoryManager>(); });
+            // Sum allocatable section sizes for MemTracker accounting.
+            layer->setNotifyLoaded(
+                [this](llvm::orc::MaterializationResponsibility&,
+                    const llvm::object::ObjectFile& obj,
+                    const llvm::RuntimeDyld::LoadedObjectInfo&) {
+                  for (const auto& sec : obj.sections()) {
+                    if (!sec.isVirtual() &&
+                        (sec.isText() || sec.isData() || sec.isBSS())) {
+                      jit_bytes_allocated_ += sec.getSize();
+                    }
+                  }
+                });
+            if (symbol_emitter_) {
+              layer->registerJITEventListener(*symbol_emitter_);
+            }
+            return layer;
+          })
+      .create();
+  if (!lljit_or_err) {
+    module_ = nullptr;
+    module_owned_.reset();
+    return Status(llvm::toString(lljit_or_err.takeError()));
+  }
+  lljit_ = std::move(*lljit_or_err);
+  compiler_ = compiler_raw;
+
+  // Allow the JIT to resolve symbols from the current process (UDF .so and builtins).
+  auto dlsg = llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
+      lljit_->getDataLayout().getGlobalPrefix());
+  if (!dlsg) return Status(llvm::toString(dlsg.takeError()));
+  lljit_->getMainJITDylib().addGenerator(std::move(*dlsg));
+
+  module_->setDataLayout(lljit_->getDataLayout());
 
   void_type_ = llvm::Type::getVoidTy(context());
   ptr_type_ = llvm::PointerType::getUnqual(context());
   true_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, true, true));
   false_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, false, true));
 
-  symbol_emitter_ = SetupSymbolEmitter(execution_engine_.get());
   engine_cache_ = make_shared<CodeGenObjectCache>();
 
   RETURN_IF_ERROR(LoadIntrinsics());
@@ -551,38 +610,34 @@ Status LlvmCodeGen::Init(unique_ptr<llvm::Module> module) {
   return Status::OK();
 }
 
-unique_ptr<CodegenSymbolEmitter> LlvmCodeGen::SetupSymbolEmitter(
-    llvm::ExecutionEngine* execution_engine) {
-  bool need_symbol_emitter = !FLAGS_asm_module_dir.empty() || FLAGS_perf_map;
-  if (!need_symbol_emitter) return nullptr;
-  unique_ptr<CodegenSymbolEmitter> symbol_emitter =
-      make_unique<CodegenSymbolEmitter>(id_);
-  execution_engine->RegisterJITEventListener(symbol_emitter.get());
+unique_ptr<CodegenSymbolEmitter> LlvmCodeGen::SetupSymbolEmitter() {
+  if (FLAGS_asm_module_dir.empty() && !FLAGS_perf_map) return nullptr;
+  auto symbol_emitter = make_unique<CodegenSymbolEmitter>(id_);
+  // Registration with the RTDyldObjectLinkingLayer happens in Init()'s layer creator.
   symbol_emitter->set_emit_perf_map(FLAGS_perf_map);
-
   if (!FLAGS_asm_module_dir.empty()) {
     symbol_emitter->set_asm_path(Substitute("$0/$1.asm", FLAGS_asm_module_dir, id_));
   }
-
   return symbol_emitter;
 }
 
 LlvmCodeGen::~LlvmCodeGen() {
-  DCHECK(execution_engine_ == nullptr) << "Must Close() before destruction";
+  DCHECK(lljit_ == nullptr) << "Must Close() before destruction";
 }
 
 void LlvmCodeGen::Close() {
   if (async_compile_thread_ != nullptr) async_compile_thread_->Join();
 
-  if (memory_manager_ != nullptr) {
-    mem_tracker_->Release(memory_manager_->bytes_tracked());
-    memory_manager_ = nullptr;
+  if (jit_bytes_tracked_ != 0) {
+    mem_tracker_->Release(jit_bytes_tracked_);
+    jit_bytes_tracked_ = 0;
   }
   if (mem_tracker_ != nullptr) mem_tracker_->Close();
   engine_cache_.reset();
   engine_cache_cached_.reset();
-  execution_engine_.reset();
+  lljit_.reset(); // frees all compiled machine code; triggers notifyFreeingObject
   symbol_emitter_.reset();
+  module_owned_.reset();
   module_ = nullptr;
 }
 
@@ -591,8 +646,7 @@ void LlvmCodeGen::EnableOptimizations(bool enable) {
 }
 
 void LlvmCodeGen::GetHostCPUAttrs(std::unordered_set<string>* attrs) {
-  // LLVM's ExecutionEngine expects features to be enabled or disabled with a list
-  // of strings like ["+feature1", "-feature2"].
+  // Features are enabled/disabled with strings like "+feature" / "-feature".
   llvm::StringMap<bool> cpu_features;
   llvm::sys::getHostCPUFeatures(cpu_features);
   for (const llvm::StringMapEntry<bool>& entry : cpu_features) {
@@ -994,8 +1048,16 @@ Status LlvmCodeGen::LoadFunction(const TFunction& fn, const string& symbol,
     }
 #endif
     // Associate the dynamically loaded function pointer with the Function* we defined.
-    // This tells LLVM where the compiled function definition is located in memory.
-    execution_engine()->addGlobalMapping(*llvm_fn, fn_ptr);
+    // This tells the JIT where the compiled function definition is located in memory.
+    llvm::orc::SymbolMap sym_map;
+    sym_map[lljit_->mangleAndIntern((*llvm_fn)->getName())] =
+        llvm::JITEvaluatedSymbol(
+            llvm::pointerToJITTargetAddress(fn_ptr),
+            llvm::JITSymbolFlags::Exported | llvm::JITSymbolFlags::Callable);
+    if (auto err = lljit_->getMainJITDylib().define(
+            llvm::orc::absoluteSymbols(std::move(sym_map)))) {
+      return Status(llvm::toString(std::move(err)));
+    }
     // Disable the codegen cache because codegen cache uses the llvm module bitcode as
     // the key while the bitcode doesn't contain the global function mapping of the
     // execution engine. If the mapping is changed during running, like udf recreation,
@@ -1304,7 +1366,7 @@ void LlvmCodeGen::PruneModule() {
   // JIT'd to be marked as internal, and any internal functions that are not used are
   // deleted by DCE pass. This greatly decreases compile time by removing unused code.
   llvm::ModuleAnalysisManager module_analysis_manager;
-  llvm::PassBuilder pass_builder(execution_engine()->getTargetMachine());
+  llvm::PassBuilder pass_builder(target_machine_.get());
   pass_builder.registerModuleAnalyses(module_analysis_manager);
 
   llvm::ModulePassManager module_pass_manager;
@@ -1418,17 +1480,27 @@ Status LlvmCodeGen::FinalizeModule(string* module_id) {
   }
 
   if (codegen_cache_enabled) {
+    DCHECK(compiler_ != nullptr);
     if (cache_hit) {
       DCHECK(engine_cache_cached_ != nullptr);
-      execution_engine()->setObjectCache(engine_cache_cached_.get());
+      compiler_->setObjectCache(engine_cache_cached_.get());
     } else {
-      execution_engine()->setObjectCache(engine_cache_.get());
+      compiler_->setObjectCache(engine_cache_.get());
     }
   }
+
+  // Capture module id before moving the module into ThreadSafeModule.
+  string final_module_id = module_->getModuleIdentifier();
+
   {
     SCOPED_TIMER(compile_timer_);
-    // Finalize module, which compiles all functions.
-    execution_engine()->finalizeObject();
+    // Wrap module+context into a ThreadSafeModule and compile via LLJIT.
+    jit_bytes_allocated_ = 0;
+    llvm::orc::ThreadSafeModule tsm(std::move(module_owned_), std::move(context_));
+    module_ = nullptr; // invalidated by the move above
+    if (auto err = lljit_->addIRModule(std::move(tsm))) {
+      return Status(llvm::toString(std::move(err)));
+    }
   }
   SetFunctionPointers();
   Status store_cache_status;
@@ -1437,19 +1509,15 @@ Status LlvmCodeGen::FinalizeModule(string* module_id) {
     store_cache_status = StoreCache(cache_key);
   }
 
-  // Track the memory consumed by the runtime compiled code.
-  // If codegen cache is enabled, the part stored to the cache will be taken care by
-  // codegen cache to track the memory consumption.
-  int64_t bytes_allocated = memory_manager_->bytes_allocated();
-  if (!mem_tracker_->TryConsume(bytes_allocated)) {
+  // Track the memory consumed by the JIT-compiled code.
+  if (!mem_tracker_->TryConsume(jit_bytes_allocated_)) {
     const string& msg = Substitute(
-        "Failed to allocate '$0' bytes for compiled code module", bytes_allocated);
-    return mem_tracker_->MemLimitExceeded(NULL, msg, bytes_allocated);
+        "Failed to allocate '$0' bytes for compiled code module", jit_bytes_allocated_);
+    return mem_tracker_->MemLimitExceeded(NULL, msg, jit_bytes_allocated_);
   }
-  memory_manager_->set_bytes_tracked(bytes_allocated);
+  jit_bytes_tracked_ = jit_bytes_allocated_;
 
-  // Get the module id before module destruction.
-  if (module_id != nullptr) *module_id = module_->getModuleIdentifier();
+  if (module_id != nullptr) *module_id = final_module_id;
   DestroyModule();
   return Status::OK();
 }
@@ -1599,7 +1667,7 @@ Status LlvmCodeGen::OptimizeModule() {
   // TODO: we can likely muck with this to get better compile speeds or write
   // our own passes.  Our subexpression elimination optimization can be rolled into
   // a pass.
-  llvm::PassBuilder PB(execution_engine()->getTargetMachine());
+  llvm::PassBuilder PB(target_machine_.get());
   PB.registerModuleAnalyses(MAM);
   PB.registerCGSCCAnalyses(CGAM);
   PB.registerFunctionAnalyses(FAM);
@@ -1669,45 +1737,35 @@ Status LlvmCodeGen::OptimizeModule() {
 
 bool LlvmCodeGen::SetFunctionPointers(CodeGenCache* cache,
     const CodeGenCacheKey* cache_key) {
-  // Get pointers to all codegen'd functions.
+  // The StringRef keys in fns_to_jit_compile_ point into llvm::Function name storage.
+  // The first lookup() triggers IRCompileLayer::emit(), which frees the module IR,
+  // invalidating those StringRefs. Snapshot to std::string first.
+  std::vector<std::pair<std::string, std::vector<CodegenFnPtrBase*>>> fns;
+  fns.reserve(fns_to_jit_compile_.size());
   for (auto& entry : fns_to_jit_compile_) {
-    const llvm::StringRef& function_name = entry.first;
+    fns.emplace_back(entry.first.str(), entry.second.second);
+  }
 
-    LlvmFunctionWithFnPtrTargets& fn_with_targets = entry.second;
-    llvm::Function* function = fn_with_targets.first;
-    std::vector<CodegenFnPtrBase*>& jitted_fn_ptrs = fn_with_targets.second;
-
-    void* jitted_function = nullptr;
-    if (cache != nullptr) {
-      DCHECK(cache_key != nullptr);
-      // engine_cache_cached_ is used to keep the life of the object cache
-      // in case the object cache is evicted in the global cache.
-      DCHECK(engine_cache_cached_ != nullptr);
-      // Using the function getFunctionAddress() with a non-existent function name would
-      // hit an assertion during the test, could be a bug in llvm 5, need to review after
-      // upgrade llvm. But because we already checked the names hashcode for key collision
-      // cases, we expect all the functions should be in the cached execution engine.
-      jitted_function = reinterpret_cast<void*>(execution_engine()->getFunctionAddress(
-          function_name.str()));
-      if (jitted_function == nullptr) {
-        LOG(WARNING) << "Failed to get a jitted function from cache: "
-                     << function_name.data()
+  for (auto& [fn_name, jitted_fn_ptrs] : fns) {
+    auto sym = lljit_->lookup(fn_name);
+    if (!sym) {
+      if (cache != nullptr) {
+        LOG(WARNING) << "Failed to get jitted function from cache: " << fn_name
                      << " key hash_code=" << cache_key->hash_code();
         cache->IncHitOrMissCount(/*hit*/ false);
+        llvm::consumeError(sym.takeError());
         return false;
       }
-    } else {
-      DCHECK(cache_key == nullptr);
-      jitted_function = execution_engine()->getPointerToFunction(function);
-      DCHECK(jitted_function != nullptr) << "Failed to jit " << function_name.data();
+      LOG(DFATAL) << "Failed to jit " << fn_name << ": "
+                  << llvm::toString(sym.takeError());
+      return false;
     }
-
+    void* jitted_function = sym->toPtr<void*>();
     DCHECK(jitted_function != nullptr);
     for (CodegenFnPtrBase* jitted_fn_ptr : jitted_fn_ptrs) {
       jitted_fn_ptr->store(jitted_function);
     }
   }
-
   return true;
 }
 
@@ -1720,8 +1778,10 @@ void LlvmCodeGen::DestroyModule() {
   llvm_intrinsics_.clear();
   hash_fns_.clear();
   fns_to_jit_compile_.clear();
-  execution_engine()->removeModule(module_);
-  module_ = NULL;
+  // module_owned_ is either already moved into a ThreadSafeModule (FinalizeModule
+  // compiled path) or still held here (early-exit path). Reset frees it if present.
+  module_owned_.reset();
+  module_ = nullptr;
 }
 
 void LlvmCodeGen::AddFunctionToJit(llvm::Function* fn, CodegenFnPtrBase* fn_ptr) {

@@ -17,7 +17,6 @@
 
 #include "codegen/llvm-codegen-cache.h"
 #include "codegen/instruction-counter.h"
-#include "codegen/mcjit-mem-mgr.h"
 #include "util/hash-util.h"
 
 using namespace std;

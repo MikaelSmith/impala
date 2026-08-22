@@ -50,12 +50,12 @@ class CodegenSymbolEmitter : public llvm::JITEventListener {
   /// Atomically updates the current map by writing to a temporary file then moving it.
   static void WritePerfMap();
 
-  /// Called whenever MCJIT module code is emitted.
+  /// Called whenever ORC object code is emitted.
   void notifyObjectLoaded(llvm::JITEventListener::ObjectKey K,
      const llvm::object::ObjectFile &obj,
      const llvm::RuntimeDyld::LoadedObjectInfo &loaded_obj) override;
 
-  /// Called whenever MCJIT module code is freed.
+  /// Called whenever ORC object code is freed.
   void notifyFreeingObject(llvm::JITEventListener::ObjectKey K) override;
 
   void set_emit_perf_map(bool emit_perf_map) { emit_perf_map_ = emit_perf_map; }

@@ -49,7 +49,6 @@ namespace llvm {
   class BasicBlock;
   class ConstantFolder;
   class DiagnosticInfo;
-  class ExecutionEngine;
   class Function;
   class LLVMContext;
   class Module;
@@ -57,8 +56,13 @@ namespace llvm {
   class PointerType;
   class StructType;
   class TargetData;
+  class TargetMachine;
   class Type;
   class Value;
+  namespace orc {
+    class LLJIT;
+    class SimpleCompiler;
+  }
 
   template<typename T, typename I>
   class IRBuilder;
@@ -83,7 +87,6 @@ class CodegenCallGraph;
 class CodegenFnPtrBase;
 class CodegenSymbolEmitter;
 class FragmentState;
-class ImpalaMCJITMemoryManager;
 class SubExprElimination;
 class Thread;
 class TupleDescriptor;
@@ -319,8 +322,11 @@ class LlvmCodeGen {
   /// context to allow multiple threads to be calling into llvm at the same time.
   llvm::LLVMContext& context() { return *context_.get(); }
 
-  /// Returns execution engine interface
-  llvm::ExecutionEngine* execution_engine() { return execution_engine_.get(); }
+  /// Returns the ORC JIT instance.
+  llvm::orc::LLJIT* lljit() { return lljit_.get(); }
+
+  /// Returns the TargetMachine used for optimization passes.
+  llvm::TargetMachine* target_machine() { return target_machine_.get(); }
 
   /// Returns the cache which is for the execution engine to write the compiled functions
   /// to.
@@ -711,11 +717,9 @@ class LlvmCodeGen {
   /// generated IR to be inlined into cross-compiled functions' IR and vice versa.
   static void SetCPUAttrs(llvm::Function* function);
 
-  /// If a symbol emitter is needed, creates one and registers it as a listener of
-  /// 'execution_engine'. It is used to generate perf symbol map or disassembly.
-  /// If no symbol emitter is needed, returns NULL.
-  std::unique_ptr<CodegenSymbolEmitter> SetupSymbolEmitter(
-      llvm::ExecutionEngine* execution_engine);
+  /// If a symbol emitter is needed, creates one. Registration happens inside the
+  /// RTDyldObjectLinkingLayer creator in Init(). Returns NULL if not needed.
+  std::unique_ptr<CodegenSymbolEmitter> SetupSymbolEmitter();
 
   /// Load the intrinsics impala needs.  This is a one time initialization.
   /// Values are stored in 'llvm_intrinsics_'
@@ -918,12 +922,23 @@ class LlvmCodeGen {
   /// We can have multiple instances of the LlvmCodeGen object in different threads
   std::unique_ptr<llvm::LLVMContext> context_;
 
-  /// Top level codegen object. Contains everything to jit one 'unit' of code.  module_ is
-  /// set by Init(). module_ is owned by the execution engine.
+  /// Top level codegen object. Contains everything to jit one 'unit' of code.
+  /// module_ is a non-owning pointer valid until FinalizeModule() moves module_owned_
+  /// into a ThreadSafeModule and hands it to lljit_.
   llvm::Module* module_;
 
-  // Execution/Jitting engine.
-  std::unique_ptr<llvm::ExecutionEngine> execution_engine_;
+  /// Owns the IR module until it is consumed by lljit_->addIRModule().
+  std::unique_ptr<llvm::Module> module_owned_;
+
+  /// ORC JIT instance. Owns all compiled machine code.
+  std::unique_ptr<llvm::orc::LLJIT> lljit_;
+
+  /// TargetMachine used for the optimization pass pipeline (PassBuilder).
+  std::unique_ptr<llvm::TargetMachine> target_machine_;
+
+  /// Non-owning pointer into the TMOwningSimpleCompiler held by lljit_'s compile layer.
+  /// Used to swap the ObjectCache before each compilation.
+  llvm::orc::SimpleCompiler* compiler_ = nullptr;
 
   /// Object cache which is for the execution engine to write the compiled codegened
   /// functions to. Would be used as a part of CodeGen caching.
@@ -936,8 +951,10 @@ class LlvmCodeGen {
   /// it gets evicted from the global cache while in use.
   std::shared_ptr<CodeGenObjectCache> engine_cache_cached_;
 
-  /// The memory manager used by 'execution_engine_'. Owned by 'execution_engine_'.
-  ImpalaMCJITMemoryManager* memory_manager_;
+  /// Bytes of JIT-compiled code sections accumulated via the NotifyLoaded callback.
+  int64_t jit_bytes_allocated_ = 0;
+  /// Bytes already reported to mem_tracker_ (released in Close()).
+  int64_t jit_bytes_tracked_ = 0;
 
   /// Functions parsed from pre-compiled module. Indexed by ImpalaIR::Function enum.
   std::vector<llvm::Function*> cross_compiled_functions_;

@@ -17,8 +17,10 @@
 
 #include "codegen/llvm-codegen-cache.h"
 #include <boost/thread/thread.hpp>
-#include <llvm/ExecutionEngine/ExecutionEngine.h>
-#include "codegen/mcjit-mem-mgr.h"
+#include <llvm/ExecutionEngine/Orc/CompileUtils.h>
+#include <llvm/ExecutionEngine/Orc/LLJIT.h>
+#include <llvm/ExecutionEngine/Orc/ThreadSafeModule.h>
+#include <llvm/Support/Error.h>
 #include "common/object-pool.h"
 #include "runtime/fragment-state.h"
 #include "runtime/test-env.h"
@@ -85,18 +87,15 @@ class LlvmCodeGenCacheTest : public testing::Test {
   }
 
   static void CheckResult(LlvmCodeGen* codegen, bool is_double = false) {
-    llvm::ExecutionEngine* cached_execution_engine = codegen->execution_engine();
-    ASSERT_TRUE(cached_execution_engine != nullptr);
-    CheckResult(cached_execution_engine, is_double);
-  }
-
-  static void CheckResult(llvm::ExecutionEngine* engine, bool is_double = false) {
-    void* test_fn;
-    if (!is_double) {
-      test_fn = reinterpret_cast<void*>(engine->getFunctionAddress("Echo"));
-    } else {
-      test_fn = reinterpret_cast<void*>(engine->getFunctionAddress("Double"));
+    ASSERT_TRUE(codegen->lljit() != nullptr);
+    const char* fn_name = is_double ? "Double" : "Echo";
+    auto sym = codegen->lljit()->lookup(fn_name);
+    if (!sym) {
+      FAIL() << "lookup(" << fn_name << ") failed: "
+             << llvm::toString(sym.takeError());
+      return;
     }
+    void* test_fn = sym->toPtr<void*>();
     ASSERT_TRUE(test_fn != nullptr);
     int input = 1;
     if (!is_double) {
@@ -164,9 +163,18 @@ void LlvmCodeGenCacheTest::CheckResult(
   ASSERT_OK(codegen->FinalizeLazyMaterialization());
   codegen->module_->setModuleIdentifier(module_id);
   // Use the specific cache for finalizing the module and expect the compiled functions
-  // in the execution engine is from the cache, then verify the correctness.
-  codegen->execution_engine()->setObjectCache(entry.cached_engine_pointer);
-  codegen->execution_engine()->finalizeObject();
+  // come from the cache, then verify correctness.
+  DCHECK(codegen->compiler_ != nullptr);
+  codegen->compiler_->setObjectCache(entry.cached_engine_pointer);
+  {
+    llvm::orc::ThreadSafeModule tsm(
+        std::move(codegen->module_owned_), std::move(codegen->context_));
+    codegen->module_ = nullptr;
+    if (auto err = codegen->lljit()->addIRModule(std::move(tsm))) {
+      FAIL() << "addIRModule failed: " << llvm::toString(std::move(err));
+      return;
+    }
+  }
   codegen->DestroyModule();
   CheckResult(codegen.get(), is_double);
   codegen->Close();
@@ -193,8 +201,17 @@ shared_ptr<CodeGenObjectCache> LlvmCodeGenCacheTest::CreateObjCache(
   EXPECT_TRUE(codegen->OptimizeModule().ok());
   codegen->module_->setModuleIdentifier(m_id);
   codegen->engine_cache_ = engine_cache;
-  codegen->execution_engine()->setObjectCache(engine_cache.get());
-  codegen->execution_engine()->finalizeObject();
+  DCHECK(codegen->compiler_ != nullptr);
+  codegen->compiler_->setObjectCache(engine_cache.get());
+  {
+    llvm::orc::ThreadSafeModule tsm(
+        std::move(codegen->module_owned_), std::move(codegen->context_));
+    codegen->module_ = nullptr;
+    if (auto err = codegen->lljit()->addIRModule(std::move(tsm))) {
+      EXPECT_TRUE(false) << "addIRModule failed: " << llvm::toString(std::move(err));
+      return nullptr;
+    }
+  }
   CheckObjCacheExists(codegen.get());
   codegen->DestroyModule();
   CheckResult(codegen.get(), is_double);
@@ -650,7 +667,7 @@ void LlvmCodeGenCacheTest::StoreHelper(TCodeGenCacheMode::type mode, string key)
 void LlvmCodeGenCacheTest::TestConcurrentStore(int num_threads) {
   thread_group workers;
   for (int i = 0; i < num_threads; ++i) {
-    workers.add_thread(new thread([this, num_threads]() {
+    workers.add_thread(new boost::thread([this, num_threads]() {
       int test_times = 100;
       while (test_times-- > 0) {
         string key = std::to_string(rand() % num_threads);
