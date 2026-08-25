@@ -1574,6 +1574,39 @@ void LlvmCodeGen::AddFunctionToJit(llvm::Function* fn, CodegenFnPtrBase* fn_ptr)
   DCHECK(finalized_functions_.find(fn) != finalized_functions_.end())
       << "Attempted to add a non-finalized function to Jit: " << fn->getName().str();
   DCHECK(!is_compiled_);
+  llvm::Type* decimal_val_type = GetNamedType(CodegenAnyVal::LLVM_DECIMALVAL_NAME);
+  if (fn->getReturnType() == decimal_val_type) {
+    // Per the x86 calling convention ABI, DecimalVals should be returned via an extra
+    // first DecimalVal* argument. We generate non-compliant functions that return the
+    // DecimalVal directly, which we can call from generated code, but not from compiled
+    // native code.  To avoid accidentally calling a non-compliant function from native
+    // code, call 'function' from an ABI-compliant wrapper.
+    stringstream name;
+    name << fn->getName().str() << "ABIWrapper";
+    LlvmCodeGen::FnPrototype prototype(this, name.str(), void_type_);
+    // Add return argument
+    prototype.AddArgument(NamedVariable("result", decimal_val_type->getPointerTo()));
+    // Add regular arguments
+    for (llvm::Function::arg_iterator arg = fn->arg_begin(); arg != fn->arg_end();
+         ++arg) {
+      prototype.AddArgument(NamedVariable(arg->getName().str(), arg->getType()));
+    }
+    LlvmBuilder builder(context());
+    llvm::Value* args[fn->arg_size() + 1];
+    llvm::Function* fn_wrapper = prototype.GeneratePrototype(&builder, &args[0]);
+    fn_wrapper->addFnAttr(llvm::Attribute::AlwaysInline);
+    // Mark first argument as sret
+    fn_wrapper->addAttributeAtIndex(1,
+        llvm::Attribute::getWithStructRetType(context(), decimal_val_type));
+    // Call 'fn' and store the result in the result argument
+    llvm::Value* result = builder.CreateCall(
+        fn, llvm::ArrayRef<llvm::Value*>({&args[1], fn->arg_size()}), "result");
+    builder.CreateStore(result, args[0]);
+    builder.CreateRetVoid();
+    fn = FinalizeFunction(fn_wrapper);
+    DCHECK(fn != NULL);
+  }
+
   AddFunctionToJitInternal(fn, fn_ptr);
 }
 
