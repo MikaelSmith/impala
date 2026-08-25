@@ -413,7 +413,7 @@ Status ScalarFnCall::GetCodegendComputeFnImpl(LlvmCodeGen* codegen, llvm::Functi
   // Call UDF
   llvm::Value* result_val =
       CodegenAnyVal::CreateCall(codegen, &builder, udf, udf_args, "result");
-  CreateReturnValue(&builder, *fn, result_val);
+  builder.CreateRet(result_val);
 
   *fn = codegen->FinalizeFunction(*fn);
   if (*fn == NULL) {
