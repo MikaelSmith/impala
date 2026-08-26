@@ -44,23 +44,11 @@ const char* CodegenAnyVal::LLVM_COLLECTIONVAL_NAME = "struct.impala_udf::Collect
 llvm::Type* CodegenAnyVal::GetLoweredType(LlvmCodeGen* cg, const ColumnType& type) {
   switch (type.type) {
     case TYPE_BOOLEAN: // i16
-#ifndef __aarch64__
       return cg->i16_type();
-#else
-      return cg->i64_type();
-#endif
     case TYPE_TINYINT: // i16
-#ifndef __aarch64__
       return cg->i16_type();
-#else
-      return cg->i64_type();
-#endif
     case TYPE_SMALLINT: // i32
-#ifndef __aarch64__
       return cg->i32_type();
-#else
-      return cg->i64_type();
-#endif
     case TYPE_INT: // i64
       return cg->i64_type();
     case TYPE_BIGINT: // { i8, i64 }
@@ -758,9 +746,7 @@ void CodegenAnyVal::CodegenBranchIfNull(
 }
 
 llvm::Value* CodegenAnyVal::GetHighBits(int num_bits, llvm::Value* v, const char* name) {
-#ifndef __aarch64__
   DCHECK_EQ(v->getType()->getIntegerBitWidth(), num_bits * 2);
-#endif
   llvm::Value* shifted = builder_->CreateAShr(v, num_bits);
   return builder_->CreateTrunc(
       shifted, llvm::IntegerType::get(codegen_->context(), num_bits));
@@ -774,14 +760,9 @@ llvm::Value* CodegenAnyVal::GetHighBits(int num_bits, llvm::Value* v, const char
 llvm::Value* CodegenAnyVal::SetHighBits(
     int num_bits, llvm::Value* src, llvm::Value* dst, const char* name) {
   DCHECK_LE(src->getType()->getIntegerBitWidth(), num_bits);
-#ifndef __aarch64__
   DCHECK_EQ(dst->getType()->getIntegerBitWidth(), num_bits * 2);
   llvm::Value* extended_src = builder_->CreateZExt(
       src, llvm::IntegerType::get(codegen_->context(), num_bits * 2));
-#else
-  llvm::Value* extended_src = builder_->CreateZExt(src,
-        llvm::IntegerType::get(codegen_->context(), 64));
-#endif
   llvm::Value* shifted_src = builder_->CreateShl(extended_src, num_bits);
   llvm::Value* masked_dst = builder_->CreateAnd(dst, (1LL << num_bits) - 1);
   return builder_->CreateOr(masked_dst, shifted_src, name);
