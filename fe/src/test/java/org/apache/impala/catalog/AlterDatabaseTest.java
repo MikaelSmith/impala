@@ -232,11 +232,9 @@ public class AlterDatabaseTest {
     assertNotNull(msDb.getOwnerName());
     assertNotNull(msDb.getOwnerType());
     if (TEST_OWNER_1.equals(msDb.getOwnerName())) {
-      assertEquals("Owner " + TEST_OWNER_1 + " should have the type " + TEST_TYPE_1,
-          msDb.getOwnerType(), TEST_TYPE_1);
+      assertEquals(TEST_TYPE_1, "Owner " + TEST_OWNER_1 + " should have the type " + TEST_TYPE_1, msDb.getOwnerType());
     } else if (TEST_OWNER_2.equals(msDb.getOwnerName())) {
-      assertEquals("Owner " + TEST_OWNER_2 + " should have the type " + TEST_TYPE_2,
-          msDb.getOwnerType(), TEST_TYPE_2);
+      assertEquals(TEST_TYPE_2, "Owner " + TEST_OWNER_2 + " should have the type " + TEST_TYPE_2, msDb.getOwnerType());
     } else {
       fail("Unknown owner for the database " + msDb.getOwnerName());
     }

@@ -27,13 +27,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.experimental.categories.Category;
+import org.junit.jupiter.api.Tag;
 
 import com.google.common.collect.ImmutableSet;
 
 // S3 specific planner tests go here, and will run against tables in S3.  These tests
 // are run only when test.fs.s3a.name is set in the configuration.
-@Category(S3Tests.class)
+@Tag("S3Tests")
 public class S3PlannerTest extends PlannerTestBase {
 
   // The path that will replace the value of TEST_FS_S3A_NAME in file paths.
@@ -66,9 +66,8 @@ public class S3PlannerTest extends PlannerTestBase {
     path = super.cleanseFilePath(path);
     URI fsURI = fsName.toUri();
     URI pathURI = path.toUri();
-    Assertions.assertTrue("error: " + path + " is not on filesystem " + fsName,
-        fsURI.getScheme().equals(pathURI.getScheme()) &&
-        fsURI.getAuthority().equals(pathURI.getAuthority()));
+    Assertions.assertTrue(fsURI.getScheme().equals(pathURI.getScheme()) &&
+        fsURI.getAuthority().equals(pathURI.getAuthority()), "error: " + path + " is not on filesystem " + fsName);
     return Path.mergePaths(S3A_CANONICAL_BUCKET, path);
   }
 

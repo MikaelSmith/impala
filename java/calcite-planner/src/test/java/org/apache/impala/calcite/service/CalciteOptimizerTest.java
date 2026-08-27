@@ -279,16 +279,16 @@ public class CalciteOptimizerTest extends FrontendTestBase {
       RelDataType narrow = createPreImpalaConvertPlan(
           "select " + function + "(decimal_col) as rounded from " + TEST_TABLE)
           .outputTypes().get(0);
-      assertEquals(function, SqlTypeName.DECIMAL, narrow.getSqlTypeName());
-      assertEquals(function, 10, narrow.getPrecision());
-      assertEquals(function, 0, narrow.getScale());
+      assertEquals(SqlTypeName.DECIMAL, narrow.getSqlTypeName(), function);
+      assertEquals(10, narrow.getPrecision(), function);
+      assertEquals(0, narrow.getScale(), function);
 
       RelDataType wide = createPreImpalaConvertPlan(
           "select " + function + "(wide_decimal_col) as rounded from " + TEST_TABLE)
           .outputTypes().get(0);
-      assertEquals(function, SqlTypeName.DECIMAL, wide.getSqlTypeName());
-      assertEquals(function, 38, wide.getPrecision());
-      assertEquals(function, 0, wide.getScale());
+      assertEquals(SqlTypeName.DECIMAL, wide.getSqlTypeName(), function);
+      assertEquals(38, wide.getPrecision(), function);
+      assertEquals(0, wide.getScale(), function);
     }
   }
 
@@ -372,8 +372,8 @@ public class CalciteOptimizerTest extends FrontendTestBase {
       try {
         OptimizationResult result =
             optimizeWithCalciteOnly(query.sql_);
-        assertNotNull(query.name_, result.plan());
-        assertEquals(query.name_, query.outputLabels_, result.outputLabels());
+        assertNotNull(result.plan(), query.name_);
+        assertEquals(query.outputLabels_, result.outputLabels(), query.name_);
       } catch (UnsupportedFeatureException e) {
         throw new AssertionError(
             "Previously supported Calcite query became unsupported: " + query.name_, e);
@@ -527,8 +527,7 @@ public class CalciteOptimizerTest extends FrontendTestBase {
         super.visit(node, ordinal, parent);
       }
     }.go(plan);
-    assertEquals("Unexpected number of " + relClass.getSimpleName() + " nodes",
-        1, matches.size());
+    assertEquals(matches.size(), "Unexpected number of " + relClass.getSimpleName() + " nodes", 1);
     return matches.get(0);
   }
 

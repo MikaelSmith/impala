@@ -56,7 +56,6 @@ import org.apache.impala.util.IcebergUtil;
 import org.apache.impala.util.ListMap;
 import org.apache.impala.util.MetaStoreUtil;
 import org.apache.impala.util.PatternMatcher;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -70,6 +69,11 @@ public class LocalCatalogTest {
   private CatalogdMetaProvider provider_;
   private LocalCatalog catalog_;
   private Frontend fe_;
+
+  private static void assertStartsWith(String actual, String expectedPrefix) {
+    assertTrue(actual.startsWith(expectedPrefix),
+        "Expected string to start with:\n" + expectedPrefix + "\nActual string:\n" + actual);
+  }
 
   @BeforeEach
   public void setupCatalog() throws Exception {
@@ -360,7 +364,7 @@ public class LocalCatalogTest {
     FeFsTable t = (FeFsTable) catalog_.getTable("functional",  "binary_tbl");
     ColumnStats stats = t.getColumn("binary_col").getStats();
     assertEquals(26, stats.getMaxSize());
-    assertEquals(8.714285850524902, stats.getAvgSize(), 0.0001);
+    assertEquals(stats.getAvgSize(), 0.0001, 8.714285850524902);
     assertEquals(-1, stats.getNumDistinctValues());
     assertEquals(1, stats.getNumNulls());
   }
@@ -407,20 +411,19 @@ public class LocalCatalogTest {
       // those might change based on whether this test runs before or after other
       // tests which compute stats, etc.
       String output = ToSqlUtils.getCreateTableSql(t);
-      org.hamcrest.MatcherAssert.assertThat(output, CoreMatchers.startsWith(expectedOutput));
+      assertStartsWith(output, expectedOutput);
       // the tblproperties have keys which are not in a deterministic order
       // we will confirm if the 'external.table.purge'='TRUE' is available in the
       // tblproperties substring separately
-      Assertions.assertTrue("Synchronized Kudu tables in Hive-3 must contain external.table"
-          + ".purge table property", output.contains("'external.table.purge'='TRUE'"));
-      Assertions.assertTrue("Internal property TRANSLATED_TO_EXTERNAL not found in table "
-          + "properties", output.contains("TRANSLATED_TO_EXTERNAL"));
+      Assertions.assertTrue(output.contains("'external.table.purge'='TRUE'"), "Synchronized Kudu tables in Hive-3 must contain external.table"
+          + ".purge table property");
+      Assertions.assertTrue(output.contains("TRANSLATED_TO_EXTERNAL"), "Internal property TRANSLATED_TO_EXTERNAL not found in table "
+          + "properties");
     } else {
     // Assert on the generated SQL for the table, but not the table properties, since
     // those might change based on whether this test runs before or after other
     // tests which compute stats, etc.
-      org.hamcrest.MatcherAssert.assertThat(ToSqlUtils.getCreateTableSql(t),
-          CoreMatchers.startsWith(expectedOutput));
+      assertStartsWith(ToSqlUtils.getCreateTableSql(t), expectedOutput);
     }
   }
 
@@ -428,7 +431,7 @@ public class LocalCatalogTest {
   public void testHbaseTable() throws Exception {
     LocalHbaseTable t = (LocalHbaseTable) catalog_.getTable("functional_hbase",
         "alltypes");
-    org.hamcrest.MatcherAssert.assertThat(ToSqlUtils.getCreateTableSql(t), CoreMatchers.startsWith(
+    assertStartsWith(ToSqlUtils.getCreateTableSql(t),
         "CREATE EXTERNAL TABLE functional_hbase.alltypes (\n" +
         "  id INT COMMENT 'Add a comment',\n" +
         "  bigint_col BIGINT,\n" +
@@ -455,11 +458,10 @@ public class LocalCatalogTest {
         "  'bucketing_version'='2',\n" +
         "  'hbase.table.name'='functional_hbase.alltypes',\n" +
         "  'storage_handler'='org.apache.hadoop.hive.hbase.HBaseStorageHandler'\n" +
-        ")"
-    ));
+        ")");
 
     t = (LocalHbaseTable) catalog_.getTable("functional_hbase", "date_tbl");
-    org.hamcrest.MatcherAssert.assertThat(ToSqlUtils.getCreateTableSql(t), CoreMatchers.startsWith(
+      assertStartsWith(ToSqlUtils.getCreateTableSql(t),
         "CREATE EXTERNAL TABLE functional_hbase.date_tbl (\n" +
         "  id_col INT,\n" +
         "  date_col DATE,\n" +
@@ -474,11 +476,10 @@ public class LocalCatalogTest {
         "  'bucketing_version'='2',\n" +
         "  'hbase.table.name'='functional_hbase.date_tbl',\n" +
         "  'storage_handler'='org.apache.hadoop.hive.hbase.HBaseStorageHandler'\n" +
-        ")"
-    ));
+        ")");
 
     t = (LocalHbaseTable) catalog_.getTable("functional_hbase", "binary_tbl");
-    org.hamcrest.MatcherAssert.assertThat(ToSqlUtils.getCreateTableSql(t), CoreMatchers.startsWith(
+      assertStartsWith(ToSqlUtils.getCreateTableSql(t),
         "CREATE EXTERNAL TABLE functional_hbase.binary_tbl (\n" +
         "  id INT,\n" +
         "  binary_col BINARY,\n" +
@@ -493,8 +494,7 @@ public class LocalCatalogTest {
        "  'bucketing_version'='2',\n" +
        "  'hbase.table.name'='functional_hbase.binary_tbl',\n" +
        "  'storage_handler'='org.apache.hadoop.hive.hbase.HBaseStorageHandler'\n" +
-       ")"
-    ));
+       ")");
   }
 
   /**

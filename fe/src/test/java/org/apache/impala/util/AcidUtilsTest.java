@@ -18,7 +18,6 @@ package org.apache.impala.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -31,7 +30,6 @@ import org.apache.hadoop.hive.common.ValidReaderWriteIdList;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.impala.catalog.CatalogException;
 import org.apache.impala.compat.MetastoreShim;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -47,8 +45,7 @@ public class AcidUtilsTest {
   private static final Path BASE_PATH = new Path("file:///foo/bar/");
 
   public AcidUtilsTest() {
-    Assumptions.assumeTrue("Tests require Hive 3 to parse and use WriteIdList",
-        MetastoreShim.getMajorVersion() == 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() == 3, "Tests require Hive 3 to parse and use WriteIdList");
   }
 
   private static List<FileStatus> createMockStats(String... testStrings) {
@@ -72,13 +69,18 @@ public class AcidUtilsTest {
     List<FileStatus> expectedStats = createMockStats(expectedRelPaths);
 
     try {
-      assertThat(AcidUtils.filterFilesForAcidState(stats, BASE_PATH,
-          new ValidReadTxnList(validTxnListStr), writeIds, null),
-          Matchers.containsInAnyOrder(expectedStats.toArray()));
+      List<FileStatus> actualStats = AcidUtils.filterFilesForAcidState(stats, BASE_PATH,
+          new ValidReadTxnList(validTxnListStr), writeIds, null);
+      assertEquals(toPathStrings(expectedStats), toPathStrings(actualStats));
     } catch (CatalogException me) {
       //TODO: Remove try-catch once IMPALA-9042 is resolved.
       assertTrue(false);
     }
+  }
+
+  private static List<String> toPathStrings(List<FileStatus> stats) {
+    return stats.stream().map(stat -> stat.getPath().toString()).sorted()
+        .collect(Collectors.toList());
   }
 
   public void filteringError(String[] relPaths, String validTxnListStr,
@@ -94,7 +96,7 @@ public class AcidUtilsTest {
       String errorString = e.getMessage();
       Preconditions.checkNotNull(errorString, "Stack trace lost during exception.");
       String msg = "got error:\n" + errorString + "\nexpected:\n" + expectedErrorString;
-      assertTrue(msg, errorString.startsWith(expectedErrorString));
+      assertTrue(errorString.startsWith(expectedErrorString), msg);
       return;
     }
     fail("Filtering didn't result in error");

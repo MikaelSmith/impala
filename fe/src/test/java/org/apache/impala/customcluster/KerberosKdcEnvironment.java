@@ -25,11 +25,13 @@ import org.apache.kerby.kerberos.kerb.server.SimpleKdcServer;
 import org.apache.kerby.kerberos.kerb.type.ticket.TgtTicket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.junit.rules.ExternalResource;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.extension.AfterAllCallback;
+import org.junit.jupiter.api.extension.BeforeAllCallback;
+import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -38,7 +40,7 @@ import java.util.stream.Collectors;
  * Package protected helper class to encapsulate simple
  * Kerberos KDC server used by junit tests.
  */
-class KerberosKdcEnvironment extends ExternalResource {
+class KerberosKdcEnvironment implements BeforeAllCallback, AfterAllCallback {
 
   private final Logger LOG =
           LoggerFactory.getLogger(KerberosKdcEnvironment.class);
@@ -47,25 +49,32 @@ class KerberosKdcEnvironment extends ExternalResource {
   private final static String servicePrincipal =
           String.format("impala/localhost@%s", realm);
 
-  private final TemporaryFolder testFolder;
+  private File testFolder;
   private SimpleKdcServer kerbyServer;
 
-  public KerberosKdcEnvironment(TemporaryFolder testFolder) {
+  public KerberosKdcEnvironment() {
+    this(null);
+  }
+
+  public KerberosKdcEnvironment(File testFolder) {
     this.testFolder = testFolder;
   }
 
   public String getTestFolderPath() throws IOException {
-    return testFolder.getRoot().getCanonicalPath();
+    if (testFolder == null) {
+      testFolder = Files.createTempDirectory("krb5").toFile();
+      testFolder.deleteOnExit();
+    }
+    return testFolder.getCanonicalPath();
   }
 
-  @Override
-  protected void before() throws Throwable {
-    testFolder.create();
+  public void start() throws Exception {
+    getTestFolderPath();
 
     kerbyServer = new SimpleKdcServer();
     kerbyServer.setKdcRealm(realm);
     kerbyServer.setAllowUdp(false);
-    kerbyServer.setWorkDir(testFolder.getRoot());
+    kerbyServer.setWorkDir(testFolder);
     kerbyServer.init();
 
     // Create service principal and keytab file for impala components
@@ -76,13 +85,24 @@ class KerberosKdcEnvironment extends ExternalResource {
     kerbyServer.start();
   }
 
-  @Override
-  protected void after() {
-    try {
-      kerbyServer.stop();
-    } catch (KrbException e) {
-      LOG.error("An exception received while stopping KDC server", e);
+  public void stop() {
+    if (kerbyServer != null) {
+      try {
+        kerbyServer.stop();
+      } catch (KrbException e) {
+        LOG.error("An exception received while stopping KDC server", e);
+      }
     }
+  }
+
+  @Override
+  public void beforeAll(ExtensionContext context) throws Exception {
+    start();
+  }
+
+  @Override
+  public void afterAll(ExtensionContext context) {
+    stop();
   }
 
   public String getServicePrincipal() {

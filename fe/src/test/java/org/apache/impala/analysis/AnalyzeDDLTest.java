@@ -2003,8 +2003,8 @@ public class AnalyzeDDLTest extends FrontendTestBase {
       throws AnalysisException {
     ComputeStatsStmt parsedStmt = checkComputeStatsStmt(stmt);
     Set<Column> actCols = parsedStmt.getValidatedColumnWhitelist();
-    if (expColNames == null) assertTrue("Expected no whitelist.", actCols == null);
-    assertTrue("Expected whitelist.", actCols != null);
+    if (expColNames == null) assertTrue(actCols == null, "Expected no whitelist.");
+    assertTrue(actCols != null, "Expected whitelist.");
     Set<String> actColSet = new HashSet<>();
     for (Column col: actCols) actColSet.add(col.getName());
     Set<String> expColSet = Sets.newHashSet(expColNames);
@@ -2557,9 +2557,8 @@ public class AnalyzeDDLTest extends FrontendTestBase {
 
   @Test
   public void TestCreateTableLikeFileOrc() throws AnalysisException {
-    Assumptions.assumeTrue(
-        "Skipping this test; CREATE TABLE LIKE ORC is only supported when running " +
-            "against Hive-3 or greater", TestUtils.getHiveMajorVersion() >= 3);
+    Assumptions.assumeTrue(TestUtils.getHiveMajorVersion() >= 3, "Skipping this test; CREATE TABLE LIKE ORC is only supported when running " +
+            "against Hive-3 or greater");
 
     AnalysisError("create table database_DNE.newtbl_DNE like ORC " +
         "'/test-warehouse/schemas/alltypestiny.parquet'",

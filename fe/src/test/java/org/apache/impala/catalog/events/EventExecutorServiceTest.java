@@ -202,7 +202,7 @@ public class EventExecutorServiceTest {
         isNeedProcess |= process(dbExecutor);
       }
     } while (--maxLoopTimes > 0 && isNeedProcess);
-    assertTrue("Events should be processed within the limit", maxLoopTimes > 0);
+    assertTrue(maxLoopTimes > 0, "Events should be processed within the limit");
   }
 
   private boolean process(DbEventExecutor dbExecutor) {
@@ -235,7 +235,7 @@ public class EventExecutorServiceTest {
     List<MetastoreEvent> metastoreEvents = eventsProcessor_.getEventsFactory()
         .getFilteredEvents(eventsProcessor_.getNextMetastoreEvents(),
             eventsProcessor_.getMetrics());
-    assertEquals("Remaining events: " + metastoreEvents, 0, metastoreEvents.size());
+    assertEquals(metastoreEvents.size(), "Remaining events: " + metastoreEvents, 0);
     assertEquals(0, eventsProcessor_.getOutstandingEventCount());
     eventsProcessor_.setEventExecutorService(eventExecutorService_);
     eventExecutorService.shutdown(true);
@@ -401,12 +401,11 @@ public class EventExecutorServiceTest {
     createTable(srcDbName, srcTableName);
     eventsProcessor_.processEvents();
     Table table = catalog_.getOrLoadTable(srcDbName, srcTableName, "test", null);
-    assertTrue("Table should have been loaded.", table instanceof HdfsTable);
+    assertTrue(table instanceof HdfsTable, "Table should have been loaded.");
     alterTableRename(srcDbName, srcTableName, targetDbName, targetTableName);
     eventsProcessor_.processEvents();
     Table tableAfterRename = catalog_.getTable(targetDbName, targetTableName);
-    assertTrue("Table after rename should be incomplete.",
-        tableAfterRename instanceof IncompleteTable);
+    assertTrue(tableAfterRename instanceof IncompleteTable, "Table after rename should be incomplete.");
   }
 
   private List<RenameTableBarrierEvent> renameTableAndGetBarrierEvents(String srcDbName,
@@ -418,7 +417,7 @@ public class EventExecutorServiceTest {
     createTable(srcDbName, srcTableName);
     eventsProcessor_.processEvents();
     Table table = catalog_.getOrLoadTable(srcDbName, srcTableName, "test", null);
-    assertTrue("Table should have been loaded.", table instanceof HdfsTable);
+    assertTrue(table instanceof HdfsTable, "Table should have been loaded.");
     alterTableRename(srcDbName, srcTableName, targetDbName, targetTableName);
     List<MetastoreEvent> metastoreEvents = eventsProcessor_.getEventsFactory()
         .getFilteredEvents(eventsProcessor_.getNextMetastoreEvents(),
@@ -536,11 +535,9 @@ public class EventExecutorServiceTest {
     eventsProcessor_.processEvents();
 
     Database finalDb = catalog_.getDb(dbName).getMetaStoreDb();
-    assertTrue(
-        String.format("Altered database should have set key %s to value %s in parameters",
-            dbKey, dbVal), dbVal.equals(finalDb.getParameters().get(dbKey)));
-    assertTrue("Altered database should have the updated location",
-        newLocation.equals(finalDb.getLocationUri()));
+    assertTrue(dbVal.equals(finalDb.getParameters().get(dbKey)), String.format("Altered database should have set key %s to value %s in parameters",
+            dbKey, dbVal));
+    assertTrue(newLocation.equals(finalDb.getLocationUri()), "Altered database should have the updated location");
   }
 
   /**
@@ -645,9 +642,8 @@ public class EventExecutorServiceTest {
    */
   @Test
   public void testCommitTxn() throws Exception {
-    Assumptions.assumeFalse("Skipping this since COMMIT_TXN events are ignored on Apache " +
-            "Hive 2/3. So the validWriteIds list is not updated correctly.",
-        TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
+    Assumptions.assumeFalse(TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3, "Skipping this since COMMIT_TXN events are ignored on Apache " +
+            "Hive 2/3. So the validWriteIds list is not updated correctly.");
     EventExecutorService eventExecutorService = createEventExecutorService(2, 2);
     transactionTest(false);
     shutDownEventExecutorService(eventExecutorService);
@@ -659,9 +655,8 @@ public class EventExecutorServiceTest {
    */
   @Test
   public void testAbortTxn() throws Exception {
-    Assumptions.assumeFalse("Skipping this since COMMIT_TXN events are ignored on Apache " +
-            "Hive 2/3. So the validWriteIds list is not updated correctly.",
-        TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
+    Assumptions.assumeFalse(TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3, "Skipping this since COMMIT_TXN events are ignored on Apache " +
+            "Hive 2/3. So the validWriteIds list is not updated correctly.");
     EventExecutorService eventExecutorService = createEventExecutorService(2, 2);
     transactionTest(true);
     shutDownEventExecutorService(eventExecutorService);
@@ -805,7 +800,7 @@ public class EventExecutorServiceTest {
     createTable(DB_NAME1, "t1");
     eventsProcessor_.processEvents();
     Table table = catalog_.getOrLoadTable(DB_NAME1, "t1", "test", null);
-    assertTrue("Table should have been loaded.", table instanceof HdfsTable);
+    assertTrue(table instanceof HdfsTable, "Table should have been loaded.");
     assertEquals(lastSyncedEventId + 2, eventsProcessor_.getLastSyncedEventId());
     assertEquals(eventsProcessor_.getLastSyncedEventId(),
         eventExecutorService.getGreatestSyncedEventId());

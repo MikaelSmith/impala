@@ -82,19 +82,17 @@ public class CompatibilityTest {
         // arithmetic operations. A float plus a decimal returns a decimal type.
         if ((fromPType == PrimitiveType.FLOAT || fromPType == PrimitiveType.DOUBLE) &&
             toPType == PrimitiveType.DECIMAL) {
-          assertTrue("Support mismatch for " + fromPType + " to  " + toPType + ". " +
+          assertTrue(!isSupportedImpala && isSupportedCalcite, "Support mismatch for " + fromPType + " to  " + toPType + ". " +
               "Impala does" + (isSupportedImpala ? "" : " not") +
               " support this conversion." +
               "SqlTypeName from is " + fromRelDataType.getSqlTypeName() +
-              ", SqlTypeName to is " + toRelDataType.getSqlTypeName() + ".",
-             !isSupportedImpala && isSupportedCalcite);
+              ", SqlTypeName to is " + toRelDataType.getSqlTypeName() + ".");
         } else {
-          assertTrue("Support mismatch for " + fromPType + " to  " + toPType + ". " +
+          assertTrue(isSupportedImpala == isSupportedCalcite, "Support mismatch for " + fromPType + " to  " + toPType + ". " +
               "Impala does" + (isSupportedImpala ? "" : " not") +
               " support this conversion." +
               "SqlTypeName from is " + fromRelDataType.getSqlTypeName() +
-              ", SqlTypeName to is " + toRelDataType.getSqlTypeName() + ".",
-             isSupportedImpala == isSupportedCalcite);
+              ", SqlTypeName to is " + toRelDataType.getSqlTypeName() + ".");
         }
       }
     }

@@ -63,7 +63,6 @@ under the License.
     <commons-lang3.version>${env.IMPALA_COMMONS_LANG3_VERSION}</commons-lang3.version>
     <reload4j.version>${env.IMPALA_RELOAD4j_VERSION}</reload4j.version>
     <junit.version>${env.IMPALA_JUNIT_VERSION}</junit.version>
-    <junit-platform.version>1.9.2</junit-platform.version>
     <!-- Beware compatibility requirements with Thrift and
          KMS; see IMPALA-4210. -->
     <httpcomponents.core.version>${env.IMPALA_HTTP_CORE_VERSION}</httpcomponents.core.version>
@@ -546,18 +545,6 @@ under the License.
         <groupId>org.junit.jupiter</groupId>
         <artifactId>junit-jupiter-params</artifactId>
         <version>${junit.version}</version>
-        <scope>test</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.junit.platform</groupId>
-        <artifactId>junit-platform-suite-api</artifactId>
-        <version>${junit-platform.version}</version>
-        <scope>test</scope>
-      </dependency>
-      <dependency>
-        <groupId>org.junit.platform</groupId>
-        <artifactId>junit-platform-suite-engine</artifactId>
-        <version>${junit-platform.version}</version>
         <scope>test</scope>
       </dependency>
       <dependency>

@@ -1094,16 +1094,14 @@ public class CardinalityTest extends PlannerTestBase {
   protected void verifyCardinality(String query, long expected) {
     List<PlanFragment> plan = getPlan(query);
     PlanNode planRoot = plan.get(0).getPlanRoot();
-    assertEquals("Cardinality error for: " + query, expected,
-        planRoot.getCardinality());
+    assertEquals(planRoot.getCardinality(), "Cardinality error for: " + query, expected);
   }
 
   protected void verifyCardinality(String query, long expected,
       boolean isDistributedPlan, Set<PlannerTestOption> testOptions) {
     List<PlanFragment> plan = getPlan(query, isDistributedPlan, testOptions);
     PlanNode planRoot = plan.get(0).getPlanRoot();
-    assertEquals("Cardinality error for: " + query, expected,
-        planRoot.getCardinality());
+    assertEquals(planRoot.getCardinality(), "Cardinality error for: " + query, expected);
   }
 
 
@@ -1132,10 +1130,9 @@ public class CardinalityTest extends PlannerTestBase {
     for (Integer currentChildIndex: path) {
       currentNode = currentNode.getChild(currentChildIndex);
     }
-    assertEquals("PlanNode class not matched: ", cl.getName(),
-        currentNode.getClass().getName());
-    assertEquals("Cardinality error for: " + query,
-        expected, currentNode.getCardinality());
+    assertEquals(cl.getName(), currentNode.getClass().getName(),
+        "PlanNode class not matched: ");
+    assertEquals(expected, currentNode.getCardinality(), "Cardinality error for: " + query);
   }
 
   /**
@@ -1150,8 +1147,8 @@ public class CardinalityTest extends PlannerTestBase {
   protected void verifyApproxCardinality(String query, long expected) {
     List<PlanFragment> plan = getPlan(query);
     PlanNode planRoot = plan.get(0).getPlanRoot();
-    assertEquals("Cardinality error for: " + query, expected,
-        planRoot.getCardinality(), expected * CARDINALITY_TOLERANCE);
+    assertEquals(expected, planRoot.getCardinality(), expected * CARDINALITY_TOLERANCE,
+        "Cardinality error for: " + query);
   }
 
   /**
@@ -1183,15 +1180,14 @@ public class CardinalityTest extends PlannerTestBase {
     // the distributed plan).
     PlanNode currentNode = plan.get(plan.size() - 1).getPlanRoot();
     for (Integer currentChildIndex: path) {
-      assertTrue(currentNode.getDisplayLabel() + " does not have child index "
-              + currentChildIndex,
-          currentNode.hasChild(currentChildIndex));
+      assertTrue(currentNode.hasChild(currentChildIndex), currentNode.getDisplayLabel() + " does not have child index "
+              + currentChildIndex);
       currentNode = currentNode.getChild(currentChildIndex);
     }
-    assertEquals("PlanNode class not matched: ", cl.getName(),
-        currentNode.getClass().getName());
-    assertEquals("Cardinality error for: " + query,
-        expected, currentNode.getCardinality(), expected * CARDINALITY_TOLERANCE);
+    assertEquals(cl.getName(), currentNode.getClass().getName(),
+        "PlanNode class not matched: ");
+    assertEquals(expected, currentNode.getCardinality(), expected * CARDINALITY_TOLERANCE,
+        "Cardinality error for: " + query);
   }
 
 
@@ -1282,8 +1278,8 @@ public class CardinalityTest extends PlannerTestBase {
     for (Integer currentChildIndex: path) {
       currentNode = currentNode.getChild(currentChildIndex);
     }
-    assertEquals("PlanNode class not matched: ", cl.getName(),
-        currentNode.getClass().getName());
+    assertEquals(cl.getName(), currentNode.getClass().getName(),
+        "PlanNode class not matched: ");
     return currentNode;
   }
 
@@ -1309,8 +1305,8 @@ public class CardinalityTest extends PlannerTestBase {
     if (isMultiNodes) {
       result = (long)Math.ceil(result * pNode.getFragment().getNumInstances());
     }
-    assertEquals("Memory Estimate error for: " + query, expected, result,
-        expected * CARDINALITY_TOLERANCE);
+    assertEquals(expected, result, expected * CARDINALITY_TOLERANCE,
+        "Memory Estimate error for: " + query);
   }
 
   @Test
@@ -1331,16 +1327,15 @@ public class CardinalityTest extends PlannerTestBase {
               totalInstances, globalNdv, inputCard, false, false, -1);
           String message = String.format(pattern, totalInstances, globalNdv, inputCard,
               false, false, -1, outputCard);
-          assertTrue(message + ", expect>=0", outputCard >= 0);
+          assertTrue(outputCard >= 0, message + ", expect>=0");
           if (inputCard == 0) {
-            assertTrue(message + ", expect=0", outputCard == 0);
+            assertTrue(outputCard == 0, message + ", expect=0");
           } else if (inputCard == -1 || totalInstances == 1) {
             long leastInputVsNdv =
                 MathUtil.smallestValidCardinality(inputCard, globalNdv);
-            assertTrue(
-                message + ", expect=" + leastInputVsNdv, outputCard == leastInputVsNdv);
+            assertTrue(outputCard == leastInputVsNdv, message + ", expect=" + leastInputVsNdv);
           } else {
-            assertTrue(message + ", expect<=" + inputCard, outputCard <= inputCard);
+            assertTrue(outputCard <= inputCard, message + ", expect<=" + inputCard);
           }
 
           // Test non-grouping preaggregation.
@@ -1348,13 +1343,12 @@ public class CardinalityTest extends PlannerTestBase {
               totalInstances, globalNdv, inputCard, true, false, -1);
           message = String.format(
               pattern, totalInstances, globalNdv, inputCard, true, false, -1, outputCard);
-          assertTrue(message + ", expect>=0", outputCard >= 0);
+          assertTrue(outputCard >= 0, message + ", expect>=0");
           long allDuplicate = MathUtil.multiplyCardinalities(globalNdv, totalInstances);
           long leastInputVsAllDuplicate =
               MathUtil.smallestValidCardinality(inputCard, allDuplicate);
           if (allDuplicate < inputCard) {
-            assertTrue(message + ", expect=" + leastInputVsAllDuplicate,
-                outputCard == leastInputVsAllDuplicate);
+            assertTrue(outputCard == leastInputVsAllDuplicate, message + ", expect=" + leastInputVsAllDuplicate);
           }
 
           // Test preaggregation with limit.
@@ -1364,11 +1358,11 @@ public class CardinalityTest extends PlannerTestBase {
                 totalInstances, globalNdv, inputCard, false, true, limit);
             message = String.format(pattern, totalInstances, globalNdv, inputCard, false,
                 true, limit, outputCard);
-            assertTrue(message + ", expect>=0", outputCard >= 0);
+            assertTrue(outputCard >= 0, message + ", expect>=0");
             long allAtLimit = MathUtil.multiplyCardinalities(totalInstances, limit);
             long leastOfAll =
                 MathUtil.smallestValidCardinality(allAtLimit, leastInputVsAllDuplicate);
-            assertTrue(message + ", expect=" + leastOfAll, outputCard == leastOfAll);
+            assertTrue(outputCard == leastOfAll, message + ", expect=" + leastOfAll);
           }
         }
       }

@@ -119,17 +119,13 @@ public class ExplainTest extends FrontendTestBase {
         Lists.newArrayList(Splitter.on('\n').omitEmptyStrings().trimResults().split(
             hdfsScanNode.getNodeExplainString("", "", TExplainLevel.STANDARD)));
 
-    Assertions.assertEquals(
-        "Scan node explain string not of expected size", 4, explainString.size());
-    Assertions.assertTrue("Scan node explain string does not contain correct base table "
-            + "scheme",
-        explainString.get(0).contains("SCAN HDFS"));
-    Assertions.assertTrue("Scan node explain string does not correct ADLS metadata",
-        explainString.get(1).contains("ADLS partitions=6/10 files=6 size=6B"));
-    Assertions.assertTrue("Scan node explain string does not correct HDFS metadata",
-        explainString.get(2).contains("HDFS partitions=2/10 files=2 size=2B"));
-    Assertions.assertTrue("Scan node explain string does not correct S3 metadata",
-        explainString.get(3).contains("S3 partitions=2/10 files=2 size=2B"));
+    Assertions.assertEquals(4, explainString.size(),
+        "Scan node explain string not of expected size");
+    Assertions.assertTrue(explainString.get(0).contains("SCAN HDFS"), "Scan node explain string does not contain correct base table "
+            + "scheme");
+    Assertions.assertTrue(explainString.get(1).contains("ADLS partitions=6/10 files=6 size=6B"), "Scan node explain string does not correct ADLS metadata");
+    Assertions.assertTrue(explainString.get(2).contains("HDFS partitions=2/10 files=2 size=2B"), "Scan node explain string does not correct HDFS metadata");
+    Assertions.assertTrue(explainString.get(3).contains("S3 partitions=2/10 files=2 size=2B"), "Scan node explain string does not correct S3 metadata");
   }
 
   private TupleDescriptor createMockTupleDescriptor(FeFsTable mockFeFsTable) {

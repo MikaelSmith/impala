@@ -141,7 +141,7 @@ public class AnalyzerTest extends FrontendTestBase {
     dateTblTupleDesc.materializeSlots();
     descTbl.computeMemLayout();
 
-    assertEquals(89.0f, tupleDesc.getAvgSerializedSize(), 0.0);
+    assertEquals(tupleDesc.getAvgSerializedSize(), 0.0, 89.0f);
     checkLayoutParams(tupleDesc, "timestamp_col", 16, 0, 80, 0, analyzer);
     checkLayoutParams(tupleDesc, "date_string_col", 12, 16, 80, 1, analyzer);
     checkLayoutParams(tupleDesc, "string_col", 12, 28, 80, 2, analyzer);
@@ -156,7 +156,7 @@ public class AnalyzerTest extends FrontendTestBase {
     checkLayoutParams(tupleDesc, "bool_col", 1, 78, 81, 3, analyzer);
     checkLayoutParams(tupleDesc, "tinyint_col", 1, 79, 81, 4, analyzer);
 
-    Assertions.assertEquals(12, dateTblTupleDesc.getAvgSerializedSize(), 0.0);
+    Assertions.assertEquals(dateTblTupleDesc.getAvgSerializedSize(), 0.0, 12);
     checkLayoutParams(dateTblTupleDesc, "id_col", 4, 0, 12, 0, analyzer);
     checkLayoutParams(dateTblTupleDesc, "date_col", 4, 4, 12, 1, analyzer);
     checkLayoutParams(dateTblTupleDesc, "date_part", 4, 8, 12, 2, analyzer);
@@ -173,7 +173,7 @@ public class AnalyzerTest extends FrontendTestBase {
     TupleDescriptor aggDesc = descTbl.getTupleDesc(new TupleId(1));
     aggDesc.materializeSlots();
     descTbl.computeMemLayout();
-    assertEquals(16.0f, aggDesc.getAvgSerializedSize(), 0.0);
+    assertEquals(aggDesc.getAvgSerializedSize(), 0.0, 16.0f);
     assertEquals(16, aggDesc.getByteSize());
     checkLayoutParams(aggDesc.getSlots().get(0), 8, 0, 0, -1);
     checkLayoutParams(aggDesc.getSlots().get(1), 8, 8, 0, -1);
@@ -191,7 +191,7 @@ public class AnalyzerTest extends FrontendTestBase {
     TupleDescriptor aggDesc = descTbl.getTupleDesc(new TupleId(1));
     aggDesc.materializeSlots();
     descTbl.computeMemLayout();
-    assertEquals(16.0f, aggDesc.getAvgSerializedSize(), 0.0);
+    assertEquals(aggDesc.getAvgSerializedSize(), 0.0, 16.0f);
     assertEquals(17, aggDesc.getByteSize());
     checkLayoutParams(aggDesc.getSlots().get(0), 8, 0, 16, 0);
     checkLayoutParams(aggDesc.getSlots().get(1), 8, 8, 0, -1);
@@ -222,7 +222,7 @@ public class AnalyzerTest extends FrontendTestBase {
 
     descTbl.computeMemLayout();
 
-    assertEquals(64.0f, tupleDesc.getAvgSerializedSize(), 0.0);
+    assertEquals(tupleDesc.getAvgSerializedSize(), 0.0, 64.0f);
     // Check non-materialized slots.
     checkLayoutParams(tupleDesc, "id", 0, -1, 0, 0, analyzer);
     checkLayoutParams(tupleDesc, "double_col", 0, -1, 0, 0, analyzer);
@@ -239,7 +239,7 @@ public class AnalyzerTest extends FrontendTestBase {
     checkLayoutParams(tupleDesc, "bool_col", 1, 54, 57, 0, analyzer);
     checkLayoutParams(tupleDesc, "tinyint_col", 1, 55, 57, 1, analyzer);
 
-    Assertions.assertEquals(4, dateTblTupleDesc.getAvgSerializedSize(), 0.0);
+    Assertions.assertEquals(dateTblTupleDesc.getAvgSerializedSize(), 0.0, 4);
     // Non-materialized slots.
     checkLayoutParams(dateTblTupleDesc, "id_col", 0, -1, 0, 0, analyzer);
     checkLayoutParams(dateTblTupleDesc, "date_col", 0, -1, 0, 0, analyzer);

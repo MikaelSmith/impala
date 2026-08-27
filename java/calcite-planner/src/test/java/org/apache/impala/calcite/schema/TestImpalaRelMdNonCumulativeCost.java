@@ -69,7 +69,7 @@ public class TestImpalaRelMdNonCumulativeCost {
     Double directAverageSize = mq.getAverageRowSize(values);
 
     assertNotNull(directAverageSize);
-    assertEquals(directAverageSize, mq.getAverageRowSize(subset), DOUBLE_ERR);
+    assertEquals(mq.getAverageRowSize(subset), DOUBLE_ERR, directAverageSize);
   }
 
   @Test
@@ -84,9 +84,9 @@ public class TestImpalaRelMdNonCumulativeCost {
     Double directAverageSize = mq.getAverageRowSize(values);
 
     assertNotNull(directAverageSize);
-    assertEquals(directAverageSize, mq.getAverageRowSize(consumer), DOUBLE_ERR);
-    assertEquals(directAverageSize, mq.getAverageRowSize(producer), DOUBLE_ERR);
-    assertEquals(directAverageSize, mq.getAverageRowSize(sequence), DOUBLE_ERR);
+    assertEquals(mq.getAverageRowSize(consumer), DOUBLE_ERR, directAverageSize);
+    assertEquals(mq.getAverageRowSize(producer), DOUBLE_ERR, directAverageSize);
+    assertEquals(mq.getAverageRowSize(sequence), DOUBLE_ERR, directAverageSize);
   }
 
   @Test

@@ -62,13 +62,11 @@ public class JwtWebserverTest {
     long actualAuthSuccess =
         (long) client_.getMetric("impala.webserver.total-" + auth_type +
             "-token-auth-success");
-    assertTrue("Expected: " + expectedAuthSuccess + ", Actual: " + actualAuthSuccess,
-        expectedAuthSuccess.contains(actualAuthSuccess));
+    assertTrue(expectedAuthSuccess.contains(actualAuthSuccess), "Expected: " + expectedAuthSuccess + ", Actual: " + actualAuthSuccess);
     long actualAuthFailure =
         (long) client_.getMetric("impala.webserver.total-" + auth_type +
              "-token-auth-failure");
-    assertTrue("Expected: " + expectedAuthFailure + ", Actual: " + actualAuthFailure,
-        expectedAuthFailure.contains(actualAuthFailure));
+    assertTrue(expectedAuthFailure.contains(actualAuthFailure), "Expected: " + expectedAuthFailure + ", Actual: " + actualAuthFailure);
   }
 
   /**

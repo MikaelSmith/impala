@@ -53,9 +53,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,9 +79,6 @@ public class PartialCatalogInfoWriteIdTest {
   private static final String testPartitionedTbl = "insert_only_partitioned";
   private static final String testAcidTblName = "test_full_acid";
 
-  @Rule
-  public TestName name = new TestName();
-
   @BeforeAll
   public static void setupTestEnv() throws SQLException, ClassNotFoundException {
     catalog_ = CatalogServiceTestCatalog.create();
@@ -102,7 +97,7 @@ public class PartialCatalogInfoWriteIdTest {
 
   @BeforeEach
   public void createTestTbls() throws Exception {
-    LOG.info("Creating test tables for {}", name.getMethodName());
+    LOG.info("Creating test tables");
     Stopwatch st = Stopwatch.createStarted();
     ImpalaJdbcClient client = ImpalaJdbcClient
         .createClientUsingHiveJdbcDriver();
@@ -180,8 +175,7 @@ public class PartialCatalogInfoWriteIdTest {
   public void testCatalogBehindClientWriteIds() throws Exception {
     Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testTblName, "test", null);
-    Assertions.assertFalse("Table must be loaded",
-      tbl instanceof IncompleteTable);
+    Assertions.assertFalse(tbl instanceof IncompleteTable, "Table must be loaded");
     long previousVersion = tbl.getCatalogVersion();
     // do some hive operations to advance the writeIds in HMS
     executeHiveSql("insert into " + getTestTblName() + " values (2)");
@@ -211,8 +205,7 @@ public class PartialCatalogInfoWriteIdTest {
   public void testCatalogAheadOfClientWriteIds() throws Exception {
     Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testTblName, "test", null);
-    Assertions.assertFalse("Table must be loaded",
-      tbl instanceof IncompleteTable);
+    Assertions.assertFalse(tbl instanceof IncompleteTable, "Table must be loaded");
     ValidWriteIdList validWriteIdList = getValidWriteIdList(testDbName, testTblName);
     // now insert into the table to advance the writeId
     executeHiveSql("insert into " + getTestTblName() + " values (2)");
@@ -249,8 +242,7 @@ public class PartialCatalogInfoWriteIdTest {
     Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testPartitionedTbl, "test", null);
     long olderVersion = tbl.getCatalogVersion();
-    Assertions.assertFalse("Table must be loaded",
-      tbl instanceof IncompleteTable);
+    Assertions.assertFalse(tbl instanceof IncompleteTable, "Table must be loaded");
     ValidWriteIdList olderWriteIdList = getValidWriteIdList(testDbName,
       testPartitionedTbl);
     executeHiveSql("insert into " + getPartitionedTblName() + " partition (part=2) "
@@ -352,8 +344,7 @@ public class PartialCatalogInfoWriteIdTest {
   public void fetchAfterMajorCompaction() throws Exception {
     Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testPartitionedTbl, "test", null);
-    Assertions.assertFalse("Table must be loaded",
-        tbl instanceof IncompleteTable);
+    Assertions.assertFalse(tbl instanceof IncompleteTable, "Table must be loaded");
     // row 2
     executeHiveSql("insert into " + getPartitionedTblName() + " partition (part=1) "
         + "values (2)");
@@ -450,8 +441,7 @@ public class PartialCatalogInfoWriteIdTest {
   public void testFetchAfterMinorCompaction() throws Exception {
     Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testTblName, "test", null);
-    Assertions.assertFalse("Table must be loaded",
-        tbl instanceof IncompleteTable);
+    Assertions.assertFalse(tbl instanceof IncompleteTable, "Table must be loaded");
     // row 2, first row is in the setup method
     executeHiveSql("insert into " + getTestTblName() + " values (2)");
     ValidWriteIdList olderWriteIdList = getValidWriteIdList(testDbName,
@@ -617,7 +607,7 @@ public class PartialCatalogInfoWriteIdTest {
         getPathsFromFileDescriptors(afterPartitionInfo.getInsert_file_descriptors()) +
         "\nActual delete_file_descriptors:\n" +
         getPathsFromFileDescriptors(afterPartitionInfo.getDelete_file_descriptors());
-    Assertions.assertEquals(message, expectedFileCount, afterFileCount);
+    Assertions.assertEquals(expectedFileCount, afterFileCount, message);
     long numMissesAfterMinor =
         getMetricCount(testDbName, tableName, HdfsTable.FILEMETADATA_CACHE_MISS_METRIC);
     long numHitsAfterMinor =
@@ -644,8 +634,7 @@ public class PartialCatalogInfoWriteIdTest {
     // row 2, first row is in the setup method
     executeImpalaSql("insert into " + getTestTblName() + " values (2)");
     Table tbl = catalog_.getOrLoadTable(testDbName, testTblName, "test", null);
-    Assertions.assertFalse("Table must be loaded",
-        tbl instanceof IncompleteTable);
+    Assertions.assertFalse(tbl instanceof IncompleteTable, "Table must be loaded");
     ValidWriteIdList olderWriteIdList = getValidWriteIdList(testDbName,
         testTblName);
     Assertions.assertEquals(olderWriteIdList.toString(), tbl.getValidWriteIds().toString());
@@ -687,8 +676,7 @@ public class PartialCatalogInfoWriteIdTest {
     for (int i=0; i<newFds.size(); i++) {
       // we expect that table was reloaded and hence the file descriptors should be
       // different
-      Assertions.assertNotEquals("Found the new file descriptor same as old one",
-          newFds.get(i), oldFds.get(i));
+      Assertions.assertNotEquals(oldFds.get(i), "Found the new file descriptor same as old one", newFds.get(i));
     }
   }
 
@@ -704,7 +692,7 @@ public class PartialCatalogInfoWriteIdTest {
         + " where id % 2 = 0");
     catalog_.reset(NoOpEventSequence.INSTANCE);
     Table tbl = catalog_.getOrLoadTable(testDbName, testAcidTblName, "test", null);
-    Assertions.assertFalse("Table must be loaded", tbl instanceof IncompleteTable);
+    Assertions.assertFalse(tbl instanceof IncompleteTable, "Table must be loaded");
     ValidWriteIdList olderWriteIdList = getValidWriteIdList(testDbName, testAcidTblName);
     // Let's delete again to generate a new write id for the table.
     executeHiveSql("delete from " + getTestFullAcidTblName()
@@ -888,7 +876,6 @@ public class PartialCatalogInfoWriteIdTest {
   private void invalidateTbl(String db, String tbl) throws CatalogException {
     catalog_.invalidateTable(new TTableName(db, tbl), new Reference<>(),
       new Reference<>(), NoOpEventSequence.INSTANCE);
-    Assertions.assertTrue("Table must not be loaded",
-      catalog_.getTable(db, tbl) instanceof IncompleteTable);
+    Assertions.assertTrue(catalog_.getTable(db, tbl) instanceof IncompleteTable, "Table must not be loaded");
   }
 }

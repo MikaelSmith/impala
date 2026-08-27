@@ -19,6 +19,7 @@ package org.apache.impala.hive.common;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -198,7 +199,7 @@ public class MutableValidReaderWriteIdListTest {
     assertTrue(mutableWriteIdList.isWriteIdValid(11));
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testAddAbortedToCommitted() {
     long[] exceptions = {2L, 4L, 6L, 8L, 10L};
     BitSet bitSet = new BitSet(exceptions.length);
@@ -208,7 +209,8 @@ public class MutableValidReaderWriteIdListTest {
         new ValidReaderWriteIdList(tableName, exceptions, bitSet, 11, 4);
     MutableValidReaderWriteIdList mutableWriteIdList =
         new MutableValidReaderWriteIdList(writeIdList);
-    mutableWriteIdList.addCommittedWriteIds(Collections.singletonList(2L));
+    assertThrows(IllegalStateException.class,
+        () -> mutableWriteIdList.addCommittedWriteIds(Collections.singletonList(2L)));
   }
 
   @Test

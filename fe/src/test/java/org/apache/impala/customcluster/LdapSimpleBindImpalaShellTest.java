@@ -24,11 +24,8 @@ import static org.apache.impala.testutil.LdapUtil.*;
 import com.google.common.collect.ImmutableMap;
 import org.apache.directory.server.core.annotations.CreateDS;
 import org.apache.directory.server.core.annotations.CreatePartition;
-import org.junit.ClassRule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,18 +40,16 @@ import java.io.IOException;
  */
 @CreateDS(name = "myDS",
     partitions = { @CreatePartition(name = "test", suffix = "dc=myorg,dc=com") })
-@RunWith(Parameterized.class)
 public class LdapSimpleBindImpalaShellTest extends LdapImpalaShellTest {
 
-  @ClassRule
+  @RegisterExtension
   public static KerberosKdcEnvironment kerberosKdcEnvironment =
-          new KerberosKdcEnvironment(new TemporaryFolder());
+          new KerberosKdcEnvironment();
 
   private final boolean kerberosAuthenticationEnabled;
 
-  @Parameterized.Parameters(name = "kerberosAuthenticationEnabled={0}")
-  public static Boolean[] kerberosAuthenticationEnabled() {
-    return new Boolean[] {Boolean.FALSE, Boolean.TRUE};
+  public LdapSimpleBindImpalaShellTest() {
+    this(false);
   }
 
   public LdapSimpleBindImpalaShellTest(boolean isKerberosAuthenticationEnabled) {

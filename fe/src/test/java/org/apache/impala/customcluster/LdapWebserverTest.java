@@ -43,7 +43,6 @@ import org.apache.directory.server.core.annotations.CreatePartition;
 import org.apache.directory.server.annotations.CreateLdapServer;
 import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
-import org.apache.directory.server.core.integ.CreateLdapServerRule;
 import org.apache.hive.service.rpc.thrift.*;
 import org.apache.http.cookie.Cookie;
 import org.apache.http.message.BasicHeader;
@@ -52,35 +51,37 @@ import org.apache.http.NameValuePair;
 import org.apache.impala.testutil.WebClient;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.THttpClient;
+import org.apache.directory.server.core.integ.ApacheDSTestExtension;
+import org.apache.directory.server.ldap.LdapServer;
 import org.json.simple.JSONObject;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.File;
 
 @CreateDS(name = "myDS",
     partitions = { @CreatePartition(name = "test", suffix = "dc=myorg,dc=com") })
 @CreateLdapServer(
     transports = { @CreateTransport(protocol = "LDAP", address = "localhost") })
 @ApplyLdifFiles({"users.ldif"})
+@ExtendWith(ApacheDSTestExtension.class)
 public class LdapWebserverTest {
-  @ClassRule
-  public static CreateLdapServerRule serverRule = new CreateLdapServerRule();
+  public static LdapServer classLdapServer;
 
   private static final Range<Long> zero = Range.closed(0L, 0L);
 
   // Temp folder where the config files are copied so we can modify them in place.
-  // The JUnit @Rule creates and removes the temp folder between every test.
-  @Rule
-  public TemporaryFolder tempFolder = new TemporaryFolder();
+  @TempDir
+  public File tempFolder;
 
   WebClient client_ = new WebClient(TEST_USER_1, TEST_PASSWORD_1);
 
   public void setUp(String extraArgs, String startArgs, String catalogdArgs,
       String stateStoredArgs, String admissiondArgs) throws Exception {
     String uri =
-        String.format("ldap://localhost:%s", serverRule.getLdapServer().getPort());
+        String.format("ldap://localhost:%s", classLdapServer.getPort());
     String dn = "cn=#UID,ou=Users,dc=myorg,dc=com";
     String impalaArgs = String.format("--enable_ldap_auth --ldap_uri='%s' "
             + "--ldap_bind_pattern='%s' --ldap_passwords_in_clear_ok "
@@ -107,48 +108,40 @@ public class LdapWebserverTest {
       Range<Long> expectedCookieFailure) throws Exception {
     long actualBasicSuccess =
         (long) client_.getMetric("impala.webserver.total-basic-auth-success");
-    assertTrue("Expected: " + expectedBasicSuccess + ", Actual: " + actualBasicSuccess,
-        expectedBasicSuccess.contains(actualBasicSuccess));
+    assertTrue(expectedBasicSuccess.contains(actualBasicSuccess), "Expected: " + expectedBasicSuccess + ", Actual: " + actualBasicSuccess);
     long actualBasicFailure =
         (long) client_.getMetric("impala.webserver.total-basic-auth-failure");
-    assertTrue("Expected: " + expectedBasicFailure + ", Actual: " + actualBasicFailure,
-        expectedBasicFailure.contains(actualBasicFailure));
+    assertTrue(expectedBasicFailure.contains(actualBasicFailure), "Expected: " + expectedBasicFailure + ", Actual: " + actualBasicFailure);
 
     long actualCookieSuccess =
         (long) client_.getMetric("impala.webserver.total-cookie-auth-success");
-    assertTrue("Expected: " + expectedCookieSuccess + ", Actual: " + actualCookieSuccess,
-        expectedCookieSuccess.contains(actualCookieSuccess));
+    assertTrue(expectedCookieSuccess.contains(actualCookieSuccess), "Expected: " + expectedCookieSuccess + ", Actual: " + actualCookieSuccess);
     long actualCookieFailure =
         (long) client_.getMetric("impala.webserver.total-cookie-auth-failure");
-    assertTrue("Expected: " + expectedCookieFailure + ", Actual: " + actualCookieFailure,
-        expectedCookieFailure.contains(actualCookieFailure));
+    assertTrue(expectedCookieFailure.contains(actualCookieFailure), "Expected: " + expectedCookieFailure + ", Actual: " + actualCookieFailure);
   }
 
   private void verifyTrustedDomainMetrics(Range<Long> expectedSuccess) throws Exception {
     long actualSuccess = (long) client_
         .getMetric("impala.webserver.total-trusted-domain-check-success");
-    assertTrue("Expected: " + expectedSuccess + ", Actual: " + actualSuccess,
-        expectedSuccess.contains(actualSuccess));
+    assertTrue(expectedSuccess.contains(actualSuccess), "Expected: " + expectedSuccess + ", Actual: " + actualSuccess);
   }
 
   private void verifyTrustedAuthHeaderMetrics(Range<Long> expectedSuccess)
       throws Exception {
     long actualSuccess = (long) client_.getMetric(
         "impala.webserver.total-trusted-auth-header-check-success");
-    assertTrue("Expected: " + expectedSuccess + ", Actual: " + actualSuccess,
-        expectedSuccess.contains(actualSuccess));
+    assertTrue(expectedSuccess.contains(actualSuccess), "Expected: " + expectedSuccess + ", Actual: " + actualSuccess);
   }
 
   private void verifyJwtAuthMetrics(
       Range<Long> expectedAuthSuccess, Range<Long> expectedAuthFailure) throws Exception {
     long actualAuthSuccess =
         (long) client_.getMetric("impala.webserver.total-jwt-token-auth-success");
-    assertTrue("Expected: " + expectedAuthSuccess + ", Actual: " + actualAuthSuccess,
-        expectedAuthSuccess.contains(actualAuthSuccess));
+    assertTrue(expectedAuthSuccess.contains(actualAuthSuccess), "Expected: " + expectedAuthSuccess + ", Actual: " + actualAuthSuccess);
     long actualAuthFailure =
         (long) client_.getMetric("impala.webserver.total-jwt-token-auth-failure");
-    assertTrue("Expected: " + expectedAuthFailure + ", Actual: " + actualAuthFailure,
-        expectedAuthFailure.contains(actualAuthFailure));
+    assertTrue(expectedAuthFailure.contains(actualAuthFailure), "Expected: " + expectedAuthFailure + ", Actual: " + actualAuthFailure);
   }
 
   @Test
@@ -161,7 +154,7 @@ public class LdapWebserverTest {
     // Attempt to access the webserver without a username/password.
     try (WebClient noUsername = new WebClient()) {
       String result = noUsername.readContent("/");
-      assertTrue(result, result.contains("Must authenticate with Basic authentication."));
+      assertTrue(result.contains("Must authenticate with Basic authentication."), result);
       // Check that there is one unsuccessful auth attempt.
       verifyMetrics(Range.atLeast(1L), Range.closed(1L, 1L), Range.atLeast(1L), zero);
     }
@@ -169,7 +162,7 @@ public class LdapWebserverTest {
     // Attempt to access the webserver with invalid username/password.
     try (WebClient invalidUserPass = new WebClient("invalid", "invalid")) {
       String result = invalidUserPass.readContent("/");
-      assertTrue(result, result.contains("Must authenticate with Basic authentication."));
+      assertTrue(result.contains("Must authenticate with Basic authentication."), result);
       // Check that there is now two unsuccessful auth attempts.
       verifyMetrics(Range.atLeast(1L), Range.closed(2L, 2L), Range.atLeast(1L), zero);
     }
@@ -178,7 +171,7 @@ public class LdapWebserverTest {
   @Test
   public void testWebserverSharedCookie() throws Exception {
     // Write a temporary key file for the cookie secret.
-    File keyFile = tempFolder.newFile();
+    File keyFile = File.createTempFile("junit", null, tempFolder);
     writeCookieSecret(keyFile);
 
     setUp(String.format("--cookie_secret_file=%s", keyFile.getCanonicalPath()),
@@ -191,13 +184,13 @@ public class LdapWebserverTest {
     // succeed.
     try (WebClient cookieOnly = new WebClient("", "", 25001, client_.getCookies())) {
       String result = cookieOnly.readContent("/");
-      assertTrue(result, result.contains("<title>Apache Impala</title>"));
+      assertTrue(result.contains("<title>Apache Impala</title>"), result);
     }
 
     // Access the original webserver, then reload the cookie.
     try (WebClient cookieOnly = new WebClient("", "", 25000, client_.getCookies())) {
       String result = cookieOnly.readContent("/");
-      assertTrue(result, result.contains("<title>Apache Impala</title>"));
+      assertTrue(result.contains("<title>Apache Impala</title>"), result);
       // Check that there were no unsuccessful auth attempts.
       verifyMetrics(Range.atLeast(1L), zero, Range.atLeast(1L), zero);
 
@@ -210,7 +203,7 @@ public class LdapWebserverTest {
         }
         return res;
       }, 20, 100);
-      assertTrue(result, result.contains("Must authenticate with Basic authentication."));
+      assertTrue(result.contains("Must authenticate with Basic authentication."), result);
       // Check that there is an unsuccessful cookie attempt, which also generates an
       // unsuccessful basic auth attempt since the cookie is invalid. There is a 2nd
       // cookie failure from client_ reconnecting.
@@ -242,7 +235,7 @@ public class LdapWebserverTest {
     // filter, should fail.
     try (WebClient user2 = new WebClient(TEST_USER_2, TEST_PASSWORD_2)) {
       String result = user2.readContent("/");
-      assertTrue(result, result.contains("Must authenticate with Basic authentication."));
+      assertTrue(result.contains("Must authenticate with Basic authentication."), result);
       // Check that there is one unsuccessful auth attempt.
       verifyMetrics(Range.atLeast(1L), Range.closed(1L, 1L), Range.atLeast(1L), zero);
     }
@@ -251,7 +244,7 @@ public class LdapWebserverTest {
     // filter, should fail.
     try (WebClient user3 = new WebClient(TEST_USER_3, TEST_PASSWORD_3)) {
       String result = user3.readContent("/");
-      assertTrue(result, result.contains("Must authenticate with Basic authentication."));
+      assertTrue(result.contains("Must authenticate with Basic authentication."), result);
       // Check that there is now two unsuccessful auth attempts.
       verifyMetrics(Range.atLeast(1L), Range.closed(2L, 2L), Range.atLeast(1L), zero);
     }
@@ -259,7 +252,7 @@ public class LdapWebserverTest {
     // Access the webserver with a user that doesn't pass either filter, should fail.
     try (WebClient user4 = new WebClient(TEST_USER_4, TEST_PASSWORD_4)) {
       String result = user4.readContent("/");
-      assertTrue(result, result.contains("Must authenticate with Basic authentication."));
+      assertTrue(result.contains("Must authenticate with Basic authentication."), result);
       // Check that there is now three unsuccessful auth attempts.
       verifyMetrics(Range.atLeast(1L), Range.closed(3L, 3L), Range.atLeast(1L), zero);
     }
@@ -279,13 +272,13 @@ public class LdapWebserverTest {
     // Attempt to access the regular webserver without a username/password, should fail.
     try (WebClient noUsername = new WebClient()) {
       String result = noUsername.readContent("/");
-      assertTrue(result, result.contains("Must authenticate with Basic authentication."));
+      assertTrue(result.contains("Must authenticate with Basic authentication."), result);
     }
 
     // Attempt to access the regular webserver with invalid username/password.
     try (WebClient invalidUserPass = new WebClient("invalid", "invalid")) {
       String result = invalidUserPass.readContent("/");
-      assertTrue(result, result.contains("Must authenticate with Basic authentication."));
+      assertTrue(result.contains("Must authenticate with Basic authentication."), result);
     }
 
     // Attempt to access the metrics webserver without a username/password.
@@ -297,22 +290,18 @@ public class LdapWebserverTest {
       for (String endpoint :
           new String[] {"/metrics", "/jsonmetrics", "/metrics_prometheus", "/healthz"}) {
         String result = noUsernameMetrics.readContent(endpoint);
-        assertFalse(
-            result, result.contains("Must authenticate with Basic authentication."));
+        assertFalse(result.contains("Must authenticate with Basic authentication."), result);
         result = catalogdMetrics.readContent(endpoint);
-        assertFalse(
-            result, result.contains("Must authenticate with Basic authentication."));
+        assertFalse(result.contains("Must authenticate with Basic authentication."), result);
         result = statestoredMetrics.readContent(endpoint);
-        assertFalse(
-            result, result.contains("Must authenticate with Basic authentication."));
+        assertFalse(result.contains("Must authenticate with Basic authentication."), result);
         result = admissiondMetrics.readContent(endpoint);
-        assertFalse(
-            result, result.contains("Must authenticate with Basic authentication."));
+        assertFalse(result.contains("Must authenticate with Basic authentication."), result);
       }
 
       for (String endpoint : new String[] {"/varz", "/backends"}) {
         String result = noUsernameMetrics.readContent(endpoint);
-        assertTrue(result, result.contains("No URI handler for"));
+        assertTrue(result.contains("No URI handler for"), result);
       }
     }
   }
@@ -707,7 +696,7 @@ public class LdapWebserverTest {
       for (String token : tokens) {
         if (token.charAt(0) == 'r' && token.charAt(1) == '=') {
           String rand = token.substring(2);
-          assertTrue("Expected number: " + rand, rand.matches("^[1-9][0-9]*$"));
+          assertTrue(rand.matches("^[1-9][0-9]*$"), "Expected number: " + rand);
           return rand;
         }
       }

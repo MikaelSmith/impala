@@ -66,8 +66,7 @@ public class ExternalFrontendTest {
     // arguments
     int ret = CustomClusterRunner.StartImpalaCluster(
         "", "", "", "--per_impalad_args=" + impaladFlags);
-    Assertions.assertEquals(
-        "custom cluster failed to start with args: " + impaladFlags, ret, 0);
+    Assertions.assertEquals(0, "custom cluster failed to start with args: " + impaladFlags, ret);
   }
 
   void setupExternalFe() throws Exception { setup(externalFePort, false); }

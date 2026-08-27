@@ -17,10 +17,10 @@
 
 package org.apache.impala.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,15 +33,15 @@ import org.apache.impala.common.ImpalaRuntimeException;
 import org.apache.impala.thrift.TIcebergDmlFinalizeParams;
 import org.apache.impala.thrift.TIcebergOperation;
 import org.apache.impala.thrift.TIcebergOperationParam;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class IcebergCatalogOpExecutorTest {
   private FeIcebergTable table_;
   private org.apache.iceberg.Table icebergApiTable_;
   private TIcebergOperationParam operation_;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     table_ = mock(FeIcebergTable.class);
     icebergApiTable_ = mock(org.apache.iceberg.Table.class);

@@ -544,10 +544,9 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
     Preconditions.checkState(!e.getType().isCollectionType());
     SlotRef slotRef = (SlotRef) e;
     List<Integer> actualAbsPath = slotRef.getDesc().getPath().getAbsolutePath();
-    Assertions.assertEquals("Mismatched absolute paths.", expectedAbsPath, actualAbsPath);
+    Assertions.assertEquals(actualAbsPath, "Mismatched absolute paths.", expectedAbsPath);
     List<Integer> actualMatPath = slotRef.getDesc().getMaterializedPath();
-    Assertions.assertEquals("Mismatched absolute/materialized paths.",
-        actualAbsPath, actualMatPath);
+    Assertions.assertEquals(actualMatPath, "Mismatched absolute/materialized paths.", actualAbsPath);
   }
 
   /**
@@ -565,11 +564,11 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
       SlotRef slotRef = (SlotRef) e;
       List<Integer> actualAbsPath = slotRef.getDesc().getPath().getAbsolutePath();
       List<Integer> actualMatPath = slotRef.getDesc().getMaterializedPath();
-      Assertions.assertEquals("Mismatched paths.", actualAbsPath, actualMatPath);
+      Assertions.assertEquals(actualMatPath, "Mismatched paths.", actualAbsPath);
       actualAbsPaths.add(actualAbsPath);
     }
     List<List<Integer>> expectedPaths = Lists.newArrayList(expectedAbsPaths);
-    Assertions.assertEquals("Mismatched absolute paths.", expectedPaths, actualAbsPaths);
+    Assertions.assertEquals(actualAbsPaths, "Mismatched absolute paths.", expectedPaths);
   }
 
   /**
@@ -586,11 +585,11 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
     TableRef lastTblRef = stmt.getTableRefs().get(stmt.getTableRefs().size() - 1);
     // Check absolute path.
     List<Integer> actualAbsPath = lastTblRef.getDesc().getPath().getAbsolutePath();
-    Assertions.assertEquals("Mismatched absolute paths.", expectedAbsPath, actualAbsPath);
+    Assertions.assertEquals(actualAbsPath, "Mismatched absolute paths.", expectedAbsPath);
     // Check materialized path.
     if (!lastTblRef.isRelative()) {
-      Assertions.assertNull("There is no materialized path for non-relative table refs.\n" +
-          "The expected materialized path should be null.", expectedMatPath);
+      Assertions.assertNull(expectedMatPath, "There is no materialized path for non-relative table refs.\n" +
+          "The expected materialized path should be null.");
       return;
     }
     CollectionTableRef collectionTblRef = (CollectionTableRef) lastTblRef;
@@ -598,10 +597,8 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
     Preconditions.checkState(collectionExpr instanceof SlotRef);
     SlotRef collectionSlotRef = (SlotRef) collectionExpr;
     SlotDescriptor collectionSlotDesc = collectionSlotRef.getDesc();
-    Assertions.assertEquals("Mismatched paths.",
-        actualAbsPath, collectionSlotDesc.getPath().getAbsolutePath());
-    Assertions.assertEquals("Mismatched materialized paths.",
-        expectedMatPath, collectionSlotDesc.getMaterializedPath());
+    Assertions.assertEquals(collectionSlotDesc.getPath().getAbsolutePath(), "Mismatched paths.", actualAbsPath);
+    Assertions.assertEquals(collectionSlotDesc.getMaterializedPath(), "Mismatched materialized paths.", expectedMatPath);
   }
 
   @SuppressWarnings("unchecked")

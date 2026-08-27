@@ -89,7 +89,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
       executor.reduce(queryObj.rexBuilder_, queryObj.project_.getProjects(),
           reducedExprs);
 
-      assertEquals(1, reducedExprs.size(), 1);
+      assertEquals(reducedExprs.size(), 1, 1);
       assertEquals("2:SMALLINT", reducedExprs.get(0).toString());
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
@@ -122,7 +122,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
           reducedExprs);
 
 
-      assertEquals(1, reducedExprs.size(), 1);
+      assertEquals(reducedExprs.size(), 1, 1);
       assertEquals("CAST(3):INTEGER", reducedExprs.get(0).toString());
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
@@ -153,7 +153,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
       executor.reduce(queryObj.rexBuilder_, queryObj.project_.getProjects(),
           reducedExprs);
 
-      assertEquals(1, reducedExprs.size(), 1);
+      assertEquals(reducedExprs.size(), 1, 1);
       assertEquals("CAST(3:BIGINT):BIGINT", reducedExprs.get(0).toString());
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
@@ -178,7 +178,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
       executor.reduce(queryObj.rexBuilder_, queryObj.project_.getProjects(),
           reducedExprs);
 
-      assertEquals(1, reducedExprs.size(), 1);
+      assertEquals(reducedExprs.size(), 1, 1);
       assertEquals("3.3:DECIMAL(3, 1)", reducedExprs.get(0).toString());
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
@@ -209,7 +209,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
       executor.reduce(queryObj.rexBuilder_, queryObj.project_.getProjects(),
           reducedExprs);
 
-      assertEquals(1, reducedExprs.size(), 1);
+      assertEquals(reducedExprs.size(), 1, 1);
       assertEquals("CAST(_UTF-8'ab':VARCHAR(2147483647) CHARACTER SET \"UTF-8\"):" +
           "VARCHAR(2147483647) CHARACTER SET \"UTF-8\"", reducedExprs.get(0).toString());
     } catch (ImpalaException e) {
@@ -232,7 +232,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
       executor.reduce(queryObj.rexBuilder_, queryObj.project_.getProjects(),
           reducedExprs);
 
-      assertEquals(1, reducedExprs.size(), 1);
+      assertEquals(reducedExprs.size(), 1, 1);
       assertEquals("CAST(false):BOOLEAN", reducedExprs.get(0).toString());
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
@@ -254,7 +254,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
       executor.reduce(queryObj.rexBuilder_, queryObj.project_.getProjects(),
           reducedExprs);
 
-      assertEquals(1, reducedExprs.size(), 1);
+      assertEquals(reducedExprs.size(), 1, 1);
       assertEquals("+(2:SMALLINT, $2)", reducedExprs.get(0).toString());
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
@@ -273,7 +273,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
       executor.reduce(queryObj.rexBuilder_, queryObj.project_.getProjects(),
           reducedExprs);
 
-      assertEquals(1, reducedExprs.size(), 1);
+      assertEquals(reducedExprs.size(), 1, 1);
       assertEquals("RAND()", reducedExprs.get(0).toString());
     } catch (ImpalaException e) {
       throw new RuntimeException(e);

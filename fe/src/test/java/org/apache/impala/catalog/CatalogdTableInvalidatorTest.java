@@ -142,31 +142,22 @@ public class CatalogdTableInvalidatorTest {
     waitForTrigger(previousTriggerCount);
     Assertions.assertFalse(catalog_.getTable(dbName, tblName2).isLoaded());
 
-    Assertions.assertEquals("TTL invalidation count should increase by 2",
-        initialTtlCount + 2, catalog_.getNumTtlInvalidatedTables());
-    Assertions.assertEquals("Memory pressure invalidation count should not change",
-        initialMemoryCount, catalog_.getNumMemoryPressureInvalidatedTables());
+    Assertions.assertEquals(catalog_.getNumTtlInvalidatedTables(), "TTL invalidation count should increase by 2", initialTtlCount + 2);
+    Assertions.assertEquals(catalog_.getNumMemoryPressureInvalidatedTables(), "Memory pressure invalidation count should not change", initialMemoryCount);
 
     CatalogdTableInvalidator.InvalidationMetrics metrics =
         catalog_.getCatalogdTableInvalidator().getMetrics();
 
-    Assertions.assertEquals("10-sec window should count only the latest batch", 1,
-        metrics.ttlInvalidations10Sec());
-    Assertions.assertEquals("1-min window should include both batches", 2,
-        metrics.ttlInvalidations1Min());
-    Assertions.assertEquals("5-min window should include both batches", 2,
-        metrics.ttlInvalidations5Min());
-    Assertions.assertEquals("30-min window should include both batches", 2,
-        metrics.ttlInvalidations30Min());
-    Assertions.assertTrue("Longer windows should be at least as large as shorter ones",
-        metrics.ttlInvalidations30Min() >= metrics.ttlInvalidations5Min()
+    Assertions.assertEquals(metrics.ttlInvalidations10Sec(), "10-sec window should count only the latest batch", 1);
+    Assertions.assertEquals(metrics.ttlInvalidations1Min(), "1-min window should include both batches", 2);
+    Assertions.assertEquals(metrics.ttlInvalidations5Min(), "5-min window should include both batches", 2);
+    Assertions.assertEquals(metrics.ttlInvalidations30Min(), "30-min window should include both batches", 2);
+    Assertions.assertTrue(metrics.ttlInvalidations30Min() >= metrics.ttlInvalidations5Min()
             && metrics.ttlInvalidations5Min() >= metrics.ttlInvalidations1Min()
-            && metrics.ttlInvalidations1Min() >= metrics.ttlInvalidations10Sec());
+            && metrics.ttlInvalidations1Min() >= metrics.ttlInvalidations10Sec(), "Longer windows should be at least as large as shorter ones");
 
-    Assertions.assertEquals("Last TTL batch should report 1 table", 1,
-        metrics.lastTtlInvalidatedTables());
-    Assertions.assertTrue("Last TTL batch timestamp should be set",
-        metrics.lastTtlInvalidationMillis() > 0);
+    Assertions.assertEquals(metrics.lastTtlInvalidatedTables(), "Last TTL batch should report 1 table", 1);
+    Assertions.assertTrue(metrics.lastTtlInvalidationMillis() > 0, "Last TTL batch timestamp should be set");
   }
 
   @AfterEach

@@ -176,8 +176,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
   private void testNumericLiteral(String literal, Type expectedType) {
     SelectStmt selectStmt = (SelectStmt) AnalyzesOk("select " + literal);
     Type actualType = selectStmt.resultExprs_.get(0).getType();
-    Assertions.assertTrue("Expected Type: " + expectedType + " Actual type: " + actualType,
-        expectedType.equals(actualType));
+    Assertions.assertTrue(expectedType.equals(actualType), "Expected Type: " + expectedType + " Actual type: " + actualType);
   }
 
   @Test
@@ -418,8 +417,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     SelectStmt selectStmt = (SelectStmt) AnalyzesOk("select cast(" + literal +
         " as " + expectedType.toSql() + ")");
     Type actualType = selectStmt.resultExprs_.get(0).getType();
-    Assertions.assertTrue("Expected Type: " + expectedType + " Actual type: " + actualType,
-        expectedType.equals(actualType));
+    Assertions.assertTrue(expectedType.equals(actualType), "Expected Type: " + expectedType + " Actual type: " + actualType);
   }
 
   @Test
@@ -1455,8 +1453,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
       assertEquals(selectListExprs.size(), 1);
       // check the first expr in select list
       expr = selectListExprs.get(0);
-      Assertions.assertEquals("opType= " + opType + " exprType=" + expr.getType(),
-          opType, expr.getType());
+      Assertions.assertEquals(expr.getType(), "opType= " + opType + " exprType=" + expr.getType(), opType);
     } else {
       // check the where clause
       expr = select.getWhereClause();
@@ -1468,11 +1465,9 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     // The children's types must be NULL or equal to the requested opType.
     Type child1Type = expr.getChild(0).getType();
     Type child2Type = type1 == null ? null : expr.getChild(1).getType();
-    Assertions.assertTrue("opType= " + opType + " child1Type=" + child1Type,
-        opType.equals(child1Type) || opType.isNull() || child1Type.isNull());
+    Assertions.assertTrue(opType.equals(child1Type) || opType.isNull() || child1Type.isNull(), "opType= " + opType + " child1Type=" + child1Type);
     if (type1 != null) {
-      Assertions.assertTrue("opType= " + opType + " child2Type=" + child2Type,
-          opType.equals(child2Type) || opType.isNull() || child2Type.isNull());
+      Assertions.assertTrue(opType.equals(child2Type) || opType.isNull() || child2Type.isNull(), "opType= " + opType + " child2Type=" + child2Type);
     }
   }
 
@@ -1491,7 +1486,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
 
   private void checkReturnType(String stmt, Type resultType, AnalysisContext ctx) {
     Type exprType = getReturnType(stmt, ctx);
-    assertEquals("Expected: " + resultType + " != " + exprType, resultType, exprType);
+    assertEquals(exprType, "Expected: " + resultType + " != " + exprType, resultType);
   }
 
   private void checkReturnType(String stmt, Type resultType) {
@@ -1667,9 +1662,8 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     if (expr instanceof CastExpr) {
       CastExpr cast = (CastExpr)expr;
       if (cast.isImplicit()) {
-        Assertions.assertFalse(expr.getType() + " == " + expr.getChild(0).getType(),
-            expr.getType().equals(expr.getChild(0).getType()));
-        Assertions.assertFalse(expr.debugString(), expr.getChild(0) instanceof LiteralExpr);
+        Assertions.assertFalse(expr.getType().equals(expr.getChild(0).getType()), expr.getType() + " == " + expr.getChild(0).getType());
+        Assertions.assertFalse(expr.getChild(0) instanceof LiteralExpr, expr.debugString());
       }
     }
     for (Expr child: expr.getChildren()) {
@@ -2669,10 +2663,8 @@ public class AnalyzeExprsTest extends AnalyzerTest {
         (SelectStmt) AnalyzesOk("select " + expr, createAnalysisCtx(queryOpts));
     Expr root = selectStmt.resultExprs_.get(0);
     Type actualType = root.getType();
-    Assertions.assertTrue(
-        "Expr: " + expr + " Decimal Version: " + (isV2? "2" : "1") +
-        " Expected: " + decimalExpectedType + " Actual: " + actualType,
-        decimalExpectedType.equals(actualType));
+    Assertions.assertTrue(decimalExpectedType.equals(actualType), "Expr: " + expr + " Decimal Version: " + (isV2? "2" : "1") +
+        " Expected: " + decimalExpectedType + " Actual: " + actualType);
   }
 
   // Verifies the resulting expr decimal type is expectedType under decimal v1.

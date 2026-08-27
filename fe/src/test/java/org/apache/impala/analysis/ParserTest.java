@@ -53,10 +53,9 @@ public class ParserTest extends FrontendTestBase {
     SelectStmt selectStmt = (SelectStmt) parseNode.getTopLevelNode();
     Expr firstExpr = selectStmt.getSelectList().getItems().get(0).getExpr();
     // Check the class of the first select-list expression.
-    assertTrue(String.format(
+    assertTrue(firstExpr.getClass().equals(cl), String.format(
         "Expression is of class '%s'. Expected class '%s'",
-          firstExpr.getClass().getSimpleName(), cl.getSimpleName()),
-        firstExpr.getClass().equals(cl));
+          firstExpr.getClass().getSimpleName(), cl.getSimpleName()));
     return parseNode;
   }
 
@@ -74,7 +73,7 @@ public class ParserTest extends FrontendTestBase {
         StringBuilder message = new StringBuilder();
         message.append("Got: ");
         message.append(errorString).append("\nExpected: ").append(expectedErrorString);
-        assertTrue(message.toString(), errorString.startsWith(expectedErrorString));
+        assertTrue(errorString.startsWith(expectedErrorString), message.toString());
       }
       return;
     }
@@ -1426,8 +1425,7 @@ public class ParserTest extends FrontendTestBase {
     Expr e = stmt.getSelectList().getItems().get(0).getExpr();
     assertTrue(e instanceof ArithmeticExpr);
     // ArithmeticExpr ae = (ArithmeticExpr) e;
-    // assertEquals("Expected ! to bind more tightly than +",
-    //              ArithmeticExpr.Operator.ADD, ae.getOp());
+    // assertEquals(ae.getOp(), "Expected ! to bind more tightly than +", //              ArithmeticExpr.Operator.ADD);
     // assertEquals(2, ae.getChildren().size());
     // assertTrue(ae.getChild(1) instanceof ArithmeticExpr);
     // assertEquals(ArithmeticExpr.Operator.FACTORIAL,

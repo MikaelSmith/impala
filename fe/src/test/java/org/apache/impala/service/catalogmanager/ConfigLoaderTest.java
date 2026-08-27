@@ -29,20 +29,20 @@ import java.util.List;
 import java.util.Properties;
 import org.apache.impala.common.ImpalaRuntimeException;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.io.TempDir;
 
 public class ConfigLoaderTest {
 
-  @Rule
-  public TemporaryFolder tempFolder = new TemporaryFolder();
+  @TempDir
+  File tempFolder;
 
   private File tempDir;
 
   @BeforeEach
   public void setUp() throws Exception {
-    tempDir = tempFolder.newFolder("config");
+    tempDir = new File(tempFolder, "config");
+    tempDir.mkdirs();
   }
 
   private File createConfigFile(String fileName, String content) throws IOException {

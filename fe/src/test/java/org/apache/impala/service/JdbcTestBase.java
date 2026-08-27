@@ -31,15 +31,12 @@ import org.apache.impala.analysis.Parser;
 import org.apache.impala.analysis.StatementBase;
 import org.apache.impala.testutil.ImpalaJdbcClient;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.runners.Parameterized;
-import org.junit.runner.RunWith;
 
 import com.google.common.collect.Lists;
 
 /**
  * Base class providing utility functions for tests that need a Jdbc connection.
  */
-@RunWith(Parameterized.class)
 public abstract class JdbcTestBase {
   protected String connectionType_;
   protected Connection con_;
@@ -47,9 +44,12 @@ public abstract class JdbcTestBase {
   // Test-local list of test tables. These are cleaned up in @AfterEach.
   protected final List<String> testTableNames_ = Lists.newArrayList();
 
+  public JdbcTestBase() { this("binary"); }
+
   public JdbcTestBase(String connectionType) { connectionType_ = connectionType; }
 
-  @Parameterized.Parameters
+  public void setConnectionType(String connectionType) { connectionType_ = connectionType; }
+
   public static String[] createConnections() {
     return new String[] {"binary", "http"};
   }
@@ -66,7 +66,7 @@ public abstract class JdbcTestBase {
 
     if (con_ != null) {
       con_.close();
-      assertTrue("Connection should be closed", con_.isClosed());
+      assertTrue(con_.isClosed(), "Connection should be closed");
 
       Exception expectedException = null;
       try {
@@ -75,8 +75,7 @@ public abstract class JdbcTestBase {
         expectedException = e;
       }
 
-      assertNotNull("createStatement() on closed connection should throw exception",
-          expectedException);
+      assertNotNull(expectedException, "createStatement() on closed connection should throw exception");
     }
   }
 
@@ -85,10 +84,10 @@ public abstract class JdbcTestBase {
     client.connect();
     Connection connection = client.getConnection();
 
-    assertNotNull("Connection is null", connection);
-    assertFalse("Connection should not be closed", connection.isClosed());
+    assertNotNull(connection, "Connection is null");
+    assertFalse(connection.isClosed(), "Connection should not be closed");
     Statement stmt = connection.createStatement();
-    assertNotNull("Statement is null", stmt);
+    assertNotNull(stmt, "Statement is null");
 
     return connection;
   }

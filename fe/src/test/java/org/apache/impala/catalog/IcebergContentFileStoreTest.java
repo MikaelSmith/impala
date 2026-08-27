@@ -19,7 +19,7 @@ package org.apache.impala.catalog;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.Assert.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.flatbuffers.FlatBufferBuilder;
@@ -30,14 +30,9 @@ import org.apache.impala.fb.FbFileDesc;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.Rule;
-import org.junit.rules.ExpectedException;
 import org.junit.jupiter.api.Test;
 
 public class IcebergContentFileStoreTest {
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
-
   private CatalogServiceCatalog catalog_;
 
   @BeforeEach

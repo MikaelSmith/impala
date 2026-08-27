@@ -171,7 +171,7 @@ public class ExprCardinalityTest {
     assertEquals(expectedNdv, expr.getNumDistinctValues());
     assertEquals(expectedNullCount, colRef.getDesc().getStats().getNumNulls());
     // Columns don't have selectivity, only expressions on columns
-    assertEquals(-1, expr.getSelectivity(), 0.001);
+    assertEquals(expr.getSelectivity(), 0.001, -1);
   }
 
   /**
@@ -222,7 +222,7 @@ public class ExprCardinalityTest {
         new SelectFixture(session_).table(db + "." + table).exprSql(exprSql);
     Expr expr = select.analyzeExpr();
     assertEquals(expectedNdv, expr.getNumDistinctValues());
-    assertEquals(expectedSel, expr.getSelectivity(), 0.00001);
+    assertEquals(expr.getSelectivity(), 0.00001, expectedSel);
   }
 
   public void verifySelectExpr(String table, String exprSql, long expectedNdv,

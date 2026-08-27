@@ -198,7 +198,8 @@ public class ToSqlUtilsTest extends FrontendTestBase {
   }
 
   // IMPALA-14551: Unicode complex expressions could cause HiveLexer to hang.
-  @Test(timeout = 5000)
+  @Test
+  @org.junit.jupiter.api.Timeout(value = 5000, unit = java.util.concurrent.TimeUnit.MILLISECONDS)
   public void testHiveNeedsQuotesUnicodeComplexExpression() {
     // Use the lowercased, backticked alias string that toSql() would generate to
     // make sure HiveLexer doesn't hang.

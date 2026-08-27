@@ -60,9 +60,7 @@ import org.apache.impala.thrift.TTable;
 import org.apache.impala.util.ListMap;
 import org.apache.impala.util.TByteBuffer;
 import org.apache.thrift.TConfiguration;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,8 +80,6 @@ public class CatalogdMetaProviderTest {
   private final TableMetaRef tableRef_;
 
   private CacheStats prevStats_;
-  @Rule
-  public TestName name = new TestName();
 
   private static HiveJdbcClientPool hiveJdbcClientPool_;
   private static final String testDbName_ = "catalogd_meta_provider_test";
@@ -116,7 +112,7 @@ public class CatalogdMetaProviderTest {
   }
 
   private void createTestTbls() throws Exception {
-    LOG.info("Creating test tables for {}", name.getMethodName());
+    LOG.info("Creating test tables");
     Stopwatch st = Stopwatch.createStarted();
     ImpalaJdbcClient client = ImpalaJdbcClient.createClientUsingHiveJdbcDriver();
     client.connect();
@@ -270,8 +266,8 @@ public class CatalogdMetaProviderTest {
     // TPartialPartitionInfo in future.
     SizeOfWeigher weigher = new SizeOfWeigher();
     int weigh = weigher.weigh(refs, null);
-    assertTrue("Actual weigh: " + weigh, weigh > 4000 / 16);
-    assertTrue("Actual weigh: " + weigh, weigh < 5000 / 16);
+    assertTrue(weigh > 4000 / 16, "Actual weigh: " + weigh);
+    assertTrue(weigh < 5000 / 16, "Actual weigh: " + weigh);
   }
 
   @Test
@@ -359,7 +355,7 @@ public class CatalogdMetaProviderTest {
     }
     TRuntimeProfileNode prof = profile.emitAsThrift();
     Map<String, TCounter> counters = Maps.uniqueIndex(prof.counters, TCounter::getName);
-    assertEquals(prof.counters.toString(), 16, counters.size());
+    assertEquals(16, counters.size(), prof.counters.toString());
     assertEquals(1, counters.get("CatalogFetch.Tables.Hits").getValue());
     assertEquals(0, counters.get("CatalogFetch.Tables.Misses").getValue());
     assertEquals(1, counters.get("CatalogFetch.Tables.Requests").getValue());
@@ -406,7 +402,7 @@ public class CatalogdMetaProviderTest {
     }
     TRuntimeProfileNode prof = profile.emitAsThrift();
     Map<String, TCounter> counters = Maps.uniqueIndex(prof.counters, TCounter::getName);
-    assertEquals(prof.counters.toString(), 16, counters.size());
+    assertEquals(16, counters.size(), prof.counters.toString());
     assertEquals(0, counters.get("CatalogFetch.Tables.Hits").getValue());
     assertEquals(4, counters.get("CatalogFetch.Tables.Misses").getValue());
     assertEquals(4, counters.get("CatalogFetch.Tables.Requests").getValue());
@@ -693,7 +689,7 @@ public class CatalogdMetaProviderTest {
           .flatMap(Collection::stream)
           .map(FileDescriptor::getPath)
           .collect(Collectors.toList());
-      assertEquals("Actual paths: " + paths, 1, paths.size());
+      assertEquals(paths.size(), "Actual paths: " + paths, 1);
     }
   }
 

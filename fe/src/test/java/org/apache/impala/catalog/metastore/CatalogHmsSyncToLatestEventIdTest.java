@@ -46,8 +46,8 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,7 +70,6 @@ import java.util.Map;
  * from MetastoreEventProcessor and asserts that those events are skipped since
  * they have already been processed by catalogHmsClient
  */
-@RunWith(Parameterized.class)
 public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreTest {
     private static String TEST_DB_NAME = "sync_to_latest_events_test_db";
     private static Logger LOG =
@@ -114,8 +113,7 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         // not the end-user's UGI.
         CONF.set("hive.metastore.execute.setugi", "false");
         catalogHmsClient_ = new HiveMetaStoreClient(CONF);
-        assertTrue("Event processor should not be set",
-            catalog_.getMetastoreEventProcessor() instanceof NoOpEventProcessor);
+        assertTrue(catalog_.getMetastoreEventProcessor() instanceof NoOpEventProcessor, "Event processor should not be set");
         // get previous values of flag to be set in cleanup
         flagEnableCatalogCache = BackendConfig.INSTANCE.enableCatalogdHMSCache();
         flagInvalidateCache = BackendConfig.INSTANCE.invalidateCatalogdHMSCacheOnDDLs();
@@ -157,16 +155,22 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         BackendConfig.INSTANCE.setInvalidateCatalogdHMSCacheOnDDLs(false);
     }
 
+    public CatalogHmsSyncToLatestEventIdTest() {
+        this(managedTableType);
+    }
+
     public CatalogHmsSyncToLatestEventIdTest(String tableType) {
         tableType_ = tableType;
     }
 
-    @Parameterized.Parameters
     public static String[] createTableTypes() {
         return new String[] {managedTableType, externalTableType};
     }
-    @Test
-    public void testCreateDatabase() throws Exception {
+
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testCreateDatabase(String tableType) throws Exception {
+        this.tableType_ = tableType;
         LOG.info("Executing testCreateDatabase");
         String dbName = "test_create_database";
         try {
@@ -179,13 +183,14 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
             assertTrue(db.getLastSyncedEventId() == db.getCreateEventId());
         } finally {
             catalogHmsClient_.dropDatabase(dbName, true, true, true);
-            assertTrue("db " + dbName + " should not be present in catalogd",
-                catalog_.getDb(dbName) == null);
+            assertTrue(catalog_.getDb(dbName) == null, "db " + dbName + " should not be present in catalogd");
         }
     }
 
-    @Test
-    public void testAlterDatabase() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testAlterDatabase(String tableType) throws Exception {
+        this.tableType_ = tableType;
         LOG.info("Executing testAlterDatabase");
         String dbName = "test_alter_database";
         try {
@@ -221,8 +226,10 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Test
-    public void testAddDropAlterPartitions() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testAddDropAlterPartitions(String tableType) throws Exception {
+        this.tableType_ = tableType;
         LOG.info("Executing testAddDropAlterPartitions");
         String tblName = "test_add_drop_alter_partitions_" + tableType_ + "_tbl" ;
         try {
@@ -239,8 +246,7 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
             HdfsTable tbl = getCatalogHdfsTable(TEST_DB_NAME, tblName);
 
             assertTrue(tbl != null);
-            assertTrue("table's last synced id should not be -1",
-                tbl.getLastSyncedEventId() != -1);
+            assertTrue(tbl.getLastSyncedEventId() != -1, "table's last synced id should not be -1");
             assertTrue(tbl.getLastSyncedEventId() == tbl.getCreateEventId());
 
             eventsProcessor_.processEvents();
@@ -269,8 +275,8 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
             catalogHmsClient_.dropPartition(TEST_DB_NAME, tblName,
                 Arrays.asList("3"), true);
             tbl = getCatalogHdfsTable(TEST_DB_NAME, tblName);
-            assertTrue("Table should have 2 partitions after dropping 1 "
-                    + "out of 3 partitions", tbl.getPartitions().size() == 2);
+            assertTrue(tbl.getPartitions().size() == 2, "Table should have 2 partitions after dropping 1 "
+                    + "out of 3 partitions");
 
             // assert that  partition with new location from cached table
             // exists
@@ -289,17 +295,18 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
             long currentSkippedCount = eventsProcessor_.getMetrics()
                 .getCounter(MetastoreEventsProcessor.EVENTS_SKIPPED_METRIC).getCount();
 
-            assertTrue( String.format("CurrentSkippedCount %s differs from "
+            assertTrue(currentSkippedCount == lastSkippedCount + 3, String.format("CurrentSkippedCount %s differs from "
                         + "lastSkippedCount + 3 %s", currentSkippedCount,
-                    lastSkippedCount),
-                currentSkippedCount == lastSkippedCount + 3);
+                    lastSkippedCount));
         } finally {
             catalogHmsClient_.dropTable(TEST_DB_NAME, tblName, true, true);
         }
     }
 
-    @Test
-    public void testExchangePartition() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testExchangePartition(String tableType) throws Exception {
+        this.tableType_ = tableType;
         // run this test only for managed table
         Assumptions.assumeTrue(tableType_.equals(managedTableType));
         LOG.info("Executing testExchangePartition");
@@ -355,8 +362,10 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Test
-    public void testTableCreateDropCreate() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testTableCreateDropCreate(String tableType) throws Exception {
+        this.tableType_ = tableType;
         LOG.info("Executing testTableCreateDropCreate");
         String tblName = "test_create_drop_create_" + tableType_ + "_tbl";
         String tblNameLowerCase = tblName.toLowerCase();
@@ -386,8 +395,10 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Test
-    public void testAlterTableNoRename() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testAlterTableNoRename(String tableType) throws Exception {
+        this.tableType_ = tableType;
         LOG.info("Executing testAlterTableNoRename");
         String tblName = "test_alter_table_" + tableType_ + "_tbl";
         try {
@@ -452,8 +463,10 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Test
-    public void testAlterTableRename() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testAlterTableRename(String tableType) throws Exception {
+        this.tableType_ = tableType;
         LOG.info("Executing testALterTableRename");
         String tblName = ("test_alter_table_rename_" + tableType_ + "_tbl").toLowerCase();
         String newTblName = tblName + "_new";
@@ -488,8 +501,10 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Test
-    public void testSyncToLatestEventIdFlag() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testSyncToLatestEventIdFlag(String tableType) throws Exception {
+        this.tableType_ = tableType;
         String tblName = "test_sync_to_latest_event_id_flag_" + tableType_ + "_tbl";
         LOG.info("Executing testSyncToLatestEventIdFlag");
         boolean prevFlag =
@@ -525,8 +540,10 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Test
-    public void testFullTableReload() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testFullTableReload(String tableType) throws Exception {
+        this.tableType_ = tableType;
         LOG.info("Executing testFullTableReload");
         String tblName = "full_table_reload_test_"+ tableType_ + "_tbl";
         try {
@@ -565,8 +582,10 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Test
-    public void testTableEventsProcessedByEventProcessor() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testTableEventsProcessedByEventProcessor(String tableType) throws Exception {
+        this.tableType_ = tableType;
         // TODO: Move this to new file and add more tests
         // that cover more events MetastoreEvents
         LOG.info("Executing testEventsProcessedByEventProcessor");
@@ -584,8 +603,7 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
                     TEST_DB_NAME, tblName, null, true, tableType_));
             HdfsTable tbl = getCatalogHdfsTable(TEST_DB_NAME, tblName);
             assertTrue(tbl != null);
-            assertTrue("table's last synced id should not be -1",
-                tbl.getLastSyncedEventId() != -1);
+            assertTrue(tbl.getLastSyncedEventId() != -1, "table's last synced id should not be -1");
             assertTrue(tbl.getLastSyncedEventId() == tbl.getCreateEventId());
             long prevSyncedEventId = tbl.getLastSyncedEventId();
             eventsProcessor_.processEvents();
@@ -626,8 +644,8 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
             assertTrue(tbl.getLastSyncedEventId() > prevSyncedEventId);
 
             tbl = getCatalogHdfsTable(TEST_DB_NAME, tblName);
-            assertTrue("Table should have 2 partitions after dropping 1 "
-                + "out of 3 partitions", tbl.getPartitions().size() == 2);
+            assertTrue(tbl.getPartitions().size() == 2, "Table should have 2 partitions after dropping 1 "
+                + "out of 3 partitions");
             // assert that  partition with new location from cached table
             // exists
             FeFsPartition modifiedPartition = null;
@@ -645,8 +663,10 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Test
-    public void testDbEventProcessedByEventProcessor() throws Exception {
+    @ParameterizedTest
+    @MethodSource("createTableTypes")
+    public void testDbEventProcessedByEventProcessor(String tableType) throws Exception {
+        this.tableType_ = tableType;
         LOG.info("Executing testDbEventProcessedByEventProcessor");
         String dbName = "test_db_event_processed_by_event_processor_db";
         ExternalEventsProcessor prevEventProcessor =
@@ -767,7 +787,6 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         Database msDb = MetastoreApiTestUtils
             .createHmsDatabaseObject(null, dbName, null);
         catalogHmsClient_.createDatabase(msDb);
-        assertTrue("db " + dbName + " not present in catalogd",
-            catalog_.getDb(dbName) != null);
+        assertTrue(catalog_.getDb(dbName) != null, "db " + dbName + " not present in catalogd");
     }
 }

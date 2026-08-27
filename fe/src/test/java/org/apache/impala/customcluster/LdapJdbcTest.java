@@ -32,12 +32,13 @@ import org.apache.directory.server.core.annotations.CreatePartition;
 import org.apache.directory.server.annotations.CreateLdapServer;
 import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
-import org.apache.directory.server.core.integ.CreateLdapServerRule;
+import org.apache.directory.server.core.integ.ApacheDSTestExtension;
+import org.apache.directory.server.ldap.LdapServer;
 import org.apache.impala.testutil.ImpalaJdbcClient;
 import org.apache.impala.testutil.WebClient;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.ClassRule;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import org.apache.impala.service.JdbcTestBase;
 
@@ -49,9 +50,9 @@ import org.apache.impala.service.JdbcTestBase;
 @CreateLdapServer(
     transports = { @CreateTransport(protocol = "LDAP", address = "localhost") })
 @ApplyLdifFiles({"users.ldif"})
+@ExtendWith(ApacheDSTestExtension.class)
 public class LdapJdbcTest extends JdbcTestBase {
-  @ClassRule
-  public static CreateLdapServerRule serverRule = new CreateLdapServerRule();
+  public static LdapServer classLdapServer;
 
   // These correspond to the values in fe/src/test/resources/users.ldif
   private static final String testUser_ = "Test1Ldap";
@@ -62,11 +63,11 @@ public class LdapJdbcTest extends JdbcTestBase {
 
   WebClient client_ = new WebClient();
 
-  public LdapJdbcTest(String connectionType) { super(connectionType); }
+  public LdapJdbcTest() {}
 
   public void setUp(String extraArgs) throws Exception {
     String uri =
-        String.format("ldap://localhost:%s", serverRule.getLdapServer().getPort());
+        String.format("ldap://localhost:%s", classLdapServer.getPort());
     String dn = "cn=#UID,ou=Users,dc=myorg,dc=com";
     String impalaArgs = String.format("--enable_ldap_auth --ldap_uri='%s' "
             + "--ldap_bind_pattern='%s' --ldap_passwords_in_clear_ok "
@@ -93,21 +94,17 @@ public class LdapJdbcTest extends JdbcTestBase {
       Range<Long> expectedCookieFailure) throws Exception {
     long actualBasicSuccess = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-basic-auth-success");
-    assertTrue("Expected: " + expectedBasicSuccess + ", Actual: " + actualBasicSuccess,
-        expectedBasicSuccess.contains(actualBasicSuccess));
+    assertTrue(expectedBasicSuccess.contains(actualBasicSuccess), "Expected: " + expectedBasicSuccess + ", Actual: " + actualBasicSuccess);
     long actualBasicFailure = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-basic-auth-failure");
-    assertTrue("Expected: " + expectedBasicFailure + ", Actual: " + actualBasicFailure,
-        expectedBasicFailure.contains(actualBasicFailure));
+    assertTrue(expectedBasicFailure.contains(actualBasicFailure), "Expected: " + expectedBasicFailure + ", Actual: " + actualBasicFailure);
 
     long actualCookieSuccess = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-cookie-auth-success");
-    assertTrue("Expected: " + expectedCookieSuccess + ", Actual: " + actualCookieSuccess,
-        expectedCookieSuccess.contains(actualCookieSuccess));
+    assertTrue(expectedCookieSuccess.contains(actualCookieSuccess), "Expected: " + expectedCookieSuccess + ", Actual: " + actualCookieSuccess);
     long actualCookieFailure = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-cookie-auth-failure");
-    assertTrue("Expected: " + expectedCookieFailure + ", Actual: " + actualCookieFailure,
-        expectedCookieFailure.contains(actualCookieFailure));
+    assertTrue(expectedCookieFailure.contains(actualCookieFailure), "Expected: " + expectedCookieFailure + ", Actual: " + actualCookieFailure);
   }
 
   @Test

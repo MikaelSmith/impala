@@ -280,13 +280,12 @@ public abstract class AuthorizationTestBase extends FrontendTestBase {
       List<String> result = resultToStringList(authzFrontend_.describeTable(testParams,
           user_));
       for (String str: includedStrings_) {
-        assertTrue(String.format("\"%s\" is not in the describe output.\n" +
+        assertTrue(result.contains(str), String.format("\"%s\" is not in the describe output.\n" +
                 "Expected : %s\n Actual   : %s", str, Arrays.toString(includedStrings_),
-            result), result.contains(str));
+            result));
       }
       for (String str: excludedStrings_) {
-        assertTrue(String.format("\"%s\" should not be in the describe output.", str),
-            !result.contains(str));
+        assertTrue(!result.contains(str), String.format("\"%s\" should not be in the describe output.", str));
       }
     }
   }
@@ -608,9 +607,7 @@ public abstract class AuthorizationTestBase extends FrontendTestBase {
       // Insert the username into the error.
       expectedErrorString = String.format(expectedErrorString, ctx.getUser());
       String errorString = e.getMessage();
-      assertTrue(
-          "got error:\n" + errorString + "\nexpected:\n" + expectedErrorString,
-          matcher.match(errorString, expectedErrorString));
+      assertTrue(matcher.match(errorString, expectedErrorString), "got error:\n" + errorString + "\nexpected:\n" + expectedErrorString);
       return;
     }
     fail(String.format("Statement did not result in authorization error.\n" +

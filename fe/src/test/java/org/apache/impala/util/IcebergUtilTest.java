@@ -91,9 +91,9 @@ public class IcebergUtilTest {
     };
     for (CatalogMapping testValue : mappings) {
       TIcebergCatalog catalog = IcebergUtil.getTIcebergCatalog(testValue.propertyName);
-      assertEquals("err for " + testValue.propertyName, testValue.catalog, catalog);
+      assertEquals(testValue.catalog, catalog, "err for " + testValue.propertyName);
       IcebergCatalog impl = IcebergUtil.getIcebergCatalog(catalog, "location");
-      assertEquals("err for " + testValue.propertyName, testValue.clazz, impl.getClass());
+      assertEquals(testValue.clazz, impl.getClass(), "err for " + testValue.propertyName);
     }
   }
 
@@ -149,8 +149,8 @@ public class IcebergUtilTest {
     for (CatalogType testValue : catalogTypes) {
       Table table = new Table();
       table.putToParameters(IcebergTable.ICEBERG_CATALOG, testValue.propertyName);
-      assertEquals("err in " + testValue.propertyName, testValue.isHiveCatalog,
-          IcebergUtil.isHiveCatalog(table));
+      assertEquals(testValue.isHiveCatalog, IcebergUtil.isHiveCatalog(table),
+          "err in " + testValue.propertyName);
     }
   }
 

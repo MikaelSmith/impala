@@ -71,7 +71,7 @@ class RunShellCommand {
       stderrBuf.append('\n');
     }
     String stderr = stderrBuf.toString();
-    assertTrue(stderr, stderr.contains(expectedErr));
+    assertTrue(stderr.contains(expectedErr), stderr);
     // Collect the stdout (which has the resultsets).
     input = new BufferedReader(new InputStreamReader(process.getInputStream()));
     StringBuffer stdoutBuf = new StringBuffer();
@@ -80,10 +80,10 @@ class RunShellCommand {
       stdoutBuf.append('\n');
     }
     int expectedReturn = shouldSucceed ? 0 : 1;
-    assertEquals(stderr.toString(), expectedReturn, process.waitFor());
+    assertEquals(expectedReturn, process.waitFor(), stderr.toString());
     // If the query succeeds, assert that the output is correct.
     String stdout = stdoutBuf.toString();
-    if (shouldSucceed) assertTrue(stdout, stdout.contains(expectedOut));
+    if (shouldSucceed) assertTrue(stdout.contains(expectedOut), stdout);
     return new Output(stdout, stderr);
   }
 }

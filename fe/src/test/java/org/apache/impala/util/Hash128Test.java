@@ -20,6 +20,7 @@ package org.apache.impala.util;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -138,9 +139,9 @@ public class Hash128Test {
     assertEquals(pattern, restoredPattern);
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testNullThriftInput() {
-    Hash128.fromThrift(null);
+    assertThrows(NullPointerException.class, () -> Hash128.fromThrift(null));
   }
 
   @Test

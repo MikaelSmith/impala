@@ -17,9 +17,8 @@
 
 package org.apache.impala.catalog.local;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.sameInstance;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -74,14 +73,14 @@ public class MetaProviderDecoratorTest {
     List<Method> methods = Arrays.asList(MetaProvider.class.getDeclaredMethods())
         .stream().filter(m -> m.getName() != "$jacocoInit").toList();
     // Use reflection to count public methods in MetaProvider interface
-    assertThat("Number of public methods in MetaProvider interface has changed. " +
-        "Update EXPECTED_METHOD_COUNT and add tests for new methods.",
-        methods.size(), equalTo(EXPECTED_METHOD_COUNT));
+    assertEquals(EXPECTED_METHOD_COUNT, methods.size(),
+        "Number of public methods in MetaProvider interface has changed. " +
+        "Update EXPECTED_METHOD_COUNT and add tests for new methods.");
 
-    assertThat("Abstract class MetaProviderDecorator is missing an implementation for " +
-        "one or more methods on the MetaProvider interface",
+    assertEquals(MetaProviderDecorator.class.getDeclaredMethods().length,
         MetaProvider.class.getDeclaredMethods().length,
-        equalTo(MetaProviderDecorator.class.getDeclaredMethods().length));
+        "Abstract class MetaProviderDecorator is missing an implementation for " +
+        "one or more methods on the MetaProvider interface");
   }
 
   @Test
@@ -154,17 +153,17 @@ public class MetaProviderDecoratorTest {
 
     // Test getURI()
     String actualUri = fixture.getURI();
-    assertThat(actualUri, equalTo(expectedUri));
+    assertEquals(expectedUri, actualUri);
     verify(mockDecorated).getURI();
 
     // Test getAuthPolicy()
     AuthorizationPolicy actualAuthPolicy = fixture.getAuthPolicy();
-    assertThat(actualAuthPolicy, sameInstance(expectedAuthPolicy));
+    assertSame(expectedAuthPolicy, actualAuthPolicy);
     verify(mockDecorated).getAuthPolicy();
 
     // Test isReady()
     boolean actualIsReady = fixture.isReady();
-    assertThat(actualIsReady, equalTo(expectedIsReady));
+    assertEquals(expectedIsReady, actualIsReady);
     verify(mockDecorated).isReady();
 
     // Test waitForIsReady(long)
@@ -178,68 +177,68 @@ public class MetaProviderDecoratorTest {
 
     // Test loadDbList()
     ImmutableList<String> actualDbList = fixture.loadDbList();
-    assertThat(actualDbList, equalTo(expectedDbList));
+    assertEquals(expectedDbList, actualDbList);
     verify(mockDecorated).loadDbList();
 
     // Test loadDb(String)
     Database actualDatabase = fixture.loadDb("testDb");
-    assertThat(actualDatabase, sameInstance(expectedDatabase));
+    assertSame(expectedDatabase, actualDatabase);
     verify(mockDecorated).loadDb(eq("testDb"));
 
     // Test loadTableList(String)
     ImmutableCollection<TBriefTableMeta> actualTableList =
         fixture.loadTableList("testDb");
-    assertThat(actualTableList, sameInstance(expectedTableList));
+    assertSame(expectedTableList, actualTableList);
     verify(mockDecorated).loadTableList(eq("testDb"));
 
     // Test loadTable(String, String)
     Pair<Table, TableMetaRef> actualTablePair =
         fixture.loadTable("testDb", "testTable");
-    assertThat(actualTablePair, sameInstance(expectedTablePair));
+    assertSame(expectedTablePair, actualTablePair);
     verify(mockDecorated).loadTable(eq("testDb"), eq("testTable"));
 
     // Test getTableIfPresent(String, String)
     Pair<Table, TableMetaRef> actualTableIfPresent =
         fixture.getTableIfPresent("testDb", "testTable");
-    assertThat(actualTableIfPresent, sameInstance(expectedTablePair));
+    assertSame(expectedTablePair, actualTableIfPresent);
     verify(mockDecorated).getTableIfPresent(eq("testDb"), eq("testTable"));
 
     // Test loadNullPartitionKeyValue()
     String actualNullPartitionKey = fixture.loadNullPartitionKeyValue();
-    assertThat(actualNullPartitionKey, equalTo(expectedNullPartitionKey));
+    assertEquals(expectedNullPartitionKey, actualNullPartitionKey);
     verify(mockDecorated).loadNullPartitionKeyValue();
 
     // Test loadPartitionList(TableMetaRef)
     List<PartitionRef> actualPartitionRefs =
         fixture.loadPartitionList(expectedTableRef);
-    assertThat(actualPartitionRefs, sameInstance(expectedPartitionRefs));
+    assertSame(expectedPartitionRefs, actualPartitionRefs);
     verify(mockDecorated).loadPartitionList(eq(expectedTableRef));
 
     // Test loadConstraints(TableMetaRef, Table)
     SqlConstraints actualConstraints =
         fixture.loadConstraints(expectedTableRef, expectedTable);
-    assertThat(actualConstraints, sameInstance(expectedConstraints));
+    assertSame(expectedConstraints, actualConstraints);
     verify(mockDecorated).loadConstraints(eq(expectedTableRef), eq(expectedTable));
 
     // Test loadFunctionNames(String)
     List<String> actualFunctionNames = fixture.loadFunctionNames("testDb");
-    assertThat(actualFunctionNames, equalTo(expectedFunctionNames));
+    assertEquals(expectedFunctionNames, actualFunctionNames);
     verify(mockDecorated).loadFunctionNames(eq("testDb"));
 
     // Test loadFunction(String, String)
     ImmutableList<Function> actualFunctions =
         fixture.loadFunction("testDb", "testFunc");
-    assertThat(actualFunctions, equalTo(expectedFunctions));
+    assertEquals(expectedFunctions, actualFunctions);
     verify(mockDecorated).loadFunction(eq("testDb"), eq("testFunc"));
 
     // Test loadDataSources()
     ImmutableList<DataSource> actualDataSources = fixture.loadDataSources();
-    assertThat(actualDataSources, equalTo(expectedDataSources));
+    assertEquals(expectedDataSources, actualDataSources);
     verify(mockDecorated).loadDataSources();
 
     // Test loadDataSource(String)
     DataSource actualDataSource = fixture.loadDataSource("testDs");
-    assertThat(actualDataSource, sameInstance(expectedDataSource));
+    assertSame(expectedDataSource, actualDataSource);
     verify(mockDecorated).loadDataSource(eq("testDs"));
 
     // Test loadPartitionsByRefs(...)
@@ -248,7 +247,7 @@ public class MetaProviderDecoratorTest {
     List<PartitionRef> partRefs = new ArrayList<>();
     Map<String, PartitionMetadata> actualPartitionMetadata =
         fixture.loadPartitionsByRefs(expectedTableRef, partCols, hostIndex, partRefs);
-    assertThat(actualPartitionMetadata, sameInstance(expectedPartitionMetadata));
+    assertSame(expectedPartitionMetadata, actualPartitionMetadata);
     verify(mockDecorated).loadPartitionsByRefs(
         eq(expectedTableRef), eq(partCols), eq(hostIndex), eq(partRefs));
 
@@ -256,32 +255,32 @@ public class MetaProviderDecoratorTest {
     List<String> colNames = ImmutableList.of("col1", "col2");
     List<ColumnStatisticsObj> actualColStats =
         fixture.loadTableColumnStatistics(expectedTableRef, colNames);
-    assertThat(actualColStats, sameInstance(expectedColStats));
+    assertSame(expectedColStats, actualColStats);
     verify(mockDecorated).loadTableColumnStatistics(eq(expectedTableRef), eq(colNames));
 
     // Test loadIcebergTable(TableMetaRef)
     TPartialTableInfo actualIcebergTableInfo =
         fixture.loadIcebergTable(expectedTableRef);
-    assertThat(actualIcebergTableInfo, sameInstance(expectedIcebergTableInfo));
+    assertSame(expectedIcebergTableInfo, actualIcebergTableInfo);
     verify(mockDecorated).loadIcebergTable(eq(expectedTableRef));
 
     // Test loadIcebergApiTable(TableMetaRef, TableParams, Table)
     TableParams tableParams = mock(TableParams.class);
     org.apache.iceberg.Table actualIcebergApiTable =
         fixture.loadIcebergApiTable(expectedTableRef, tableParams, expectedTable);
-    assertThat(actualIcebergApiTable, sameInstance(expectedIcebergApiTable));
+    assertSame(expectedIcebergApiTable, actualIcebergApiTable);
     verify(mockDecorated).loadIcebergApiTable(
         eq(expectedTableRef), eq(tableParams), eq(expectedTable));
 
     // Test getValidWriteIdList(TableMetaRef)
     TValidWriteIdList actualValidWriteIdList =
         fixture.getValidWriteIdList(expectedTableRef);
-    assertThat(actualValidWriteIdList, sameInstance(expectedValidWriteIdList));
+    assertSame(expectedValidWriteIdList, actualValidWriteIdList);
     verify(mockDecorated).getValidWriteIdList(eq(expectedTableRef));
 
     // Test getHdfsCachePools()
     Iterable<HdfsCachePool> actualCachePools = fixture.getHdfsCachePools();
-    assertThat(actualCachePools, sameInstance(expectedCachePools));
+    assertSame(expectedCachePools, actualCachePools);
     verify(mockDecorated).getHdfsCachePools();
 
     verifyNoMoreInteractions(mockDecorated);

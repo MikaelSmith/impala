@@ -331,7 +331,7 @@ public class FrontendTestBase extends AbstractFrontendTest {
       errorString = errorString.replace("org.codehaus.jackson.JsonParseException",
           "com.fasterxml.jackson.core.JsonParseException");
 
-      Assertions.assertTrue(msg, errorString.startsWith(expectedErrorString));
+      Assertions.assertTrue(errorString.startsWith(expectedErrorString), msg);
       return;
     }
     fail("Stmt didn't result in analysis error: " + stmt);

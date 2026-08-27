@@ -43,14 +43,13 @@ import org.apache.impala.fb.FbIcebergDataFile;
 import org.apache.impala.thrift.TIcebergOperation;
 import org.apache.impala.thrift.TIcebergOperationParam;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InOrder;
 
 public class IcebergDmlFinalizerTest {
-  @Rule
-  public TemporaryFolder temporaryFolder_ = new TemporaryFolder();
+  @TempDir
+  File temporaryFolder_;
 
   private FeIcebergTable table_;
   private Transaction transaction_;
@@ -157,7 +156,7 @@ public class IcebergDmlFinalizerTest {
   }
 
   private File addUncommittedFile() throws Exception {
-    File file = temporaryFolder_.newFile();
+    File file = File.createTempFile("junit", null, temporaryFolder_);
     FlatBufferBuilder fbb = new FlatBufferBuilder(128);
     int path = fbb.createString(file.toURI().toString());
     FbIcebergDataFile.startFbIcebergDataFile(fbb);

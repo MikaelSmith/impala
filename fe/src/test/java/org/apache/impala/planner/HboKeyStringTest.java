@@ -394,7 +394,7 @@ public class HboKeyStringTest extends FrontendTestBase {
         count++;
       }
     }
-    assertEquals("Expected exactly one UnionNode for query: " + query, 1, count);
+    assertEquals(1, count, "Expected exactly one UnionNode for query: " + query);
     return union;
   }
 
@@ -434,9 +434,7 @@ public class HboKeyStringTest extends FrontendTestBase {
 
     // Both branch orders hash identically for every strategy.
     for (CanonicalizationStrategy strategy : CanonicalizationStrategy.values()) {
-      assertEquals("Union branch order must not affect the key for " + strategy,
-          union1.generateHboKeyString(THboStatsType.CARDINALITY, strategy),
-          union2.generateHboKeyString(THboStatsType.CARDINALITY, strategy));
+      assertEquals(union2.generateHboKeyString(THboStatsType.CARDINALITY, strategy), "Union branch order must not affect the key for " + strategy, union1.generateHboKeyString(THboStatsType.CARDINALITY, strategy));
     }
   }
 

@@ -18,7 +18,7 @@
 package org.apache.impala.customcluster;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
@@ -36,15 +36,11 @@ import org.apache.hive.service.rpc.thrift.*;
 import org.apache.impala.testutil.WebClient;
 import org.apache.impala.testutil.X509CertChain;
 import org.apache.thrift.transport.THttpClient;
-import org.hamcrest.Matcher;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import static org.hamcrest.core.IsCollectionContaining.hasItem;
-import static org.hamcrest.core.StringContains.containsString;
 
 /**
  * Tests that hiveserver2 operations over the http interface work as expected when
@@ -612,7 +608,6 @@ public class JwtHttpTest {
       throws IOException, InterruptedException {
     // check in the impalad logs that the server startup failed for the expected reason
     List<String> logLines = null;
-    Matcher<Iterable<? super String>> m = hasItem(containsString(expectedString));
 
     // writing logs to disk may take some time, try a few times to search for the
     // expected error in the log
@@ -620,7 +615,7 @@ public class JwtHttpTest {
       final Path log_file_path = logDir.resolve("impalad.ERROR");
       try {
         logLines = Files.readAllLines(log_file_path);
-        if (m.matches(logLines)) {
+        if (containsLineWith(logLines, expectedString)) {
           break;
         }
       } catch (Exception e) {
@@ -632,8 +627,12 @@ public class JwtHttpTest {
 
     // runs the matcher one more time to ensure a descriptive failure message is
     // generated if the assert fails
-    assertThat(String.format("Impalad startup failed but not for the expected reason. "
-        + "See logs in the '%s' folder for details.", logDir), logLines,
-        hasItem(containsString(expectedString)));
+    assertTrue(containsLineWith(logLines, expectedString), String.format(
+        "Impalad startup failed but not for the expected reason. "
+        + "See logs in the '%s' folder for details.", logDir));
+  }
+
+  private boolean containsLineWith(List<String> lines, String expectedString) {
+    return lines != null && lines.stream().anyMatch(line -> line.contains(expectedString));
   }
 }

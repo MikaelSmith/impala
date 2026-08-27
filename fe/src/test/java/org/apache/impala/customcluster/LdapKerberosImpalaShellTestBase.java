@@ -18,8 +18,7 @@
 package org.apache.impala.customcluster;
 
 import com.google.common.collect.ImmutableMap;
-import org.junit.ClassRule;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -39,9 +38,9 @@ public class LdapKerberosImpalaShellTestBase extends LdapImpalaShellTest {
   protected final static String defaultUserSearchBaseDn = "dc=myorg,dc=com";
   protected final static String defaultGroupSearchBaseDn = "ou=Groups,dc=myorg,dc=com";
 
-  @ClassRule
+  @RegisterExtension
   public static KerberosKdcEnvironment kerberosKdcEnvironment =
-          new KerberosKdcEnvironment(new TemporaryFolder());
+          new KerberosKdcEnvironment();
 
   protected Map<String, String> getLdapSearchBindFlags() {
     return getLdapSearchBindFlags(defaultUserSearchBaseDn, defaultGroupSearchBaseDn);
@@ -50,7 +49,7 @@ public class LdapKerberosImpalaShellTestBase extends LdapImpalaShellTest {
   protected Map<String, String> getLdapSearchBindFlags(
           String userSearchBaseDn, String groupSearchBaseDn) {
     String ldapUri = String.format("ldap://localhost:%s",
-            serverRule.getLdapServer().getPort());
+            classLdapServer.getPort());
     String passwordCommand = String.format("'echo -n %s'", TEST_PASSWORD_1);
     return ImmutableMap.<String, String>builder()
         .put("enable_ldap_auth", "true")

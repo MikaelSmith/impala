@@ -522,8 +522,7 @@ public class ExprRewriterTest extends AnalyzerTest {
       AnalysisContext ctx, String query, String expectedToSqlWithImplicitCasts) {
     StatementBase stmt = (StatementBase) AnalyzesOk(query, ctx);
     String actual = stmt.toSql(SHOW_IMPLICIT_CASTS);
-    Assertions.assertEquals("Bad sql with implicit casts from original query:\n" + query,
-        expectedToSqlWithImplicitCasts, actual);
+    Assertions.assertEquals(actual, "Bad sql with implicit casts from original query:\n" + query, expectedToSqlWithImplicitCasts);
   }
 
   @Test
@@ -632,7 +631,7 @@ public class ExprRewriterTest extends AnalyzerTest {
 
     for (String query: convertablePredicates) {
       Expr expr = analyze(query);
-      assertTrue("Should convert to CNF: "+query, expr.shouldConvertToCNF());
+      assertTrue(expr.shouldConvertToCNF(), "Should convert to CNF: "+query);
     }
 
     // Negative tests
@@ -645,7 +644,7 @@ public class ExprRewriterTest extends AnalyzerTest {
 
     for (String query: inconvertablePredicates) {
       Expr expr = analyze(query);
-      assertFalse("Should not convert to CNF: "+query, expr.shouldConvertToCNF());
+      assertFalse(expr.shouldConvertToCNF(), "Should not convert to CNF: "+query);
     }
   }
 }

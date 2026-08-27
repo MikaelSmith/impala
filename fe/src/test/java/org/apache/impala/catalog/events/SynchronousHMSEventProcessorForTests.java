@@ -77,8 +77,7 @@ public class SynchronousHMSEventProcessorForTests extends MetastoreEventsProcess
     Assertions.assertEquals(greatestSyncedEventId, lastSyncedEventId);
     Assertions.assertEquals(greatestSyncedEventTime, lastSyncedEventTime);
     if (lastSyncedEventId == latestEventId) {
-      Assertions.assertEquals("Incorrect last synced event time for event " + latestEventId,
-          latestEventTime, lastSyncedEventTime);
+      Assertions.assertEquals(lastSyncedEventTime, "Incorrect last synced event time for event " + latestEventId, latestEventTime);
     }
   }
 }

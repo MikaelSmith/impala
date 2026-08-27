@@ -38,9 +38,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,9 +57,13 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * This class contains authorization tests for SQL statements.
  */
-@RunWith(Parameterized.class)
 public class AuthorizationStmtTest extends AuthorizationTestBase {
   public static final Logger LOG = LoggerFactory.getLogger(AuthorizationStmtTest.class);
+
+  public AuthorizationStmtTest() throws ImpalaException {
+    super(AuthorizationProvider.RANGER);
+  }
+
   public AuthorizationStmtTest(AuthorizationProvider authzProvider)
       throws ImpalaException {
     super(authzProvider);
@@ -88,11 +89,6 @@ public class AuthorizationStmtTest extends AuthorizationTestBase {
     // Class constructor will be called and create a new instance of authzCatalog_
     // for each test.
     authzCatalog_.close();
-  }
-
-  @Parameters
-  public static Collection<AuthorizationProvider> data() {
-    return Arrays.asList(AuthorizationProvider.RANGER);
   }
 
   private static final String[] ALLTYPES_COLUMNS_WITHOUT_ID = new String[]{"bool_col",
@@ -3428,7 +3424,7 @@ public class AuthorizationStmtTest extends AuthorizationTestBase {
       authorize(ctx, query).error(err, onServer(TPrivilegeLevel.ALL));
       fail("Expected masking on a complex column to be rejected");
     } catch (AnalysisException e) {
-      assertTrue(e.getMessage(), e.getMessage().startsWith(err));
+      assertTrue(e.getMessage().startsWith(err), e.getMessage());
     }
   }
 

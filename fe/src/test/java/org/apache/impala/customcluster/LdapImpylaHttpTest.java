@@ -30,16 +30,18 @@ import org.apache.directory.server.core.annotations.CreatePartition;
 import org.apache.directory.server.annotations.CreateLdapServer;
 import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
-import org.apache.directory.server.core.integ.CreateLdapServerRule;
 import org.apache.impala.testutil.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.collect.Range;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.ClassRule;
+import org.apache.directory.server.core.integ.ApacheDSTestExtension;
+import org.apache.directory.server.ldap.LdapServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Impyla HTTP connectivity tests with LDAP authentication.
@@ -49,11 +51,11 @@ import org.junit.jupiter.api.Test;
 @CreateLdapServer(
     transports = { @CreateTransport(protocol = "LDAP", address = "localhost") })
 @ApplyLdifFiles({"users.ldif"})
+@ExtendWith(ApacheDSTestExtension.class)
 public class LdapImpylaHttpTest {
   private static final Logger LOG = LoggerFactory.getLogger(LdapImpylaHttpTest.class);
 
-  @ClassRule
-  public static CreateLdapServerRule serverRule = new CreateLdapServerRule();
+  public static LdapServer classLdapServer;
 
   // Query used by all tests
   private static String query_ = "select logged_in_user()";
@@ -76,7 +78,7 @@ public class LdapImpylaHttpTest {
   @BeforeEach
   public void setUp() throws Exception {
     String uri =
-        String.format("ldap://localhost:%s", serverRule.getLdapServer().getPort());
+        String.format("ldap://localhost:%s", classLdapServer.getPort());
     String dn = "cn=#UID,ou=Users,dc=myorg,dc=com";
     String ldapArgs = String.format(
         "--enable_ldap_auth --ldap_uri='%s' --ldap_bind_pattern='%s' " +
@@ -98,21 +100,17 @@ public class LdapImpylaHttpTest {
       Range<Long> expectedCookieFailure) throws Exception {
     long actualBasicSuccess = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-basic-auth-success");
-    assertTrue("Expected: " + expectedBasicSuccess + ", Actual: " + actualBasicSuccess,
-        expectedBasicSuccess.contains(actualBasicSuccess));
+    assertTrue(expectedBasicSuccess.contains(actualBasicSuccess), "Expected: " + expectedBasicSuccess + ", Actual: " + actualBasicSuccess);
     long actualBasicFailure = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-basic-auth-failure");
-    assertTrue("Expected: " + expectedBasicFailure + ", Actual: " + actualBasicFailure,
-        expectedBasicFailure.contains(actualBasicFailure));
+    assertTrue(expectedBasicFailure.contains(actualBasicFailure), "Expected: " + expectedBasicFailure + ", Actual: " + actualBasicFailure);
 
     long actualCookieSuccess = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-cookie-auth-success");
-    assertTrue("Expected: " + expectedCookieSuccess + ", Actual: " + actualCookieSuccess,
-        expectedCookieSuccess.contains(actualCookieSuccess));
+    assertTrue(expectedCookieSuccess.contains(actualCookieSuccess), "Expected: " + expectedCookieSuccess + ", Actual: " + actualCookieSuccess);
     long actualCookieFailure = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-cookie-auth-failure");
-    assertTrue("Expected: " + expectedCookieFailure + ", Actual: " + actualCookieFailure,
-        expectedCookieFailure.contains(actualCookieFailure));
+    assertTrue(expectedCookieFailure.contains(actualCookieFailure), "Expected: " + expectedCookieFailure + ", Actual: " + actualCookieFailure);
   }
 
   private static final Range<Long> zero = Range.closed(0L, 0L);

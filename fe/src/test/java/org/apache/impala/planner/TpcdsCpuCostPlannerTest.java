@@ -29,7 +29,6 @@ import org.apache.impala.util.RequestPoolService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
 import java.io.IOException;
@@ -93,9 +92,7 @@ public class TpcdsCpuCostPlannerTest extends PlannerTestBase {
   };
 
   // Temporary folder to copy admission control files into.
-  // Do not annotate with JUnit @Rule because we want to keep the tempFolder the same
-  // for entire lifetime of test class.
-  private static TemporaryFolder tempFolder;
+  private static File tempFolder;
 
   /**
    * Returns a {@link File} for the file on the classpath.
@@ -108,12 +105,11 @@ public class TpcdsCpuCostPlannerTest extends PlannerTestBase {
   private static void setupAdmissionControl() throws IOException, URISyntaxException {
     // Start admission control with config file fair-scheduler-3-groups.xml
     // and llama-site-3-groups.xml
-    tempFolder = new TemporaryFolder();
-    tempFolder.create();
-    File allocationConfFile = tempFolder.newFile(ALLOCATION_FILE);
+    tempFolder = java.nio.file.Files.createTempDirectory("tpcds").toFile();
+    File allocationConfFile = new File(tempFolder, ALLOCATION_FILE);
     Files.copy(getClasspathFile(ALLOCATION_FILE), allocationConfFile);
 
-    File llamaConfFile = tempFolder.newFile(LLAMA_CONFIG_FILE);
+    File llamaConfFile = new File(tempFolder, LLAMA_CONFIG_FILE);
     Files.copy(getClasspathFile(LLAMA_CONFIG_FILE), llamaConfFile);
     // Intentionally mark isTest = false to cache poolService as a singleton.
     RequestPoolService poolService =
@@ -153,7 +149,9 @@ public class TpcdsCpuCostPlannerTest extends PlannerTestBase {
     invalidateTables();
 
     RequestPoolService.getInstance().stop();
-    tempFolder.delete();
+    if (tempFolder != null && tempFolder.exists()) {
+      org.apache.commons.io.FileUtils.deleteQuietly(tempFolder);
+    }
   }
 
   /**

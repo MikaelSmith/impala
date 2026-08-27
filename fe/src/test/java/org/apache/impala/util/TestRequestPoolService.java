@@ -39,9 +39,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.io.TempDir;
 
 import static java.util.Arrays.asList;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.HADOOP_SECURITY_AUTH_TO_LOCAL;
@@ -104,9 +103,8 @@ public class TestRequestPoolService {
   public static final List<String> EMPTY_LIST = Collections.emptyList();
 
   // Temp folder where the config files are copied so we can modify them in place.
-  // The JUnit @Rule creates and removes the temp folder between every test.
-  @Rule
-  public TemporaryFolder tempFolder = new TemporaryFolder();
+  @TempDir
+  File tempFolder;
 
   private RequestPoolService poolService_;
   private File allocationConfFile_;
@@ -121,12 +119,12 @@ public class TestRequestPoolService {
    */
   private void createPoolService(String allocationFile, String llamaConfFile)
       throws Exception {
-    allocationConfFile_ = tempFolder.newFile();
+    allocationConfFile_ = File.createTempFile("junit", null, tempFolder);
     Files.copy(getClasspathFile(allocationFile), allocationConfFile_);
 
     String llamaConfPath = null;
     if (llamaConfFile != null) {
-      llamaConfFile_ = tempFolder.newFile();
+      llamaConfFile_ = File.createTempFile("junit", null, tempFolder);
       Files.copy(getClasspathFile(llamaConfFile), llamaConfFile_);
       llamaConfPath = llamaConfFile_.getAbsolutePath();
     }
@@ -317,8 +315,7 @@ public class TestRequestPoolService {
 
       // Check for expected warnings
       for (String expected_warning : expected_messages) {
-        Assertions.assertTrue("missing message: " + expected_warning + " in " + messages,
-            containsSubstring(messages, expected_warning));
+        Assertions.assertTrue(containsSubstring(messages, expected_warning), "missing message: " + expected_warning + " in " + messages);
       }
     } finally { logger.removeAppender(logAppender); }
   }
@@ -708,8 +705,8 @@ public class TestRequestPoolService {
     expectedResult.setOnly_coordinators(onlyCoordinators);
 
     TPoolConfig poolConfig = poolService_.getPoolConfig(pool);
-    Assertions.assertEquals(
-        "Unexpected config values for pool " + pool, expectedResult, poolConfig);
+    Assertions.assertEquals(expectedResult, poolConfig,
+        "Unexpected config values for pool " + pool);
   }
 
   private void checkPoolConfigResult(String pool, long expectedMaxRequests,

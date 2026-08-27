@@ -84,8 +84,8 @@ public class NumericLiteralTest {
     // Literals start analyzed
     assertTrue(n.isAnalyzed());
     // With their costs set
-    assertEquals(LiteralExpr.LITERAL_COST, n.getCost(), 0.01);
-    assertEquals(-1, n.getSelectivity(), 0.01);
+    assertEquals(n.getCost(), 0.01, LiteralExpr.LITERAL_COST);
+    assertEquals(n.getSelectivity(), 0.01, -1);
     // Sanity check of the string representation
     assertEquals("0", n.getStringValue());
     assertEquals("0:TINYINT", n.toString());
@@ -362,7 +362,7 @@ public class NumericLiteralTest {
     assertEquals(Long.MAX_VALUE, n.getLongValue());
 
     n = new NumericLiteral(NumericLiteral.MAX_DOUBLE);
-    assertEquals(Double.MAX_VALUE, n.getDoubleValue(), 1.0);
+    assertEquals(n.getDoubleValue(), 1.0, Double.MAX_VALUE);
     assertEquals(Type.DOUBLE, n.getType());
 
     n = new NumericLiteral(new BigDecimal(genDecimal(35, 0)));
@@ -391,7 +391,7 @@ public class NumericLiteralTest {
     assertEquals(Long.MAX_VALUE, n.getLongValue());
 
     n = new NumericLiteral(NumericLiteral.MAX_DOUBLE);
-    assertEquals(Double.MAX_VALUE, n.getDoubleValue(), 1.0);
+    assertEquals(n.getDoubleValue(), 1.0, Double.MAX_VALUE);
     assertEquals(Type.DOUBLE, n.getType());
 
     n = new NumericLiteral(new BigDecimal(genDecimal(35, 0)));
@@ -426,9 +426,9 @@ public class NumericLiteralTest {
   @Test
   public void testExtremes() throws InvalidValueException, SqlCastException {
     NumericLiteral n = new NumericLiteral(NumericLiteral.MAX_DOUBLE);
-    assertEquals(Double.MAX_VALUE, n.getDoubleValue(), 1);
+    assertEquals(n.getDoubleValue(), 1, Double.MAX_VALUE);
     n = new NumericLiteral(NumericLiteral.MIN_DOUBLE);
-    assertEquals(-Double.MAX_VALUE, n.getDoubleValue(), 1);
+    assertEquals(n.getDoubleValue(), 1, -Double.MAX_VALUE);
   }
 
   @Test

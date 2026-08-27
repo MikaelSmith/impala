@@ -651,7 +651,7 @@ public class RangerAuditLogTest extends AuthorizationTestBase {
         String policyName = policyNames[i];
         String json = policies.get(i);
         policyIds[i] = createRangerPolicy(policyName, json);
-        assertNotEquals("Illegal policy id", -1, policyIds[i]);
+        assertNotEquals(policyIds[i], "Illegal policy id", -1);
         // Only the first 3 policies apply on current user.
         if (i < 3) columnMaskingPolicyIds.add(policyIds[i]);
       }
@@ -867,7 +867,7 @@ public class RangerAuditLogTest extends AuthorizationTestBase {
         String policyName = policyNames[i];
         String json = policies.get(i);
         policyIds[i] = createRangerPolicy(policyName, json);
-        assertNotEquals("Illegal policy id", -1, policyIds[i]);
+        assertNotEquals(policyIds[i], "Illegal policy id", -1);
       }
 
       // Verify row filter audits. Note that columns used in the row filter also creates

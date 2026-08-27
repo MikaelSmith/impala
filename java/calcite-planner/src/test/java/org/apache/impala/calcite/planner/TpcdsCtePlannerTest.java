@@ -29,9 +29,6 @@ import org.apache.impala.util.RequestPoolService;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 
 import java.io.File;
 import java.io.IOException;
@@ -52,7 +49,6 @@ import java.util.Set;
  * tweaks to trigger CTE recommendations. The test verifies single node, distributed, and
  * parallel plans with CTE support.
  */
-@RunWith(Parameterized.class)
 public class TpcdsCtePlannerTest extends PlannerTestBase {
   // Pool definitions and includes memory resource limits, copied to a temporary file
   private static final String ALLOCATION_FILE = "fair-scheduler-3-groups.xml";
@@ -102,16 +98,14 @@ public class TpcdsCtePlannerTest extends PlannerTestBase {
   };
 
   // Temporary folder to copy admission control files into.
-  // Do not annotate with JUnit @Rule because we want to keep the tempFolder the same
-  // for entire lifetime of test class.
-  private static TemporaryFolder tempFolder;
+  private static File tempFolder;
 
   /**
    * Copies a file from the classpath (e.g. from the impala-frontend tests jar) into the
    * temporary folder so it is available as a real file on disk.
    */
   private static File copyClasspathFileToTemp(String filename) throws IOException {
-    File destFile = tempFolder.newFile(filename);
+    File destFile = new File(tempFolder, filename);
     final ClassLoader loader = TpcdsCpuCostPlannerTest.class.getClassLoader();
     try (InputStream in = loader.getResourceAsStream(filename)) {
       if (in == null) {
@@ -125,8 +119,7 @@ public class TpcdsCtePlannerTest extends PlannerTestBase {
   private static void setupAdmissionControl() throws IOException {
     // Start admission control with config file fair-scheduler-3-groups.xml
     // and llama-site-3-groups.xml
-    tempFolder = new TemporaryFolder();
-    tempFolder.create();
+    tempFolder = java.nio.file.Files.createTempDirectory("tpcds").toFile();
     File allocationConfFile = copyClasspathFileToTemp(ALLOCATION_FILE);
     File llamaConfFile = copyClasspathFileToTemp(LLAMA_CONFIG_FILE);
     // Intentionally mark isTest = false to cache poolService as a singleton.
@@ -167,7 +160,9 @@ public class TpcdsCtePlannerTest extends PlannerTestBase {
     invalidateTables();
 
     RequestPoolService.getInstance().stop();
-    tempFolder.delete();
+    if (tempFolder != null && tempFolder.exists()) {
+      org.apache.commons.io.FileUtils.deleteQuietly(tempFolder);
+    }
   }
 
   /**
@@ -182,6 +177,8 @@ public class TpcdsCtePlannerTest extends PlannerTestBase {
   }
 
   private final String query;
+
+  public TpcdsCtePlannerTest() { this("q01"); }
 
   public TpcdsCtePlannerTest(String query) { this.query = query; }
 

@@ -17,10 +17,8 @@
 
 package org.apache.impala.catalog.local;
 
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.sameInstance;
-import static org.hamcrest.Matchers.arrayContainingInAnyOrder;
-import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.impala.service.BackendConfig;
@@ -35,6 +33,7 @@ import org.mockito.Mockito;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 public class BlacklistingMetaProviderTest {
 
@@ -73,7 +72,7 @@ public class BlacklistingMetaProviderTest {
     ImmutableList<String> result = fixture.loadDbList();
 
     // Should have 3 databases: allowed_db1, allowed_db2, allowed_db3.
-    assertThat(result.size(), equalTo(3));
+    assertEquals(3, result.size());
     assertTrue(result.contains("allowed_db1"));
     assertTrue(result.contains("allowed_db2"));
     assertTrue(result.contains("allowed_db3"));
@@ -96,7 +95,7 @@ public class BlacklistingMetaProviderTest {
     ImmutableList<String> result = fixture.loadDbList();
 
     // Verify that all databases are returned.
-    assertThat(result.size(), equalTo(3));
+    assertEquals(3, result.size());
     assertTrue(result.contains("regular_db1"));
     assertTrue(result.contains("regular_db2"));
     assertTrue(result.contains("regular_db3"));
@@ -121,7 +120,7 @@ public class BlacklistingMetaProviderTest {
     ImmutableList<String> result = fixture.loadDbList();
 
     // Verify that all databases are returned.
-    assertThat(result, sameInstance(dbList));
+    assertSame(dbList, result);
 
     Mockito.verify(mockDelegate).loadDbList();
     Mockito.verifyNoMoreInteractions(mockDelegate);
@@ -145,14 +144,14 @@ public class BlacklistingMetaProviderTest {
 
     BlacklistingMetaProvider fixture = new BlacklistingMetaProvider(mockDelegate);
 
-    assertThat(fixture.loadTableList("db1").toArray(),
-        arrayContainingInAnyOrder(equalTo(new TBriefTableMeta("bar"))));
+    assertEquals(ImmutableSet.of(new TBriefTableMeta("bar")),
+      ImmutableSet.copyOf(fixture.loadTableList("db1")));
 
-    assertThat(fixture.loadTableList("db2").toArray(),
-        arrayContainingInAnyOrder(equalTo(new TBriefTableMeta("foo"))));
+    assertEquals(ImmutableSet.of(new TBriefTableMeta("foo")),
+      ImmutableSet.copyOf(fixture.loadTableList("db2")));
 
-    assertThat(fixture.loadTableList("db3").toArray(), arrayContainingInAnyOrder(
-        equalTo(new TBriefTableMeta("foo")), equalTo(new TBriefTableMeta("bar"))));
+    assertEquals(ImmutableSet.of(new TBriefTableMeta("foo"),
+      new TBriefTableMeta("bar")), ImmutableSet.copyOf(fixture.loadTableList("db3")));
 
     Mockito.verify(mockDelegate).loadTableList("db1");
     Mockito.verify(mockDelegate).loadTableList("db2");
@@ -177,7 +176,7 @@ public class BlacklistingMetaProviderTest {
     ImmutableCollection<TBriefTableMeta> result = fixture.loadTableList("db1");
 
     // Verify that all databases are returned.
-    assertThat(result, sameInstance(tablesList));
+    assertSame(tablesList, result);
 
     Mockito.verify(mockDelegate).loadTableList("db1");
     Mockito.verifyNoMoreInteractions(mockDelegate);

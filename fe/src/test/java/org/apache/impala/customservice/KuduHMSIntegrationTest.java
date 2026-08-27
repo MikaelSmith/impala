@@ -29,17 +29,12 @@ import org.apache.impala.testutil.TestUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@RunWith(Suite.class)
-@SuiteClasses({ AnalyzeKuduDDLTest.class, AuditingKuduTest.class,
-                ParserTest.class, ToSqlTest.class })
 /**
  * Test suite on Kudu tables when HMS integration is enabled.
  */
@@ -94,5 +89,21 @@ public class KuduHMSIntegrationTest {
   @AfterAll
   public static void cleanUp() throws Exception {
     restartKudu(false);
+  }
+
+  @Test
+  public void testAnalyzeKuduDDL() {
+    AnalyzeKuduDDLTest.setup();
+    AnalyzeKuduDDLTest test = new AnalyzeKuduDDLTest();
+    test.TestCreateManagedKuduTable();
+    test.TestCreateSynchronizedKuduTable();
+    test.TestCreateExternalKuduTable();
+    test.TestAlterKuduTable();
+  }
+
+  @Test
+  public void testAuditingKudu() throws Exception {
+    AuditingKuduTest test = new AuditingKuduTest();
+    test.TestKuduStatements();
   }
 }

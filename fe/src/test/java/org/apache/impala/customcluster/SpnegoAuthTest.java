@@ -51,15 +51,16 @@ import org.apache.directory.server.core.annotations.CreatePartition;
 import org.apache.directory.server.annotations.CreateLdapServer;
 import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
-import org.apache.directory.server.core.integ.CreateLdapServerRule;
+import org.apache.directory.server.core.integ.ApacheDSTestExtension;
+import org.apache.directory.server.ldap.LdapServer;
 import org.apache.hive.service.rpc.thrift.*;
 import org.apache.impala.testutil.WebClient;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.ietf.jgss.*;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.ClassRule;
-import org.junit.rules.TemporaryFolder;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +69,7 @@ import org.slf4j.LoggerFactory;
 @CreateLdapServer(
     transports = { @CreateTransport(protocol = "LDAP", address = "localhost") })
 @ApplyLdifFiles({"users.ldif"})
+@ExtendWith(ApacheDSTestExtension.class)
 /**
  * Tests that hiveserver2 operations over the http interface work as expected when
  * SPNEGO authentication is being used.
@@ -75,17 +77,16 @@ import org.slf4j.LoggerFactory;
 public class SpnegoAuthTest {
   private static final Logger LOG = LoggerFactory.getLogger(SpnegoAuthTest.class);
 
-  @ClassRule
-  public static CreateLdapServerRule serverRule = new CreateLdapServerRule();
-  @ClassRule
+  public static LdapServer classLdapServer;
+  @RegisterExtension
   public static KerberosKdcEnvironment kerberosKdcEnvironment =
-          new KerberosKdcEnvironment(new TemporaryFolder());
+          new KerberosKdcEnvironment();
 
   WebClient client_ = new WebClient();
 
   protected Map<String, String> getLdapFlags() {
     String ldapUri = String.format("ldap://localhost:%s",
-            serverRule.getLdapServer().getPort());
+            classLdapServer.getPort());
     String passwordCommand = String.format("'echo -n %s'", TEST_PASSWORD_1);
     return ImmutableMap.<String, String>builder()
         .put("enable_ldap_auth", "true")

@@ -49,6 +49,7 @@ import org.junit.jupiter.api.Test;
  *
  */
 public class JdbcTest extends JdbcTestBase {
+  public JdbcTest() { super("binary"); }
   public JdbcTest(String connectionType) { super(connectionType); }
 
   @BeforeEach
@@ -75,7 +76,7 @@ public class JdbcTest extends JdbcTestBase {
         String resultTableName = rs.getString("TABLE_NAME");
         assertEquals(rs.getString(3), resultTableName);
 
-        assertEquals("Table mismatch", tests.get(tblNamePattern), resultTableName);
+        assertEquals(tests.get(tblNamePattern), resultTableName, "Table mismatch");
         String tableType = rs.getString("TABLE_TYPE");
         assertEquals("table", tableType.toLowerCase());
         assertFalse(rs.next());
@@ -142,16 +143,16 @@ public class JdbcTest extends JdbcTestBase {
     assertTrue(rs.next());
     String columnname = rs.getString("COLUMN_NAME");
     int ordinalPos = rs.getInt("ORDINAL_POSITION");
-    assertEquals("Incorrect column name", "string_col", columnname);
-    assertEquals("Incorrect ordinal position", 12, ordinalPos);
-    assertEquals("Incorrect type", Types.VARCHAR, rs.getInt("DATA_TYPE"));
+    assertEquals("string_col", columnname, "Incorrect column name");
+    assertEquals(12, ordinalPos, "Incorrect ordinal position");
+    assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertFalse(rs.next());
     rs.close();
 
     // validate bool_col
     rs = con_.getMetaData().getColumns(null, "functional", "alltypessmall", "bool_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.BOOLEAN, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.BOOLEAN, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertFalse(rs.next());
     rs.close();
 
@@ -159,7 +160,7 @@ public class JdbcTest extends JdbcTestBase {
     rs = con_.getMetaData().getColumns(null, "functional", "alltypessmall",
         "tinyint_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.TINYINT, rs.getInt("DATA_TYPE"));
+      assertEquals(Types.TINYINT, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(3, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
@@ -170,7 +171,7 @@ public class JdbcTest extends JdbcTestBase {
     rs = con_.getMetaData().getColumns(null, "functional", "alltypessmall",
         "smallint_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.SMALLINT, rs.getInt("DATA_TYPE"));
+      assertEquals(Types.SMALLINT, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(5, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
@@ -180,7 +181,7 @@ public class JdbcTest extends JdbcTestBase {
     // validate int_col
     rs = con_.getMetaData().getColumns(null, "functional", "alltypessmall", "int_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.INTEGER, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(10, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
@@ -191,7 +192,7 @@ public class JdbcTest extends JdbcTestBase {
     rs = con_.getMetaData().getColumns(null, "functional", "alltypessmall",
         "bigint_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.BIGINT, rs.getInt("DATA_TYPE"));
+      assertEquals(Types.BIGINT, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(19, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
@@ -201,7 +202,7 @@ public class JdbcTest extends JdbcTestBase {
     // validate float_col
     rs = con_.getMetaData().getColumns(null, "functional", "alltypessmall", "float_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.FLOAT, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.FLOAT, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(7, rs.getInt("COLUMN_SIZE"));
     assertEquals(7, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
@@ -212,7 +213,7 @@ public class JdbcTest extends JdbcTestBase {
     rs = con_.getMetaData().getColumns(null, "functional", "alltypessmall",
         "double_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.DOUBLE, rs.getInt("DATA_TYPE"));
+      assertEquals(Types.DOUBLE, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(15, rs.getInt("COLUMN_SIZE"));
     assertEquals(15, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
@@ -223,7 +224,7 @@ public class JdbcTest extends JdbcTestBase {
     rs = con_.getMetaData().getColumns(null, "functional", "alltypessmall",
         "timestamp_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.TIMESTAMP, rs.getInt("DATA_TYPE"));
+      assertEquals(Types.TIMESTAMP, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(29, rs.getInt("COLUMN_SIZE"));
     assertEquals(9, rs.getInt("DECIMAL_DIGITS"));
     // Use getString() to check the value is null (and not 0).
@@ -244,7 +245,7 @@ public class JdbcTest extends JdbcTestBase {
     rs = con_.getMetaData().getColumns(null, "functional", "date_tbl",
         "date_col");
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.DATE, rs.getInt("DATA_TYPE"));
+      assertEquals(Types.DATE, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(10, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     // Use getString() to check the value is null (and not 0).
@@ -255,32 +256,32 @@ public class JdbcTest extends JdbcTestBase {
     // validate DECIMAL columns
     rs = con_.getMetaData().getColumns(null, "functional", "decimal_tbl", null);
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.DECIMAL, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(9, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.DECIMAL, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(10, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.DECIMAL, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(20, rs.getInt("COLUMN_SIZE"));
     assertEquals(10, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.DECIMAL, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(38, rs.getInt("COLUMN_SIZE"));
     assertEquals(38, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.DECIMAL, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(10, rs.getInt("COLUMN_SIZE"));
     assertEquals(5, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.DECIMAL, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(9, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(10, rs.getInt("NUM_PREC_RADIX"));
@@ -290,13 +291,13 @@ public class JdbcTest extends JdbcTestBase {
     // validate CHAR/VARCHAR columns
     rs = con_.getMetaData().getColumns(null, "functional", "chars_tiny", null);
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.CHAR, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.CHAR, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(5, rs.getInt("COLUMN_SIZE"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.CHAR, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.CHAR, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(140, rs.getInt("COLUMN_SIZE"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.VARCHAR, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(32, rs.getInt("COLUMN_SIZE"));
     assertFalse(rs.next());
     rs.close();
@@ -304,13 +305,13 @@ public class JdbcTest extends JdbcTestBase {
     // validate BINARY column
     rs = con_.getMetaData().getColumns(null, "functional", "binary_tbl", null);
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.INTEGER, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(10, rs.getInt("COLUMN_SIZE"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.VARCHAR, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(Integer.MAX_VALUE, rs.getInt("COLUMN_SIZE"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.BINARY, rs.getInt("DATA_TYPE"));
+    assertEquals(Types.BINARY, rs.getInt("DATA_TYPE"), "Incorrect type");
     assertEquals(Integer.MAX_VALUE, rs.getInt("COLUMN_SIZE"));
     assertFalse(rs.next());
     rs.close();
@@ -339,62 +340,62 @@ public class JdbcTest extends JdbcTestBase {
         "m4 map<boolean,decimal(10,10)>)");
     rs = con_.getMetaData().getColumns(null, "default", "jdbc_complex_type_test", null);
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.STRUCT, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name",
-        "STRUCT<f1:INT,f2:CHAR(4),f3:VARCHAR(5),f4:DECIMAL(10,10)>",
-        rs.getString("TYPE_NAME"));
+    assertEquals(Types.STRUCT, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("STRUCT<f1:INT,f2:CHAR(4),f3:VARCHAR(5),f4:DECIMAL(10,10)>",
+      rs.getString("TYPE_NAME"), "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.ARRAY, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "ARRAY<INT>", rs.getString("TYPE_NAME"));
+    assertEquals(Types.ARRAY, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("ARRAY<INT>", rs.getString("TYPE_NAME"), "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.ARRAY, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "ARRAY<CHAR(4)>", rs.getString("TYPE_NAME"));
+    assertEquals(Types.ARRAY, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("ARRAY<CHAR(4)>", rs.getString("TYPE_NAME"), "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.ARRAY, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "ARRAY<VARCHAR(5)>", rs.getString("TYPE_NAME"));
+    assertEquals(Types.ARRAY, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("ARRAY<VARCHAR(5)>", rs.getString("TYPE_NAME"),
+      "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.ARRAY, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "ARRAY<DECIMAL(10,10)>",
-        rs.getString("TYPE_NAME"));
+    assertEquals(Types.ARRAY, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("ARRAY<DECIMAL(10,10)>", rs.getString("TYPE_NAME"),
+      "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.ARRAY, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "MAP<INT,STRING>", rs.getString("TYPE_NAME"));
+    assertEquals(Types.ARRAY, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("MAP<INT,STRING>", rs.getString("TYPE_NAME"), "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.ARRAY, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "MAP<STRING,CHAR(4)>",
-        rs.getString("TYPE_NAME"));
+    assertEquals(Types.ARRAY, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("MAP<STRING,CHAR(4)>", rs.getString("TYPE_NAME"),
+      "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.ARRAY, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "MAP<BIGINT,VARCHAR(5)>",
-        rs.getString("TYPE_NAME"));
+    assertEquals(Types.ARRAY, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("MAP<BIGINT,VARCHAR(5)>", rs.getString("TYPE_NAME"),
+      "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
     assertTrue(rs.next());
-    assertEquals("Incorrect type", Types.ARRAY, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "MAP<BOOLEAN,DECIMAL(10,10)>",
-        rs.getString("TYPE_NAME"));
+    assertEquals(Types.ARRAY, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("MAP<BOOLEAN,DECIMAL(10,10)>", rs.getString("TYPE_NAME"),
+      "Incorrect type name");
     assertEquals(0, rs.getInt("COLUMN_SIZE"));
     assertEquals(0, rs.getInt("DECIMAL_DIGITS"));
     assertEquals(0, rs.getInt("NUM_PREC_RADIX"));
@@ -409,30 +410,30 @@ public class JdbcTest extends JdbcTestBase {
     ResultSet rs = con_.getMetaData().getTables(
         null, "default", "jdbc_column_comments_test", null);
     assertTrue(rs.next());
-    assertEquals("Incorrect table name", "jdbc_column_comments_test",
-        rs.getString("TABLE_NAME"));
+    assertEquals("jdbc_column_comments_test", rs.getString("TABLE_NAME"),
+      "Incorrect table name");
 
     String remarks = rs.getString("REMARKS");
     // getTables() won't trigger full meta loading for tables. So for unloaded tables,
     // the 'remarks' field is left empty. getColumns() loads the table metadata, so later
     // getTables() calls will return 'remarks' correctly.
-    assertTrue("Incorrect table comment: " + remarks,
-        remarks.equals("") || remarks.equals("table comment"));
+    assertTrue(remarks.equals("") || remarks.equals("table comment"), "Incorrect table comment: " + remarks);
 
     rs = con_.getMetaData().getColumns(
         null, "default", "jdbc_column_comments_test", null);
     assertTrue(rs.next());
-    assertEquals("Incorrect column comment", "column comment", rs.getString("REMARKS"));
+    assertEquals("column comment", rs.getString("REMARKS"),
+      "Incorrect column comment");
 
     rs = con_.getMetaData().getTables(
         null, "default", "jdbc_column_comments_test", null);
     assertTrue(rs.next());
-    assertEquals("Incorrect table name", "jdbc_column_comments_test",
-        rs.getString("TABLE_NAME"));
+    assertEquals("jdbc_column_comments_test", rs.getString("TABLE_NAME"),
+      "Incorrect table name");
     // if this is a catalog-v2 cluster the getTables call does not load the localTable
     // since it does not request columns. See IMPALA-8606 for more details
     if (!TestUtils.isCatalogV2Enabled("localhost", 25020)) {
-      assertEquals("Incorrect table comment", "table comment", rs.getString("REMARKS"));
+      assertEquals("table comment", rs.getString("REMARKS"), "Incorrect table comment");
     }
   }
 
@@ -441,7 +442,7 @@ public class JdbcTest extends JdbcTestBase {
     List<String> pkList = new ArrayList<>(Arrays.asList("id", "year"));
     ResultSet rs = con_.getMetaData().getPrimaryKeys(null, "functional", "parent_table");
     ResultSetMetaData md = rs.getMetaData();
-    assertEquals("Incorrect number of columns seen", 6, md.getColumnCount());
+    assertEquals(6, md.getColumnCount(), "Incorrect number of columns seen");
     int pkCount = 0;
     while (rs.next()) {
       pkCount++;
@@ -462,8 +463,8 @@ public class JdbcTest extends JdbcTestBase {
         "parent_table", null,
         "functional", "child_table");
     ResultSetMetaData md = rs.getMetaData();
-    assertEquals("Incorrect number of columns seen for primary key.",
-        14, md.getColumnCount());
+    assertEquals(14, md.getColumnCount(),
+      "Incorrect number of columns seen for primary key.");
     List<String> colList = new ArrayList<>(Arrays.asList("id", "year"));
     int fkCount = 0;
     while (rs.next()) {
@@ -554,9 +555,9 @@ public class JdbcTest extends JdbcTestBase {
     ResultSet rs = con_.getMetaData().getColumns(
         null, "functional_parquet", "trino_variant", "v");
     assertTrue(rs.next());
-    assertEquals("Incorrect column name", "v", rs.getString("COLUMN_NAME"));
-    assertEquals("Incorrect type", Types.VARCHAR, rs.getInt("DATA_TYPE"));
-    assertEquals("Incorrect type name", "VARIANT", rs.getString("TYPE_NAME"));
+    assertEquals("v", rs.getString("COLUMN_NAME"), "Incorrect column name");
+    assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"), "Incorrect type");
+    assertEquals("VARIANT", rs.getString("TYPE_NAME"), "Incorrect type name");
     assertFalse(rs.next());
     rs.close();
 
@@ -617,9 +618,10 @@ public class JdbcTest extends JdbcTestBase {
     int numFound = 0;
     while (rs.next()) {
       String funcName = rs.getString("FUNCTION_NAME");
-      assertEquals("Incorrect function name", "substring", funcName.toLowerCase());
+      assertEquals("substring", funcName.toLowerCase(), "Incorrect function name");
       String dbName = rs.getString("FUNCTION_SCHEM");
-      assertEquals("Incorrect function name", "_impala_builtins", dbName.toLowerCase());
+      assertEquals("_impala_builtins", dbName.toLowerCase(),
+          "Incorrect function name");
       String fnSignature = rs.getString("SPECIFIC_NAME");
       assertTrue(fnSignature.startsWith("substring("));
       ++numFound;
@@ -737,12 +739,12 @@ public class JdbcTest extends JdbcTestBase {
           "impala-server.num-sessions-expired"));
     }
 
-    assertNotNull("Connection with 0 timeout should not be null", connections.get(0));
+    assertNotNull(connections.get(0), "Connection with 0 timeout should not be null");
     connections.get(0).close();
     connections.set(0, null);
 
     for (Connection connection : connections) {
-      assertNull("Connection is not null", connection);
+      assertNull(connection, "Connection is not null");
     }
   }
 

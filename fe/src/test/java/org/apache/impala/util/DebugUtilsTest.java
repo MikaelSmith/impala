@@ -41,11 +41,14 @@ public class DebugUtilsTest {
     DebugUtils.executeDebugAction("TEST_SLEEP_ACTION:NOT_FOUND@1", "TEST_SLEEP_ACTION");
   }
 
-  @Test(expected = Exception.class)
+  @Test
   public void testSleepDebugActionNegative() throws Exception {
-    DebugUtils.executeDebugAction("TEST_SLEEP_ACTION:SLEEP10", "TEST_SLEEP_ACTION");
-    DebugUtils.executeDebugAction("TEST_SLEEP_ACTION|SLEEP10", "TEST_SLEEP_ACTION");
-    DebugUtils.executeDebugAction("TEST_SLEEP_ACTION@SLEEP:10", "TEST_SLEEP_ACTION");
+    Assertions.assertThrows(Exception.class, () ->
+        DebugUtils.executeDebugAction("TEST_SLEEP_ACTION:SLEEP10", "TEST_SLEEP_ACTION"));
+    Assertions.assertThrows(Exception.class, () ->
+        DebugUtils.executeDebugAction("TEST_SLEEP_ACTION|SLEEP10", "TEST_SLEEP_ACTION"));
+    Assertions.assertThrows(Exception.class, () ->
+        DebugUtils.executeDebugAction("TEST_SLEEP_ACTION@SLEEP:10", "TEST_SLEEP_ACTION"));
   }
 
   @Test
@@ -59,10 +62,12 @@ public class DebugUtilsTest {
     Assertions.assertTrue(endTime - startTime < 100);
   }
 
-  @Test(expected = Exception.class)
+  @Test
   public void testJitterNegative() throws Exception {
-    DebugUtils.executeDebugAction("TEST_JITTER_ACTION@JITTER:1", "test_jitter_action");
-    DebugUtils.executeDebugAction("TEST_JITTER_ACTION:JITTER", "test_jitter_action");
+    Assertions.assertThrows(Exception.class, () ->
+        DebugUtils.executeDebugAction("TEST_JITTER_ACTION@JITTER:1", "test_jitter_action"));
+    Assertions.assertThrows(Exception.class, () ->
+        DebugUtils.executeDebugAction("TEST_JITTER_ACTION:JITTER", "test_jitter_action"));
   }
 
 

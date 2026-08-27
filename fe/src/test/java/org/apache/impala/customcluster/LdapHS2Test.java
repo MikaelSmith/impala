@@ -36,29 +36,32 @@ import org.apache.directory.server.core.annotations.CreatePartition;
 import org.apache.directory.server.annotations.CreateLdapServer;
 import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
-import org.apache.directory.server.core.integ.CreateLdapServerRule;
 import org.apache.hive.service.rpc.thrift.*;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpResponseInterceptor;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.directory.server.core.integ.ApacheDSTestExtension;
+import org.apache.directory.server.ldap.LdapServer;
 import org.apache.http.protocol.HttpContext;
 import org.apache.impala.testutil.WebClient;
 import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
 
 @CreateDS(name = "myDS",
     partitions = { @CreatePartition(name = "test", suffix = "dc=myorg,dc=com") })
 @CreateLdapServer(
     transports = { @CreateTransport(protocol = "LDAP", address = "localhost") })
 @ApplyLdifFiles({"users.ldif"})
+@ExtendWith(ApacheDSTestExtension.class)
 /**
  * Tests that hiveserver2 operations over the http interface work as expected when
  * ldap authentication is being used.
@@ -66,19 +69,17 @@ import org.slf4j.LoggerFactory;
 public class LdapHS2Test {
   private static final Logger LOG = LoggerFactory.getLogger(LdapHS2Test.class);
 
-  @ClassRule
-  public static CreateLdapServerRule serverRule = new CreateLdapServerRule();
+  public static LdapServer classLdapServer;
 
   // Temp folder where the config files are copied so we can modify them in place.
-  // The JUnit @Rule creates and removes the temp folder between every test.
-  @Rule
-  public TemporaryFolder tempFolder = new TemporaryFolder();
+  @TempDir
+  public File tempFolder;
 
   WebClient client_ = new WebClient();
 
   public void setUp(String extraArgs) throws Exception {
     String uri =
-        String.format("ldap://localhost:%s", serverRule.getLdapServer().getPort());
+        String.format("ldap://localhost:%s", classLdapServer.getPort());
     String dn = "cn=#UID,ou=Users,dc=myorg,dc=com";
     String ldapArgs = String.format("--enable_ldap_auth --ldap_uri='%s' "
             + "--ldap_bind_pattern='%s' --ldap_passwords_in_clear_ok %s ",
@@ -978,8 +979,7 @@ public class LdapHS2Test {
           String.format(selectQuery, "impala_jdbc_tbl_without_auth_mech"), "9");
       fail("Expected error: " + expectedError);
     } catch (Exception e) {
-      assertTrue(String.format("Authentication failed with error: %s", e.getMessage()),
-          e.getMessage().contains(expectedError));
+      assertTrue(e.getMessage().contains(expectedError), String.format("Authentication failed with error: %s", e.getMessage()));
     }
 
     // Drop JDBC tables.
@@ -1003,7 +1003,7 @@ public class LdapHS2Test {
   @Test
   public void testHiveserver2SharedCookie() throws Exception {
     // Write a temporary key file for the cookie secret.
-    File keyFile = tempFolder.newFile();
+    File keyFile = File.createTempFile("junit", null, tempFolder);
     writeCookieSecret(keyFile);
 
     setUp(String.format("--cookie_secret_file=%s", keyFile.getCanonicalPath()));
@@ -1017,7 +1017,7 @@ public class LdapHS2Test {
         if (response.containsHeader("Set-Cookie")) {
           cookie[0] = response.getFirstHeader("Set-Cookie").getValue();
         } else {
-          assertNotNull("First response is expected to Set-Cookie", cookie[0]);
+          assertNotNull(cookie[0], "First response is expected to Set-Cookie");
         }
       }
     };

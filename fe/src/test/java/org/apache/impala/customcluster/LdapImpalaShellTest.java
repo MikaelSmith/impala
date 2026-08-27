@@ -36,16 +36,19 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.directory.server.annotations.CreateLdapServer;
 import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
-import org.apache.directory.server.core.integ.CreateLdapServerRule;
+import org.apache.directory.server.core.integ.ApacheDSTestExtension;
+import org.apache.directory.server.ldap.LdapServer;
 import org.apache.impala.testutil.InterruptibleProxyServer;
 import org.apache.impala.testutil.WebClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
 
 /**
  * Impala shell connectivity tests for LDAP authentication. This class contains the common
@@ -54,14 +57,14 @@ import org.slf4j.LoggerFactory;
 @CreateLdapServer(
     transports = { @CreateTransport(protocol = "LDAP", address = "localhost") })
 @ApplyLdifFiles({"users.ldif"})
+@ExtendWith(ApacheDSTestExtension.class)
 public class LdapImpalaShellTest {
   private final static Logger LOG = LoggerFactory.getLogger(LdapImpalaShellTest.class);
 
-  @ClassRule
-  public static CreateLdapServerRule serverRule = new CreateLdapServerRule();
+  public static LdapServer classLdapServer;
 
-  @Rule
-  public TemporaryFolder tempFolder = new TemporaryFolder();
+  @TempDir
+  public File tempFolder;
 
   // The cluster will be set up to allow TEST_USER_1 to act as a proxy for delegateUser_.
   // Includes a special character to test HTTP path encoding.
@@ -71,7 +74,7 @@ public class LdapImpalaShellTest {
 
   public void setUp(String extraArgs) throws Exception {
     String uri =
-        String.format("ldap://localhost:%s", serverRule.getLdapServer().getPort());
+        String.format("ldap://localhost:%s", classLdapServer.getPort());
     String ldapArgs = String.format("--enable_ldap_auth --ldap_uri='%s' "
             + "--ldap_passwords_in_clear_ok %s",
         uri, extraArgs);
@@ -129,21 +132,17 @@ public class LdapImpalaShellTest {
       Range<Long> expectedCookieFailure) throws Exception {
     long actualBasicSuccess = (long) client_.getMetric("impala.thrift-server"
         + ".hiveserver2-http-frontend.total-" + authMethod() + "-auth-success");
-    assertTrue("Expected: " + expectedBasicSuccess + ", Actual: " + actualBasicSuccess,
-        expectedBasicSuccess.contains(actualBasicSuccess));
+    assertTrue(expectedBasicSuccess.contains(actualBasicSuccess), "Expected: " + expectedBasicSuccess + ", Actual: " + actualBasicSuccess);
     long actualBasicFailure = (long) client_.getMetric("impala.thrift-server"
         + ".hiveserver2-http-frontend.total-" + authMethod() + "-auth-failure");
-    assertTrue("Expected: " + expectedBasicFailure + ", Actual: " + actualBasicFailure,
-        expectedBasicFailure.contains(actualBasicFailure));
+    assertTrue(expectedBasicFailure.contains(actualBasicFailure), "Expected: " + expectedBasicFailure + ", Actual: " + actualBasicFailure);
 
     long actualCookieSuccess = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-cookie-auth-success");
-    assertTrue("Expected: " + expectedCookieSuccess + ", Actual: " + actualCookieSuccess,
-        expectedCookieSuccess.contains(actualCookieSuccess));
+    assertTrue(expectedCookieSuccess.contains(actualCookieSuccess), "Expected: " + expectedCookieSuccess + ", Actual: " + actualCookieSuccess);
     long actualCookieFailure = (long) client_.getMetric(
         "impala.thrift-server.hiveserver2-http-frontend.total-cookie-auth-failure");
-    assertTrue("Expected: " + expectedCookieFailure + ", Actual: " + actualCookieFailure,
-        expectedCookieFailure.contains(actualCookieFailure));
+    assertTrue(expectedCookieFailure.contains(actualCookieFailure), "Expected: " + expectedCookieFailure + ", Actual: " + actualCookieFailure);
   }
 
   private static final Range<Long> zero = Range.closed(0L, 0L);
@@ -225,8 +224,7 @@ public class LdapImpalaShellTest {
       if (p.equals("hs2-http")) {
         // Check that cookies are being used.
         verifyMetrics(Range.atLeast(1L), zero, Range.atLeast(1L), zero);
-        assertTrue(result.stderr,
-            result.stderr.contains("Preserving cookies: " + preservedCookies));
+        assertTrue(result.stderr.contains("Preserving cookies: " + preservedCookies), result.stderr);
       }
       validCommandMatchingCookieNames[1] = protocol;
       result = RunShellCommand.Run(validCommandMatchingCookieNames,
@@ -235,8 +233,7 @@ public class LdapImpalaShellTest {
       if (p.equals("hs2-http")) {
         // Check that cookies are being used.
         verifyMetrics(Range.atLeast(2L), zero, Range.atLeast(2L), zero);
-        assertTrue(result.stderr,
-            result.stderr.contains("Preserving cookies: impala.auth"));
+        assertTrue(result.stderr.contains("Preserving cookies: impala.auth"), result.stderr);
       }
       validCommandMismatchingCookieNames[1] = protocol;
       result = RunShellCommand.Run(validCommandMismatchingCookieNames,
@@ -245,7 +242,7 @@ public class LdapImpalaShellTest {
       if (p.equals("hs2-http")) {
         // Check that cookies are NOT being used.
         verifyMetrics(Range.atLeast(2L), zero, Range.atLeast(2L), zero);
-        assertFalse(result.stderr, result.stderr.contains("Preserving cookies:"));
+        assertFalse(result.stderr.contains("Preserving cookies:"), result.stderr);
       }
       validCommandEmptyCookieNames[1] = protocol;
       result = RunShellCommand.Run(validCommandEmptyCookieNames, /*shouldSucceed*/ true,
@@ -253,7 +250,7 @@ public class LdapImpalaShellTest {
       if (p.equals("hs2-http")) {
         // Check that cookies are NOT being used.
         verifyMetrics(Range.atLeast(2L), zero, Range.atLeast(2L), zero);
-        assertFalse(result.stderr, result.stderr.contains("Preserving cookies:"));
+        assertFalse(result.stderr.contains("Preserving cookies:"), result.stderr);
       }
 
       invalidCommand[1] = protocol;
@@ -310,7 +307,7 @@ public class LdapImpalaShellTest {
    */
   protected File getCookieSecretFile() throws Exception {
     // Write a temporary key file for the cookie secret.
-    File keyFile = tempFolder.newFile();
+    File keyFile = File.createTempFile("junit", null, tempFolder);
     writeCookieSecret(keyFile);
     return keyFile;
   }
@@ -358,9 +355,8 @@ public class LdapImpalaShellTest {
     }
 
     RunShellCommand.Output result = resultHolder[0];
-    assertTrue(result.stderr,
-        result.stderr.contains("Preserving cookies: impala.auth"));
-    assertTrue(result.stderr, result.stderr.contains("Fetched 1 row"));
+    assertTrue(result.stderr.contains("Preserving cookies: impala.auth"), result.stderr);
+    assertTrue(result.stderr.contains("Fetched 1 row"), result.stderr);
     // Cookie auth should fail once due to key change, requiring two basic auths.
     // Cookie auth is expected to succeed at least once, possibly many times.
     verifyMetrics(Range.closed(2L, 2L), zero, Range.atLeast(1L), one);
@@ -407,7 +403,7 @@ public class LdapImpalaShellTest {
 
     // Query should succeed.
     RunShellCommand.Output result = resultHolder[0];
-    assertTrue(result.stderr, result.stderr.contains("Fetched 1 row"));
+    assertTrue(result.stderr.contains("Fetched 1 row"), result.stderr);
   }
 
   /**

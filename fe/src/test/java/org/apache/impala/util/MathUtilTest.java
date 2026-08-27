@@ -55,20 +55,16 @@ public class MathUtilTest {
     // Case 1: both argument is valid.
     for (long c1 : validCard) {
       for (long c2 : validCard) {
-        assertEquals(c1 + " * " + c2, LongMath.saturatedMultiply(c1, c2),
-            MathUtil.multiplyCardinalities(c1, c2));
+        assertEquals(LongMath.saturatedMultiply(c1, c2), MathUtil.multiplyCardinalities(c1, c2), c1 + " * " + c2);
       }
     }
     // Case 2: One argument is valid, the other is unknown.
     for (long c : validCard) {
-      assertEquals(
-          c + " * " + unknown, unknown, MathUtil.multiplyCardinalities(c, unknown));
-      assertEquals(
-          unknown + " * " + c, unknown, MathUtil.multiplyCardinalities(unknown, c));
+      assertEquals(unknown, MathUtil.multiplyCardinalities(c, unknown), c + " * " + unknown);
+      assertEquals(unknown, MathUtil.multiplyCardinalities(unknown, c), unknown + " * " + c);
     }
     // Case 3: both argument is unknown.
-    assertEquals(unknown + " * " + unknown, unknown,
-        MathUtil.multiplyCardinalities(unknown, unknown));
+    assertEquals(unknown, MathUtil.multiplyCardinalities(unknown, unknown), unknown + " * " + unknown);
     // Case 4: one argument is invalid.
     try {
       MathUtil.multiplyCardinalities(invalid, 1);
@@ -109,18 +105,16 @@ public class MathUtilTest {
     // Case 1: both argument is valid.
     for (long c1 : validCard) {
       for (long c2 : validCard) {
-        assertEquals(c1 + " * " + c2, LongMath.saturatedAdd(c1, c2),
-            MathUtil.addCardinalities(c1, c2));
+        assertEquals(LongMath.saturatedAdd(c1, c2), MathUtil.addCardinalities(c1, c2), c1 + " * " + c2);
       }
     }
     // Case 2: One argument is valid, the other is unknown.
     for (long c : validCard) {
-      assertEquals(c + " * " + unknown, unknown, MathUtil.addCardinalities(c, unknown));
-      assertEquals(unknown + " * " + c, unknown, MathUtil.addCardinalities(unknown, c));
+      assertEquals(unknown, MathUtil.addCardinalities(c, unknown), c + " * " + unknown);
+      assertEquals(unknown, MathUtil.addCardinalities(unknown, c), unknown + " * " + c);
     }
     // Case 3: both argument is unknown.
-    assertEquals(
-        unknown + " * " + unknown, unknown, MathUtil.addCardinalities(unknown, unknown));
+    assertEquals(unknown, MathUtil.addCardinalities(unknown, unknown), unknown + " * " + unknown);
     // Case 4: one argument is invalid.
     try {
       MathUtil.addCardinalities(invalid, 1);
@@ -146,20 +140,16 @@ public class MathUtilTest {
     // Case 1: both argument is valid.
     for (long c1 : validCard) {
       for (long c2 : validCard) {
-        assertEquals(c1 + " vs " + c2, Math.min(c1, c2),
-            MathUtil.smallestValidCardinality(c1, c2));
+        assertEquals(Math.min(c1, c2), MathUtil.smallestValidCardinality(c1, c2), c1 + " vs " + c2);
       }
     }
     // Case 2: One argument is valid, the other is unknown.
     for (long c : validCard) {
-      assertEquals(
-          c + " vs " + unknown, c, MathUtil.smallestValidCardinality(c, unknown));
-      assertEquals(
-          unknown + " vs " + c, c, MathUtil.smallestValidCardinality(unknown, c));
+      assertEquals(c, MathUtil.smallestValidCardinality(c, unknown), c + " vs " + unknown);
+      assertEquals(c, MathUtil.smallestValidCardinality(unknown, c), unknown + " vs " + c);
     }
     // Case 3: both argument is unknown.
-    assertEquals(unknown + " vs " + unknown, unknown,
-        MathUtil.smallestValidCardinality(unknown, unknown));
+    assertEquals(unknown, MathUtil.smallestValidCardinality(unknown, unknown), unknown + " vs " + unknown);
     // Case 4: one argument is invalid.
     try {
       MathUtil.smallestValidCardinality(invalid, 1);

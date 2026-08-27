@@ -561,57 +561,48 @@ public class CatalogTest {
         "test", null);
 
     Column idCol = table.getColumn("id");
-    assertEquals(idCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.INT.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.INT.getSlotSize(), 0.0001, idCol.getStats().getAvgSerializedSize());
     assertEquals(idCol.getStats().getMaxSize(), PrimitiveType.INT.getSlotSize());
     assertFalse(idCol.getStats().hasNulls());
 
     Column boolCol = table.getColumn("bool_col");
-    assertEquals(boolCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.BOOLEAN.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.BOOLEAN.getSlotSize(), 0.0001, boolCol.getStats().getAvgSerializedSize());
     assertEquals(boolCol.getStats().getMaxSize(), PrimitiveType.BOOLEAN.getSlotSize());
     assertFalse(boolCol.getStats().hasNulls());
 
     Column tinyintCol = table.getColumn("tinyint_col");
-    assertEquals(tinyintCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.TINYINT.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.TINYINT.getSlotSize(), 0.0001, tinyintCol.getStats().getAvgSerializedSize());
     assertEquals(tinyintCol.getStats().getMaxSize(), PrimitiveType.TINYINT.getSlotSize());
     assertTrue(tinyintCol.getStats().hasNulls());
 
     Column smallintCol = table.getColumn("smallint_col");
-    assertEquals(smallintCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.SMALLINT.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.SMALLINT.getSlotSize(), 0.0001, smallintCol.getStats().getAvgSerializedSize());
     assertEquals(smallintCol.getStats().getMaxSize(),
         PrimitiveType.SMALLINT.getSlotSize());
     assertTrue(smallintCol.getStats().hasNulls());
 
     Column intCol = table.getColumn("int_col");
-    assertEquals(intCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.INT.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.INT.getSlotSize(), 0.0001, intCol.getStats().getAvgSerializedSize());
     assertEquals(intCol.getStats().getMaxSize(), PrimitiveType.INT.getSlotSize());
     assertTrue(intCol.getStats().hasNulls());
 
     Column bigintCol = table.getColumn("bigint_col");
-    assertEquals(bigintCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.BIGINT.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.BIGINT.getSlotSize(), 0.0001, bigintCol.getStats().getAvgSerializedSize());
     assertEquals(bigintCol.getStats().getMaxSize(), PrimitiveType.BIGINT.getSlotSize());
     assertTrue(bigintCol.getStats().hasNulls());
 
     Column floatCol = table.getColumn("float_col");
-    assertEquals(floatCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.FLOAT.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.FLOAT.getSlotSize(), 0.0001, floatCol.getStats().getAvgSerializedSize());
     assertEquals(floatCol.getStats().getMaxSize(), PrimitiveType.FLOAT.getSlotSize());
     assertTrue(floatCol.getStats().hasNulls());
 
     Column doubleCol = table.getColumn("double_col");
-    assertEquals(doubleCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.DOUBLE.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.DOUBLE.getSlotSize(), 0.0001, doubleCol.getStats().getAvgSerializedSize());
     assertEquals(doubleCol.getStats().getMaxSize(), PrimitiveType.DOUBLE.getSlotSize());
     assertTrue(doubleCol.getStats().hasNulls());
 
     Column timestampCol = table.getColumn("timestamp_col");
-    assertEquals(timestampCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.TIMESTAMP.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.TIMESTAMP.getSlotSize(), 0.0001, timestampCol.getStats().getAvgSerializedSize());
     assertEquals(timestampCol.getStats().getMaxSize(),
         PrimitiveType.TIMESTAMP.getSlotSize());
     assertFalse(timestampCol.getStats().hasNulls());
@@ -627,8 +618,7 @@ public class CatalogTest {
         "test", null);
 
     Column dateCol = dateTable.getColumn("date_col");
-    assertEquals(dateCol.getStats().getAvgSerializedSize(),
-        PrimitiveType.DATE.getSlotSize(), 0.0001);
+    assertEquals(PrimitiveType.DATE.getSlotSize(), 0.0001, dateCol.getStats().getAvgSerializedSize());
     assertEquals(dateCol.getStats().getMaxSize(), PrimitiveType.DATE.getSlotSize());
     assertTrue(dateCol.getStats().hasNulls());
 
@@ -693,8 +683,8 @@ public class CatalogTest {
     assertEquals(-1, column.getStats().getNumFalses());
     double expectedSize = column.getType().isFixedLengthType() ?
         column.getType().getSlotSize() : -1;
-    assertEquals(expectedSize, column.getStats().getAvgSerializedSize(), 0.0001);
-    assertEquals(expectedSize, column.getStats().getMaxSize(), 0.0001);
+    assertEquals(column.getStats().getAvgSerializedSize(), 0.0001, expectedSize);
+    assertEquals(column.getStats().getMaxSize(), 0.0001, expectedSize);
   }
 
   // Fetch partition statistics for dbName.tableName for partitionIds.
@@ -733,7 +723,7 @@ public class CatalogTest {
       getPartitionStatistics(dbName, tableName);
       fail("Expected exception.");
     } catch (Exception e) {
-      assertTrue(e.getMessage(), e.getMessage().startsWith(msgPrefix));
+      assertTrue(e.getMessage().startsWith(msgPrefix), e.getMessage());
     }
   }
 
@@ -770,7 +760,7 @@ public class CatalogTest {
     // Cast will fail if table not an HBaseTable
    HBaseTable table = (HBaseTable)
        catalog_.getOrLoadTable("functional_hbase", "internal_hbase_table", "test", null);
-    assertNotNull("functional_hbase.internal_hbase_table was not found", table);
+    assertNotNull(table, "functional_hbase.internal_hbase_table was not found");
   }
 
   @Test
@@ -831,9 +821,7 @@ public class CatalogTest {
   public void testLoadingUnsupportedTblTypesOnHive2() throws CatalogException {
     // run the test only when it is running against Hive-2 since index tables are
     // skipped during data-load against Hive-3
-    Assumptions.assumeTrue(
-        "Skipping this test since it is only supported when running against Hive-2",
-        TestUtils.getHiveMajorVersion() == 2);
+    Assumptions.assumeTrue(TestUtils.getHiveMajorVersion() == 2, "Skipping this test since it is only supported when running against Hive-2");
     Table table = catalog_.getOrLoadTable("functional", "hive_index_tbl", "test", null);
     assertTrue(table instanceof IncompleteTable);
     IncompleteTable incompleteTable = (IncompleteTable) table;
@@ -1111,8 +1099,8 @@ public class CatalogTest {
       fail("Expected CatalogException for " + dbName + "." + tableName +
           " partition: " + partitionName);
     } catch (CatalogException e) {
-      assertTrue("Expected error message to contain '" + expectedErrorMsg + "', but got: "
-          + e.getMessage(), e.getMessage().contains(expectedErrorMsg));
+      assertTrue(e.getMessage().contains(expectedErrorMsg), "Expected error message to contain '" + expectedErrorMsg + "', but got: "
+          + e.getMessage());
     }
   }
 
@@ -1254,7 +1242,7 @@ public class CatalogTest {
   public void testGetPartitionFromFailedTable() throws CatalogException {
     // Load bad_serde table which is an IncompleteTable due to unsupported SerDe
     Table table = catalog_.getOrLoadTable("functional", "bad_serde", "test", null);
-    assertTrue("Expected IncompleteTable", table instanceof IncompleteTable);
+    assertTrue(table instanceof IncompleteTable, "Expected IncompleteTable");
 
     // Try to get partition from this failed table (without reloading)
     verifyPartitionError("functional", "bad_serde", "year=2009/month=1",

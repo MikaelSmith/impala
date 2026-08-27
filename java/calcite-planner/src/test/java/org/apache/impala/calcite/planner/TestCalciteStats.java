@@ -143,8 +143,8 @@ public class TestCalciteStats extends PlannerTestBase {
       RelNode logicalPlan =
           getRelNodeForQuery("SELECT id FROM functional.alltypes");
       RelMetadataQuery mq = getMQ();
-      assertEquals(ALL_TYPES_CARD, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
-      assertEquals(1.0, (double) mq.getSelectivity(logicalPlan, null), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, ALL_TYPES_CARD);
+      assertEquals((double) mq.getSelectivity(logicalPlan, null), DOUBLE_ERR, 1.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -157,11 +157,10 @@ public class TestCalciteStats extends PlannerTestBase {
           "FROM functional.alltypes where bigint_col != 10");
       RelMetadataQuery mq = getMQ();
       double cardinality = (10.0 - 1.0) * ALL_TYPES_CARD/10.0;
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
-      assertEquals(9.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
-      assertEquals(1.0, (double) mq.getSelectivity(logicalPlan, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 9.0);
+      assertEquals((double) mq.getSelectivity(logicalPlan, null), DOUBLE_ERR, 1.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -174,14 +173,12 @@ public class TestCalciteStats extends PlannerTestBase {
           "FROM functional.alltypes where bigint_col = 10");
       RelMetadataQuery mq = getMQ();
       double cardinality = ALL_TYPES_CARD/10.0;
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
-      assertEquals(1.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 1.0);
       bitSet = ImmutableBitSet.of(1);
       double distinctId = ALL_TYPES_CARD / BIGINT_NDV;
-      assertEquals(distinctId, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, distinctId);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -198,10 +195,9 @@ public class TestCalciteStats extends PlannerTestBase {
       // as calculated in FilterSelectivityEstimator.computeConjunctionSelectivity()
       double cardinality =
           ALL_TYPES_CARD * equalsSelectivity * Math.pow(equalsSelectivity, .5);
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
-      assertEquals(BIGINT_NDV,
-          (double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, BIGINT_NDV);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -214,11 +210,11 @@ public class TestCalciteStats extends PlannerTestBase {
           "FROM functional.alltypes where bigint_col = 10 or smallint_col = 10");
       RelMetadataQuery mq = getMQ();
       Double cardinality = ALL_TYPES_CARD * (1.0 - .9 * .9);
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       Double distinctRows = 10.0 * cardinality / ALL_TYPES_CARD;
-      assertEquals(10.0, (double) mq.getDistinctRowCount(logicalPlan,
-          bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan,
+          bitSet, null), DOUBLE_ERR, 10.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -230,13 +226,13 @@ public class TestCalciteStats extends PlannerTestBase {
       RelNode logicalPlan = getRelNodeForQuery("SELECT some_nulls " +
           "FROM functional.nullrows where some_nulls is null");
       RelMetadataQuery mq = getMQ();
-      assertEquals(20.0, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, 20.0);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // TODO: incorrect value here...it should be 1, but it is taking a percentage of
       // distinct rows
       Double incorrectDistinctRowCount = 6.0 * 20.0/26.0;
-      assertEquals(incorrectDistinctRowCount, (double) mq.getDistinctRowCount(
-          logicalPlan, bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(
+          logicalPlan, bitSet, null), DOUBLE_ERR, incorrectDistinctRowCount);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -248,11 +244,11 @@ public class TestCalciteStats extends PlannerTestBase {
       RelNode logicalPlan = getRelNodeForQuery("SELECT some_nulls " +
           "FROM functional.nullrows where some_nulls is not null");
       RelMetadataQuery mq = getMQ();
-      assertEquals(6.0, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, 6.0);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       Double distinctRowCount = 6.0 * 6.0/26.0;
-      assertEquals(distinctRowCount, (double) mq.getDistinctRowCount(
-          logicalPlan, bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(
+          logicalPlan, bitSet, null), DOUBLE_ERR, distinctRowCount);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -264,10 +260,9 @@ public class TestCalciteStats extends PlannerTestBase {
       RelNode logicalPlan =
           getRelNodeForQuery("SELECT bool_col FROM functional.alltypes where bool_col");
       RelMetadataQuery mq = getMQ();
-      assertEquals((double) mq.getRowCount(logicalPlan), ALL_TYPES_CARD/2.0, DOUBLE_ERR);
+      assertEquals(ALL_TYPES_CARD/2.0, DOUBLE_ERR, (double) mq.getRowCount(logicalPlan));
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
-      assertEquals(1.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 1.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -281,12 +276,11 @@ public class TestCalciteStats extends PlannerTestBase {
       RelMetadataQuery mq = getMQ();
       double cardinality =
           ALL_TYPES_CARD * Expr.DEFAULT_SELECTIVITY;
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       double distinctRows =
           BIGINT_NDV;
-      assertEquals(BIGINT_NDV * Expr.DEFAULT_SELECTIVITY,
-          (double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, BIGINT_NDV * Expr.DEFAULT_SELECTIVITY);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -301,12 +295,9 @@ public class TestCalciteStats extends PlannerTestBase {
       RelMetadataQuery mq = getMQ();
       double cardinality =
           ALL_TYPES_CARD * Expr.DEFAULT_SELECTIVITY;
-      assertEquals(cardinality,
-          (double) mq.getRowCount(logicalPlanWithSearch), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlanWithSearch), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
-      assertEquals(BIGINT_NDV * Expr.DEFAULT_SELECTIVITY,
-          (double) mq.getDistinctRowCount(logicalPlanWithSearch, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlanWithSearch, bitSet, null), DOUBLE_ERR, BIGINT_NDV * Expr.DEFAULT_SELECTIVITY);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -341,11 +332,11 @@ public class TestCalciteStats extends PlannerTestBase {
       RelMetadataQuery mq = getMQ();
       // multiply the "Equals" cardinality by 2 since there are 2 elements for "In"
       Double cardinality = 2 * ALL_TYPES_CARD / BIGINT_NDV;
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // Should be 2 distinct big int values (which are in the "in" clause)
-      assertEquals(2.0, (double) mq.getDistinctRowCount(logicalPlan,
-          bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan,
+          bitSet, null), DOUBLE_ERR, 2.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -365,13 +356,12 @@ public class TestCalciteStats extends PlannerTestBase {
       RelNode logicalPlan = getRelNodeForQuery("SELECT a.id FROM functional.alltypes a " +
           "inner join functional.alltypestiny b  on (a.id= b.id)");
       RelMetadataQuery mq = getMQ();
-      assertEquals(ALL_TYPES_TINY_CARD, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, ALL_TYPES_TINY_CARD);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // value not exactly 8 because we're using Calcite's estimation for distinct row
       // count
-      assertEquals(7.9961654, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
-      assertEquals(1.0, (double) mq.getSelectivity(logicalPlan, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 7.9961654);
+      assertEquals((double) mq.getSelectivity(logicalPlan, null), DOUBLE_ERR, 1.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -393,12 +383,11 @@ public class TestCalciteStats extends PlannerTestBase {
           "on (a.bigint_col= b.bigint_col)");
       RelMetadataQuery mq = getMQ();
       double cardinality = ALL_TYPES_CARD * ALL_TYPES_TINY_CARD / BIGINT_NDV;
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // value not exactly 8 because we're using Calcite's estimation for distinct row
       // count
-      assertEquals(10.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 10.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -414,12 +403,11 @@ public class TestCalciteStats extends PlannerTestBase {
       RelMetadataQuery mq = getMQ();
       // half of the number of rows from testSimpleInnerJoinSlightCross()
       double cardinality = .5 * ALL_TYPES_CARD * ALL_TYPES_TINY_CARD / BIGINT_NDV;
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // value not exactly 8 because we're using Calcite's estimation for distinct row
       // count
-      assertEquals(10.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 10.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -440,13 +428,11 @@ public class TestCalciteStats extends PlannerTestBase {
       // Note: The actual select in impala-shell gives us 2400 rows, which isn't exact,
       // but the approximation here is pretty good.
       double cardinality = ALL_TYPES_CARD * ALL_TYPES_TINY_CARD / (2.0 * 12.0);
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
-      assertEquals(1.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 1.0);
       bitSet = ImmutableBitSet.of(1);
-      assertEquals(4.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 4.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -458,14 +444,13 @@ public class TestCalciteStats extends PlannerTestBase {
       RelNode logicalPlan = getRelNodeForQuery("SELECT a.id, b.id FROM " +
           "functional.alltypes a left join functional.alltypestiny b  on ( a.id = b.id)");
       RelMetadataQuery mq = getMQ();
-      assertEquals(ALL_TYPES_CARD, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, ALL_TYPES_CARD);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // Using Calcite's distinct row count, can prolly do better here.
-      assertEquals(4614.6640296686, (double) mq.getDistinctRowCount(logicalPlan,
-          bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan,
+          bitSet, null), DOUBLE_ERR, 4614.6640296686);
       bitSet = ImmutableBitSet.of(1);
-      assertEquals(8.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 8.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -480,7 +465,7 @@ public class TestCalciteStats extends PlannerTestBase {
       RelMetadataQuery mq = getMQ();
       Double isNullRows =
           ALL_TYPES_CARD * ALL_TYPES_TINY_CARD * DEFAULT_IS_NULL_PERCENTAGE;
-      assertEquals(isNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -494,7 +479,7 @@ public class TestCalciteStats extends PlannerTestBase {
           " on ( a.id > b.id) where a.id is not null");
       RelMetadataQuery mq = getMQ();
       Double isNotNullRows = ALL_TYPES_CARD * ALL_TYPES_TINY_CARD;
-      assertEquals(isNotNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNotNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -509,7 +494,7 @@ public class TestCalciteStats extends PlannerTestBase {
           " on ( a.id = b.id) where b.id is null");
       RelMetadataQuery mq = getMQ();
       Double isNullRows = ALL_TYPES_CARD - ALL_TYPES_TINY_CARD;
-      assertEquals(isNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -523,7 +508,7 @@ public class TestCalciteStats extends PlannerTestBase {
           " on ( a.id = b.id) where a.id is not null");
       RelMetadataQuery mq = getMQ();
       Double isNotNullRows = ALL_TYPES_CARD;
-      assertEquals(isNotNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNotNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -542,7 +527,7 @@ public class TestCalciteStats extends PlannerTestBase {
       // The getNullPercentage returns 0.0 percentage, but the internals of getRowCount()
       // that are called after this boosts the row count up to 1.0.
       Double isNotNullRows = 1.0;
-      assertEquals(isNotNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNotNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -556,7 +541,7 @@ public class TestCalciteStats extends PlannerTestBase {
           "functional.manynulls_withstats  b on ( a.id = b.id) where nullcol is null");
       RelMetadataQuery mq = getMQ();
       Double isNotNullRows = MANY_NULLS_NULL_COL_NULLS;
-      assertEquals(isNotNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNotNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -581,7 +566,7 @@ public class TestCalciteStats extends PlannerTestBase {
 
       Double isNotNullRows =
           unmatchedRows + (MANY_NULLS_NULL_COL_PERC * MANY_NULLS_SMALL_NDVS);
-      assertEquals(isNotNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNotNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -603,7 +588,7 @@ public class TestCalciteStats extends PlannerTestBase {
 
       Double isNotNullRows =
           unmatchedRows + (MANY_NULLS_NULL_COL_PERC * MANY_NULLS_SMALL_NDVS);
-      assertEquals(isNotNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNotNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -625,7 +610,7 @@ public class TestCalciteStats extends PlannerTestBase {
 
       Double isNotNullRows =
           unmatchedRows + (MANY_NULLS_NULL_COL_PERC * MANY_NULLS_SMALL_NDVS);
-      assertEquals(isNotNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNotNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -639,7 +624,7 @@ public class TestCalciteStats extends PlannerTestBase {
           " on ( a.id = b.id) where b.id is not null");
       RelMetadataQuery mq = getMQ();
       Double isNullRows = ALL_TYPES_TINY_CARD;
-      assertEquals(isNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -656,7 +641,7 @@ public class TestCalciteStats extends PlannerTestBase {
       logicalPlan = runFilterRule(logicalPlan, CoreRules.PROJECT_FILTER_TRANSPOSE);
       RelMetadataQuery mq = getMQ();
       Double isNullRows = ALL_TYPES_CARD - ALL_TYPES_TINY_CARD;
-      assertEquals(isNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -670,7 +655,7 @@ public class TestCalciteStats extends PlannerTestBase {
           " on ( a.bigint_col = b.bigint_col) where b.bigint_col is null");
       RelMetadataQuery mq = getMQ();
       Double isNullRows = 5840.0;
-      assertEquals(isNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -688,7 +673,7 @@ public class TestCalciteStats extends PlannerTestBase {
       RelMetadataQuery mq = getMQ();
       Double dd = mq.getRowCount(logicalPlan);
       Double isNullRows = ALL_TYPES_TINY_CARD;
-      assertEquals(isNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -702,7 +687,7 @@ public class TestCalciteStats extends PlannerTestBase {
           " on ( a.id = b.id) where a.id is null");
       RelMetadataQuery mq = getMQ();
       Double isNullRows = ALL_TYPES_CARD - ALL_TYPES_TINY_CARD;
-      assertEquals(isNullRows, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, isNullRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -714,14 +699,13 @@ public class TestCalciteStats extends PlannerTestBase {
           "functional.alltypestiny a right join functional.alltypes b " +
           "on ( a.id = b.id)");
       RelMetadataQuery mq = getMQ();
-      assertEquals(ALL_TYPES_CARD, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, ALL_TYPES_CARD);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // Using Calcite's distinct row count, can prolly do better here.
-      assertEquals(4614.6640296686, (double) mq.getDistinctRowCount(logicalPlan,
-          bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan,
+          bitSet, null), DOUBLE_ERR, 4614.6640296686);
       bitSet = ImmutableBitSet.of(1);
-      assertEquals(8.0, (double) mq.getDistinctRowCount(logicalPlan, bitSet, null),
-          DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan, bitSet, null), DOUBLE_ERR, 8.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -731,16 +715,15 @@ public class TestCalciteStats extends PlannerTestBase {
   public void testSimpleQueryNoStats() {
     try {
       RelMetadataQuery mq = getMQ();
-      assertEquals(17545.0, (double) mq.getRowCount(getRelNodeForQuery(
-          "SELECT id FROM functional_parquet.alltypesagg_hive_13_1")), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(getRelNodeForQuery(
+          "SELECT id FROM functional_parquet.alltypesagg_hive_13_1")), DOUBLE_ERR, 17545.0);
       // Even though there are no stats, filter estimator will still return 1 since
       // this is an exact match.
-      assertEquals(1.0, (double) mq.getRowCount(getRelNodeForQuery("SELECT" +
-          " bigint_col, id FROM functional_parquet.alltypes where bigint_col = 10")),
-          DOUBLE_ERR);
-      assertEquals(758.0, (double) mq.getRowCount(getRelNodeForQuery(
+      assertEquals((double) mq.getRowCount(getRelNodeForQuery("SELECT" +
+          " bigint_col, id FROM functional_parquet.alltypes where bigint_col = 10")), DOUBLE_ERR, 1.0);
+      assertEquals((double) mq.getRowCount(getRelNodeForQuery(
            "SELECT a.id FROM functional_parquet.alltypes a inner join " +
-           "functional_parquet.alltypestiny b on (a.id= b.id)")), DOUBLE_ERR);
+           "functional_parquet.alltypestiny b on (a.id= b.id)")), DOUBLE_ERR, 758.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -755,8 +738,8 @@ public class TestCalciteStats extends PlannerTestBase {
       ImmutableBitSet bitSet = ImmutableBitSet.of(2);
       // catalogd returns 0 ndvs when all columns are null, but Calcite overrides this
       // to 1.0.
-      assertEquals(1.0, (double) mq.getDistinctRowCount(tableScanRelNode,
-          bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(tableScanRelNode,
+          bitSet, null), DOUBLE_ERR, 1.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -768,11 +751,11 @@ public class TestCalciteStats extends PlannerTestBase {
       RelNode logicalPlan = getRelNodeForQuery("SELECT bigint_col FROM " +
           "functional.alltypes group by bigint_col");
       RelMetadataQuery mq = getMQ();
-      assertEquals(BIGINT_NDV, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, BIGINT_NDV);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // Using Calcite's distinct row count, can prolly do better here.
-      assertEquals(BIGINT_NDV, (double) mq.getDistinctRowCount(logicalPlan,
-          bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan,
+          bitSet, null), DOUBLE_ERR, BIGINT_NDV);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -786,11 +769,11 @@ public class TestCalciteStats extends PlannerTestBase {
       RelMetadataQuery mq = getMQ();
       double selectivity =
           BIGINT_NDV * Expr.DEFAULT_SELECTIVITY;;
-      assertEquals(selectivity, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, selectivity);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // Using Calcite's distinct row count, can prolly do better here.
-      assertEquals(selectivity, (double) mq.getDistinctRowCount(logicalPlan,
-          bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan,
+          bitSet, null), DOUBLE_ERR, selectivity);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -804,12 +787,12 @@ public class TestCalciteStats extends PlannerTestBase {
           "functional.alltypestiny");
       RelMetadataQuery mq = getMQ();
       double cardinality = ALL_TYPES_CARD + ALL_TYPES_TINY_CARD;
-      assertEquals(cardinality, (double) mq.getRowCount(logicalPlan), DOUBLE_ERR);
+      assertEquals((double) mq.getRowCount(logicalPlan), DOUBLE_ERR, cardinality);
       ImmutableBitSet bitSet = ImmutableBitSet.of(0);
       // Using Calcite's distinct row count, can prolly do better here.
       double distinctRows = BIGINT_NDV + BIGINT_TINY_NDV;
-      assertEquals(distinctRows, (double) mq.getDistinctRowCount(logicalPlan,
-          bitSet, null), DOUBLE_ERR);
+      assertEquals((double) mq.getDistinctRowCount(logicalPlan,
+          bitSet, null), DOUBLE_ERR, distinctRows);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }
@@ -823,31 +806,31 @@ public class TestCalciteStats extends PlannerTestBase {
       RelMetadataQuery mq = getMQ();
       List<Double> avgColumnSizes = mq.getAverageColumnSizes(logicalPlan);
       // id
-      assertEquals(4.0, (double) avgColumnSizes.get(0), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(0), DOUBLE_ERR, 4.0);
       // bool_col
-      assertEquals(1.0, (double) avgColumnSizes.get(1), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(1), DOUBLE_ERR, 1.0);
       // tinyint_col
-      assertEquals(1.0, (double) avgColumnSizes.get(2), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(2), DOUBLE_ERR, 1.0);
       // smallint_col
-      assertEquals(2.0,(double) avgColumnSizes.get(3), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(3), DOUBLE_ERR, 2.0);
       // int_col
-      assertEquals(4.0, (double) avgColumnSizes.get(4), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(4), DOUBLE_ERR, 4.0);
       // bigint_col
-      assertEquals(8.0, (double) avgColumnSizes.get(5), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(5), DOUBLE_ERR, 8.0);
       // float_col
-      assertEquals(4.0, (double) avgColumnSizes.get(6), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(6), DOUBLE_ERR, 4.0);
       // double_col
-      assertEquals(8.0, (double) avgColumnSizes.get(7), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(7), DOUBLE_ERR, 8.0);
       // datestring_col
-      assertEquals(8.0, (double) avgColumnSizes.get(8), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(8), DOUBLE_ERR, 8.0);
       // string_col
-      assertEquals(1.0, (double) avgColumnSizes.get(9), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(9), DOUBLE_ERR, 1.0);
       // timestamp_col
-      assertEquals(16.0, (double) avgColumnSizes.get(10), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(10), DOUBLE_ERR, 16.0);
       // year
-      assertEquals(4.0, (double) avgColumnSizes.get(11), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(11), DOUBLE_ERR, 4.0);
       // month
-      assertEquals(4.0, (double) avgColumnSizes.get(12), DOUBLE_ERR);
+      assertEquals((double) avgColumnSizes.get(12), DOUBLE_ERR, 4.0);
     } catch (ImpalaException e) {
       throw new RuntimeException(e);
     }

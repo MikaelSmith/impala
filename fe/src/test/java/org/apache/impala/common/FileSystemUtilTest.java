@@ -52,24 +52,19 @@ public class FileSystemUtilTest {
   @Test
   public void testIsInIgnoredDirectory() {
     // test positive cases
-    assertTrue("Files in hive staging directory should be ignored",
-        testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH, "/part=1/"
-            + ".hive-staging/tempfile")));
+    assertTrue(testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH, "/part=1/"
+            + ".hive-staging/tempfile")), "Files in hive staging directory should be ignored");
 
-    assertTrue("Files in hidden directory ignored",
-        testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH, ".hidden/000000_0")));
+    assertTrue(testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH, ".hidden/000000_0")), "Files in hidden directory ignored");
 
-    assertTrue("Files in the hive temporary directories should be ignored",
-        testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH,
-            HIVE_TEMP_FILE_PREFIX + "base_0000000_1/000000_1.manifest")));
+    assertTrue(testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH,
+            HIVE_TEMP_FILE_PREFIX + "base_0000000_1/000000_1.manifest")), "Files in the hive temporary directories should be ignored");
 
-    assertTrue("Files in hive temporary directories should be ignored",
-        testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH,
-            HIVE_TEMP_FILE_PREFIX + "delta_000000_2/test.manifest")));
+    assertTrue(testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH,
+            HIVE_TEMP_FILE_PREFIX + "delta_000000_2/test.manifest")), "Files in hive temporary directories should be ignored");
 
-    assertTrue("Files in spark temporary directories should be ignored",
-        testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH,
-            SPARK_TEMP_FILE_PREFIX + "/0")));
+    assertTrue(testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH,
+            SPARK_TEMP_FILE_PREFIX + "/0")), "Files in spark temporary directories should be ignored");
 
     //multiple nested levels
     assertTrue(testIsInIgnoredDirectory(new Path(TEST_TABLE_PATH,
@@ -94,10 +89,8 @@ public class FileSystemUtilTest {
 
   @Test
   public void testIsIgnoredDir() {
-    assertTrue("Directory should be ignored if it starts with _tmp.",
-        isIgnoredDir(new Path(TEST_TABLE_PATH, HIVE_TEMP_FILE_PREFIX + "dummy")));
-    assertTrue("Directory should be ignored if its hidden",
-        isIgnoredDir(new Path(TEST_TABLE_PATH, ".hidden-dir")));
+    assertTrue(isIgnoredDir(new Path(TEST_TABLE_PATH, HIVE_TEMP_FILE_PREFIX + "dummy")), "Directory should be ignored if it starts with _tmp.");
+    assertTrue(isIgnoredDir(new Path(TEST_TABLE_PATH, ".hidden-dir")), "Directory should be ignored if its hidden");
     assertFalse(isIgnoredDir(TEST_TABLE_PATH));
     assertFalse(isIgnoredDir(new Path(TEST_TABLE_PATH + "/part=100/datafile")));
   }
@@ -317,13 +310,11 @@ public class FileSystemUtilTest {
       for (int j = 0; j < mockFiles.size(); ++j) {
         Path mockFile = mockFiles.get(j);
         if (i == j) {
-          assertTrue(String.format(
-                          "Path '%s' should be on file system '%s'", mockFile, fs),
-                     FileSystemUtil.isPathOnFileSystem(mockFile, fs));
+          assertTrue(FileSystemUtil.isPathOnFileSystem(mockFile, fs), String.format(
+                          "Path '%s' should be on file system '%s'", mockFile, fs));
         } else {
-          assertFalse(String.format(
-                          "Path '%s' should not be on file system '%s'", mockFile, fs),
-                      FileSystemUtil.isPathOnFileSystem(mockFile, fs));
+          assertFalse(FileSystemUtil.isPathOnFileSystem(mockFile, fs), String.format(
+                          "Path '%s' should not be on file system '%s'", mockFile, fs));
         }
       }
     }
@@ -355,7 +346,7 @@ public class FileSystemUtilTest {
     String db = "tpcds";
     String[] tables = {"customer", "date_dim", "item", "store_sales"};
     for (String table : tables) {
-      assertTrue(table + " not found", tableNames.contains(new TTableName(db, table)));
+      assertTrue(tableNames.contains(new TTableName(db, table)), table + " not found");
     }
     assertTrue(tableNames.contains(new TTableName("tpch", "*")));
     assertTrue(tableNames.contains(new TTableName("functional", "#")));

@@ -155,8 +155,7 @@ public class PartialCatalogInfoTest {
     assertEquals(resp.table_info.hms_table.getTableName(), "alltypes");
     assertTrue(resp.table_info.partitions.size() > 0);
     TPartialPartitionInfo partInfo = resp.table_info.partitions.get(1);
-    assertTrue("bad part name: " + partInfo.name,
-        partInfo.name.matches("year=\\d+/month=\\d+"));
+    assertTrue(partInfo.name.matches("year=\\d+/month=\\d+"), "bad part name: " + partInfo.name);
 
     // Fetch again, but specify two specific partitions and ask for metadata.
     req.table_info_selector.clear();
@@ -174,8 +173,7 @@ public class PartialCatalogInfoTest {
     assertNull(partInfo.name);
     assertEquals(req.table_info_selector.partition_ids.get(0), (Long)partInfo.id);
     assertEquals(0, partInfo.location.prefix_index);
-    assertTrue("Bad suffix " + partInfo.location.suffix,
-        partInfo.location.suffix.matches("year=\\d+/month=\\d+"));
+    assertTrue(partInfo.location.suffix.matches("year=\\d+/month=\\d+"), "Bad suffix " + partInfo.location.suffix);
     assertNotNull(partInfo.hdfs_storage_descriptor);
     assertEquals(THdfsFileFormat.TEXT, partInfo.hdfs_storage_descriptor.fileFormat);
   }
@@ -359,8 +357,7 @@ public class PartialCatalogInfoTest {
       public Void call() throws Exception {
         while (!requestsFinished.get()) {
           int currentReqCount = catalog_.getConcurrentPartialRpcReqCount();
-          assertTrue("Invalid concurrent request count: " + currentReqCount,
-              currentReqCount <= maxParallelRuns);
+          assertTrue(currentReqCount <= maxParallelRuns, "Invalid concurrent request count: " + currentReqCount);
         }
         return null;
       }

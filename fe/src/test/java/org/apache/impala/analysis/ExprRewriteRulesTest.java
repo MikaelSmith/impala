@@ -127,8 +127,7 @@ public class ExprRewriteRulesTest extends FrontendTestBase {
         // getting to the rule that is intended for the test.
         for (ExprRewriteRule r : wrappedRules) {
           CountingRewriteRuleWrapper w = (CountingRewriteRuleWrapper) r;
-          assertTrue("Rule " + w.wrapped_.toString() + " didn't fire.",
-            w.rewrites_ > 0);
+          assertTrue(w.rewrites_ > 0, "Rule " + w.wrapped_.toString() + " didn't fire.");
         }
       }
       assertEquals(requireFire, rewriter.changed());

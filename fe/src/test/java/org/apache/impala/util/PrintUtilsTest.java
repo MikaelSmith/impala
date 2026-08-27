@@ -133,7 +133,7 @@ public class PrintUtilsTest {
    */
   private void assertNoLongLines(String s) {
     for (String line : s.split("\n")) {
-      assertTrue("line too long: " + line, line.length() <= WRAP_LENGTH);
+      assertTrue(line.length() <= WRAP_LENGTH, "line too long: " + line);
     }
   }
 
@@ -141,14 +141,14 @@ public class PrintUtilsTest {
    * Assert that the wrapped output does not end in a newline.
    */
   private void assertNoTerminatingNewline(String s) {
-    assertFalse("wrapped string ends in newline: " + s, s.endsWith("\n"));
+    assertFalse(s.endsWith("\n"), "wrapped string ends in newline: " + s);
   }
 
   /**
    * Assert that there are no blank lines embedded in the wrapped output.
    */
   private void assertNoBlankLines(String s) {
-    assertFalse("output contains blank line " + s, s.contains("\n\n"));
+    assertFalse(s.contains("\n\n"), "output contains blank line " + s);
   }
 
   @Test

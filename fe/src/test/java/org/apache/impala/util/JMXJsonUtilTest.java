@@ -47,11 +47,10 @@ public class JMXJsonUtilTest {
       fail("Invalid JSON returned by getMxJson(): " + jmxJson);
     }
     Preconditions.checkNotNull(rootNode);
-    assertTrue("Invalid JSON: "  + jmxJson, rootNode.hasNonNull("beans"));
+    assertTrue(rootNode.hasNonNull("beans"), "Invalid JSON: "  + jmxJson);
     List<String> values = rootNode.get("beans").findValuesAsText("name");
-    assertTrue("Invalid JSON: "  + jmxJson,
-        values.contains("java.lang:type=MemoryPool,name=Metaspace") ||
-        values.contains("java.lang:name=Metaspace,type=MemoryPool"));
-    assertTrue("Invalid JSON: "  + jmxJson, values.contains("java.lang:type=Runtime"));
+    assertTrue(values.contains("java.lang:type=MemoryPool,name=Metaspace") ||
+        values.contains("java.lang:name=Metaspace,type=MemoryPool"), "Invalid JSON: "  + jmxJson);
+    assertTrue(values.contains("java.lang:type=Runtime"), "Invalid JSON: "  + jmxJson);
   }
 }

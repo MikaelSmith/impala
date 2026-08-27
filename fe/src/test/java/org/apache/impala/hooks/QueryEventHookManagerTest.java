@@ -25,21 +25,18 @@ import org.apache.impala.testutil.PostQueryErrorEventHook;
 import org.apache.impala.thrift.TBackendGflags;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.ExpectedException;
 
 import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class QueryEventHookManagerTest {
   private TBackendGflags origFlags;
 
-  @Rule
-  public ExpectedException expectedException = ExpectedException.none();
   private QueryCompleteContext mockQueryCompleteContext =
       new QueryCompleteContext("unit-test lineage");
 
@@ -105,11 +102,10 @@ public class QueryEventHookManagerTest {
 
   @Test
   public void testHookExceptionDuringStartupKillsStartup() throws Exception {
-    expectedException.expect(InternalException.class);
-
-    createQueryEventHookManager(1,
-        AlwaysErrorQueryEventHook.class.getCanonicalName(),
-        CountingQueryEventHook.class.getCanonicalName());
+    assertThrows(InternalException.class, () ->
+        createQueryEventHookManager(1,
+            AlwaysErrorQueryEventHook.class.getCanonicalName(),
+            CountingQueryEventHook.class.getCanonicalName()));
   }
 
   @Test

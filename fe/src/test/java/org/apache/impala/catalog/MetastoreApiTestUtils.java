@@ -67,8 +67,7 @@ public class MetastoreApiTestUtils {
   public static void addDatabaseParametersInHms(MetaStoreClient msClient, String dbName,
       String key, String val) throws TException {
     Database msDb = msClient.getHiveClient().getDatabase(dbName);
-    assertFalse(key + " already exists in the database parameters",
-        msDb.getParameters().containsKey(key));
+    assertFalse(msDb.getParameters().containsKey(key), key + " already exists in the database parameters");
     msDb.putToParameters(key, val);
     msClient.getHiveClient().alterDatabase(dbName, msDb);
   }

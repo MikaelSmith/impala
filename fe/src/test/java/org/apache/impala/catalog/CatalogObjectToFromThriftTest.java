@@ -215,9 +215,7 @@ public class CatalogObjectToFromThriftTest {
   public void TestTableLoadingErrorsForHive2() throws ImpalaException {
     // run the test only when it is running against Hive-2 since index tables are
     // skipped during data-load against Hive-3
-    Assumptions.assumeTrue(
-        "Skipping this test since it is only supported when running against Hive-2",
-        TestUtils.getHiveMajorVersion() == 2);
+    Assumptions.assumeTrue(TestUtils.getHiveMajorVersion() == 2, "Skipping this test since it is only supported when running against Hive-2");
     Table table = catalog_.getOrLoadTable("functional", "hive_index_tbl", "test", null);
     Assertions.assertNotNull(table);
     TTable thriftTable = getThriftTable(table);

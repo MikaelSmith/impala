@@ -869,7 +869,7 @@ public class PlannerTestBase extends FrontendTestBase {
     Pattern rowSizePattern = Pattern.compile("row-size=([0-9]*)B");
     Matcher m = rowSizePattern.matcher(explainStr);
     boolean matchFound = m.find();
-    Assertions.assertTrue("Row size not found in plan.", matchFound);
+    Assertions.assertTrue(matchFound, "Row size not found in plan.");
     String rowSizeStr = m.group(1);
     return Integer.valueOf(rowSizeStr);
   }

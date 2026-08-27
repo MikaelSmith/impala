@@ -149,9 +149,9 @@ public class FrontendTest extends FrontendTestBase {
     req.get_tables_req.setTableTypes(Arrays.asList("TABLE"));
     TResultSet resp = execMetadataOp(req);
     // HiveServer2 GetTables has 5 columns.
-    assertEquals("Resp: " + resp, 5, resp.schema.columns.size());
-    assertEquals("Resp: " + resp, 5, resp.rows.get(0).colVals.size());
-    assertEquals("Resp: " + resp, 7, resp.rows.size());
+    assertEquals(5, resp.schema.columns.size(), "Resp: " + resp);
+    assertEquals(5, resp.rows.get(0).colVals.size(), "Resp: " + resp);
+    assertEquals(7, resp.rows.size(), "Resp: " + resp);
     assertEquals("alltypes_datasource",
         resp.rows.get(0).colVals.get(2).string_val.toLowerCase());
     assertEquals("alltypes_date_partition",
@@ -260,9 +260,7 @@ public class FrontendTest extends FrontendTestBase {
   public void TestGetTablesWithCommentsOnHive2() throws ImpalaException {
     // run the test only when it is running against Hive-2 since index tables are
     // skipped during data-load against Hive-3
-    Assumptions.assumeTrue(
-        "Skipping this test since it is only supported when running against Hive-2",
-        TestUtils.getHiveMajorVersion() == 2);
+    Assumptions.assumeTrue(TestUtils.getHiveMajorVersion() == 2, "Skipping this test since it is only supported when running against Hive-2");
 
     // IMPALA-5579: GetTables() should succeed and display the available information for
     // tables that cannot be loaded.
@@ -390,7 +388,7 @@ public class FrontendTest extends FrontendTestBase {
     expectedResult.add("substr");
     expectedResult.add("substring");
     for (String fn: fns) {
-      assertTrue(fn + " not found", expectedResult.remove(fn));
+      assertTrue(expectedResult.remove(fn), fn + " not found");
     }
   }
 
