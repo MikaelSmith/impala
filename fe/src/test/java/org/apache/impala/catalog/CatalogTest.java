@@ -17,14 +17,14 @@
 
 package org.apache.impala.catalog;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -74,10 +74,10 @@ import org.apache.impala.thrift.TPrivilegeLevel;
 import org.apache.impala.thrift.TPrivilegeScope;
 import org.apache.impala.thrift.TTableName;
 import org.apache.impala.util.NoOpEventSequence;
-import org.junit.After;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -87,12 +87,12 @@ import com.google.common.collect.Sets;
 public class CatalogTest {
   private CatalogServiceCatalog catalog_;
 
-  @Before
+  @BeforeEach
   public void init() {
     catalog_ = CatalogServiceTestCatalog.create();
   }
 
-  @After
+  @AfterEach
   public void cleanUp() { catalog_.close(); }
 
   public static void checkTableCols(FeDb db, String tblName, int numClusteringCols,
@@ -797,7 +797,7 @@ public class CatalogTest {
    */
   @Test
   public void testCreateTableMetadataHive3() throws CatalogException {
-    Assume.assumeTrue(TestUtils.getHiveMajorVersion() > 2);
+    Assumptions.assumeTrue(TestUtils.getHiveMajorVersion() > 2);
     // alltypesinsert is created using CREATE TABLE LIKE and is a MANAGED table
     Table table = catalog_.getOrLoadTable("functional", "alltypesinsert", "test", null);
     assertEquals(System.getProperty("user.name"), table.getMetaStoreTable().getOwner());
@@ -819,7 +819,7 @@ public class CatalogTest {
    */
   @Test
   public void testCreateTableMetadataHive2() throws CatalogException {
-    Assume.assumeTrue(TestUtils.getHiveMajorVersion() <= 2);
+    Assumptions.assumeTrue(TestUtils.getHiveMajorVersion() <= 2);
     // alltypesinsert is created using CREATE TABLE LIKE and is a MANAGED table
     Table table = catalog_.getOrLoadTable("functional", "alltypesinsert", "test", null);
     assertEquals(System.getProperty("user.name"), table.getMetaStoreTable().getOwner());
@@ -831,7 +831,7 @@ public class CatalogTest {
   public void testLoadingUnsupportedTblTypesOnHive2() throws CatalogException {
     // run the test only when it is running against Hive-2 since index tables are
     // skipped during data-load against Hive-3
-    Assume.assumeTrue(
+    Assumptions.assumeTrue(
         "Skipping this test since it is only supported when running against Hive-2",
         TestUtils.getHiveMajorVersion() == 2);
     Table table = catalog_.getOrLoadTable("functional", "hive_index_tbl", "test", null);

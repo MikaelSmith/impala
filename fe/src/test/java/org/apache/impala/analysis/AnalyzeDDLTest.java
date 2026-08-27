@@ -17,8 +17,8 @@
 
 package org.apache.impala.analysis;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,9 +55,9 @@ import org.apache.impala.thrift.TBackendGflags;
 import org.apache.impala.thrift.TDescribeTableParams;
 import org.apache.impala.thrift.TQueryOptions;
 import org.apache.impala.util.MetaStoreUtil;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -2150,13 +2150,13 @@ public class AnalyzeDDLTest extends FrontendTestBase {
           "compute stats functional.alltypes tablesample system (10) repeatable(1)",
           createAnalysisCtx(queryOpts),
           "Ignoring TABLESAMPLE because the effective sampling rate is 100%");
-      Assert.assertTrue(noSamplingStmt.getEffectiveSamplingPerc() == 1.0);
+      Assertions.assertTrue(noSamplingStmt.getEffectiveSamplingPerc() == 1.0);
       String tblStatsQuery = noSamplingStmt.getTblStatsQuery().toUpperCase();
-      Assert.assertTrue(!tblStatsQuery.contains("TABLESAMPLE"));
-      Assert.assertTrue(!tblStatsQuery.contains("SAMPLED_NDV"));
+      Assertions.assertTrue(!tblStatsQuery.contains("TABLESAMPLE"));
+      Assertions.assertTrue(!tblStatsQuery.contains("SAMPLED_NDV"));
       String colStatsQuery = noSamplingStmt.getColStatsQuery().toUpperCase();
-      Assert.assertTrue(!colStatsQuery.contains("TABLESAMPLE"));
-      Assert.assertTrue(!colStatsQuery.contains("SAMPLED_NDV"));
+      Assertions.assertTrue(!colStatsQuery.contains("TABLESAMPLE"));
+      Assertions.assertTrue(!colStatsQuery.contains("SAMPLED_NDV"));
 
       // No minimum sample bytes.
       queryOpts.setCompute_stats_min_sample_size(0);
@@ -2175,8 +2175,8 @@ public class AnalyzeDDLTest extends FrontendTestBase {
           "compute stats functional.alltypes tablesample system (1) repeatable(1)",
           createAnalysisCtx(queryOpts));
       // Approximate validation of effective sampling rate.
-      Assert.assertTrue(baselineStmt.getEffectiveSamplingPerc() > 0.03);
-      Assert.assertTrue(baselineStmt.getEffectiveSamplingPerc() < 0.05);
+      Assertions.assertTrue(baselineStmt.getEffectiveSamplingPerc() > 0.03);
+      Assertions.assertTrue(baselineStmt.getEffectiveSamplingPerc() < 0.05);
       // The adjusted statement with a 100KB minimum should select ~5 files and have
       // an effective sampling rate of ~0.21 (5/24).
       queryOpts.setCompute_stats_min_sample_size(100 * 1024);
@@ -2185,8 +2185,8 @@ public class AnalyzeDDLTest extends FrontendTestBase {
           createAnalysisCtx(queryOpts));
       // Approximate validation to avoid flakiness due to sampling and file size
       // changes. Expect a sample between 4 and 6 of the 24 total files.
-      Assert.assertTrue(adjustedStmt.getEffectiveSamplingPerc() >= 4.0 / 24);
-      Assert.assertTrue(adjustedStmt.getEffectiveSamplingPerc() <= 6.0 / 24);
+      Assertions.assertTrue(adjustedStmt.getEffectiveSamplingPerc() >= 4.0 / 24);
+      Assertions.assertTrue(adjustedStmt.getEffectiveSamplingPerc() <= 6.0 / 24);
     } finally {
       gflags.setEnable_stats_extrapolation(origEnableStatsExtrapolation);
     }
@@ -2557,7 +2557,7 @@ public class AnalyzeDDLTest extends FrontendTestBase {
 
   @Test
   public void TestCreateTableLikeFileOrc() throws AnalysisException {
-    Assume.assumeTrue(
+    Assumptions.assumeTrue(
         "Skipping this test; CREATE TABLE LIKE ORC is only supported when running " +
             "against Hive-3 or greater", TestUtils.getHiveMajorVersion() >= 3);
 
@@ -2591,7 +2591,7 @@ public class AnalyzeDDLTest extends FrontendTestBase {
   @Test
   public void TestCreateTableLikeFileOrcWithHive2() throws AnalysisException {
     // Testing if error is thrown when trying to create table like orc file with Hive-2.
-    Assume.assumeTrue(TestUtils.getHiveMajorVersion() < 3);
+    Assumptions.assumeTrue(TestUtils.getHiveMajorVersion() < 3);
 
     // Inferring primitive and complex types
     AnalysisError("create table if not exists newtbl_DNE like orc " +
@@ -4346,7 +4346,7 @@ public class AnalyzeDDLTest extends FrontendTestBase {
       // Test type with exactly the max nesting depth.
       String maxTypeDef = genTypeSql(Type.MAX_NESTING_DEPTH, prefix, middle, suffix);
       Type maxType = TypeDefAnalyzeOk(maxTypeDef);
-      Assert.assertFalse(maxType.exceedsMaxNestingDepth());
+      Assertions.assertFalse(maxType.exceedsMaxNestingDepth());
       // Test type with exactly one level above the max nesting depth.
       String oneAboveMaxDef =
           genTypeSql(Type.MAX_NESTING_DEPTH + 1, prefix, middle, suffix);
@@ -4376,7 +4376,7 @@ public class AnalyzeDDLTest extends FrontendTestBase {
 
   @Test
   public void TestUseStatement() {
-    Assert.assertTrue(AnalyzesOk("USE functional") instanceof UseStmt);
+    Assertions.assertTrue(AnalyzesOk("USE functional") instanceof UseStmt);
   }
 
   @Test
@@ -4425,10 +4425,10 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     DescribeTableStmt describe = (DescribeTableStmt)AnalyzesOk("describe ambig",
         createAnalysisCtx("ambig"));
     TDescribeTableParams tdesc = describe.toThrift();
-    Assert.assertTrue(tdesc.isSetTable_name());
-    Assert.assertEquals("ambig", tdesc.table_name.getDb_name());
-    Assert.assertEquals("ambig", tdesc.table_name.getTable_name(), "ambig");
-    Assert.assertFalse(tdesc.isSetResult_struct());
+    Assertions.assertTrue(tdesc.isSetTable_name());
+    Assertions.assertEquals("ambig", tdesc.table_name.getDb_name());
+    Assertions.assertEquals("ambig", tdesc.table_name.getTable_name(), "ambig");
+    Assertions.assertFalse(tdesc.isSetResult_struct());
 
     // Path could be resolved as either <db>.<table> or <table>.<complex field>
     AnalysisError("describe ambig.ambig", createAnalysisCtx("ambig"),
@@ -4442,8 +4442,8 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     tdesc = describe.toThrift();
     Type expectedType =
         org.apache.impala.analysis.Path.getTypeAsStruct(new ArrayType(Type.INT));
-    Assert.assertTrue(tdesc.isSetResult_struct());
-    Assert.assertEquals(expectedType, Type.fromThrift(tdesc.getResult_struct()));
+    Assertions.assertTrue(tdesc.isSetResult_struct());
+    Assertions.assertEquals(expectedType, Type.fromThrift(tdesc.getResult_struct()));
   }
 
   @Test

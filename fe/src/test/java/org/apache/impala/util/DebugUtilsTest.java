@@ -17,8 +17,8 @@
 
 package org.apache.impala.util;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for the debug actions implementation.
@@ -34,7 +34,7 @@ public class DebugUtilsTest {
             "SOME_OTHER_ACTION");
     long endTime = System.currentTimeMillis();
     // make sure you are executing the right sleep action
-    Assert.assertTrue(endTime - startTime < 100 && endTime - startTime >= 10);
+    Assertions.assertTrue(endTime - startTime < 100 && endTime - startTime >= 10);
     // make sure that code doesn't throw if label is not found
     DebugUtils.executeDebugAction("TEST_SLEEP_ACTION:SLEEP@1", "INVALID_LABEL");
     // make sure that code doesn't throw if there is a unsupported action type
@@ -56,7 +56,7 @@ public class DebugUtilsTest {
         "SOME_OTHER_ACTION:SLEEP@100|TEST_JITTER_ACTION:JITTER@10@0.2",
         "test_jitter_action");
     long endTime = System.currentTimeMillis();
-    Assert.assertTrue(endTime - startTime < 100);
+    Assertions.assertTrue(endTime - startTime < 100);
   }
 
   @Test(expected = Exception.class)
@@ -75,10 +75,10 @@ public class DebugUtilsTest {
       DebugUtils.executeDebugAction(
           "TEST_FAIL_ACTION:EXCEPTION@CommitFailedException@some text",
           "test_fail_action");
-      Assert.fail("should have got exception");
+      Assertions.fail("should have got exception");
     } catch (Exception e) {
-      Assert.assertTrue(e.getClass().getName().contains("CommitFailedException"));
-      Assert.assertTrue(e.getMessage().contains("some text"));
+      Assertions.assertTrue(e.getClass().getName().contains("CommitFailedException"));
+      Assertions.assertTrue(e.getMessage().contains("some text"));
     }
   }
 
@@ -96,7 +96,7 @@ public class DebugUtilsTest {
       DebugUtils.executeDebugAction(
           "TEST_FAIL_ACTION:EXCEPTION@CommitFailedException", "test_fail_action");
     } catch (IllegalStateException e) {
-      Assert.assertTrue(
+      Assertions.assertTrue(
           e.getMessage().contains("EXCEPTION debug action needs 3 action params"));
     }
   }

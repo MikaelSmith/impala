@@ -17,10 +17,10 @@
 
 package org.apache.impala.catalog;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 import java.nio.ByteBuffer;
@@ -28,11 +28,11 @@ import java.util.HashMap;
 import java.util.Map;
 import org.apache.impala.fb.FbFileDesc;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.Rule;
 import org.junit.rules.ExpectedException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class IcebergContentFileStoreTest {
   @Rule
@@ -40,12 +40,12 @@ public class IcebergContentFileStoreTest {
 
   private CatalogServiceCatalog catalog_;
 
-  @Before
+  @BeforeEach
   public void init() {
     catalog_ = CatalogServiceTestCatalog.create();
   }
 
-  @After
+  @AfterEach
   public void cleanUp() { catalog_.close(); }
 
   private FbFileDesc createFbFileDesc() {

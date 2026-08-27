@@ -22,16 +22,16 @@ import org.apache.impala.authorization.NoopAuthorizationFactory;
 import org.apache.impala.authorization.ranger.RangerAuthorizationFactory;
 import org.apache.impala.service.BackendConfig;
 import org.apache.impala.thrift.TBackendGflags;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AuthorizationUtilTest {
   private static TBackendGflags origFlags;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     // since some test cases will need to modify the (static)
     // be flags, we need to save the original values so they
@@ -42,7 +42,7 @@ public class AuthorizationUtilTest {
     origFlags = BackendConfig.INSTANCE.getBackendCfg();
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown() {
     BackendConfig.create(origFlags);
   }

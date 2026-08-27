@@ -17,7 +17,7 @@
 
 package org.apache.impala.analysis;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.math.BigDecimal;
 
@@ -27,7 +27,7 @@ import org.apache.impala.catalog.TypeCompatibility;
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.InvalidValueException;
 import org.apache.impala.common.SqlCastException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests the numeric literal which is complex because of its ability to hold

@@ -17,11 +17,11 @@
 
 package org.apache.impala.analysis;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -49,8 +49,8 @@ import org.apache.impala.thrift.TExpr;
 import org.apache.impala.thrift.TFunction;
 import org.apache.impala.thrift.TFunctionBinaryType;
 import org.apache.impala.thrift.TQueryOptions;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -176,7 +176,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
   private void testNumericLiteral(String literal, Type expectedType) {
     SelectStmt selectStmt = (SelectStmt) AnalyzesOk("select " + literal);
     Type actualType = selectStmt.resultExprs_.get(0).getType();
-    Assert.assertTrue("Expected Type: " + expectedType + " Actual type: " + actualType,
+    Assertions.assertTrue("Expected Type: " + expectedType + " Actual type: " + actualType,
         expectedType.equals(actualType));
   }
 
@@ -418,7 +418,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     SelectStmt selectStmt = (SelectStmt) AnalyzesOk("select cast(" + literal +
         " as " + expectedType.toSql() + ")");
     Type actualType = selectStmt.resultExprs_.get(0).getType();
-    Assert.assertTrue("Expected Type: " + expectedType + " Actual type: " + actualType,
+    Assertions.assertTrue("Expected Type: " + expectedType + " Actual type: " + actualType,
         expectedType.equals(actualType));
   }
 
@@ -1455,7 +1455,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
       assertEquals(selectListExprs.size(), 1);
       // check the first expr in select list
       expr = selectListExprs.get(0);
-      Assert.assertEquals("opType= " + opType + " exprType=" + expr.getType(),
+      Assertions.assertEquals("opType= " + opType + " exprType=" + expr.getType(),
           opType, expr.getType());
     } else {
       // check the where clause
@@ -1468,10 +1468,10 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     // The children's types must be NULL or equal to the requested opType.
     Type child1Type = expr.getChild(0).getType();
     Type child2Type = type1 == null ? null : expr.getChild(1).getType();
-    Assert.assertTrue("opType= " + opType + " child1Type=" + child1Type,
+    Assertions.assertTrue("opType= " + opType + " child1Type=" + child1Type,
         opType.equals(child1Type) || opType.isNull() || child1Type.isNull());
     if (type1 != null) {
-      Assert.assertTrue("opType= " + opType + " child2Type=" + child2Type,
+      Assertions.assertTrue("opType= " + opType + " child2Type=" + child2Type,
           opType.equals(child2Type) || opType.isNull() || child2Type.isNull());
     }
   }
@@ -1667,9 +1667,9 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     if (expr instanceof CastExpr) {
       CastExpr cast = (CastExpr)expr;
       if (cast.isImplicit()) {
-        Assert.assertFalse(expr.getType() + " == " + expr.getChild(0).getType(),
+        Assertions.assertFalse(expr.getType() + " == " + expr.getChild(0).getType(),
             expr.getType().equals(expr.getChild(0).getType()));
-        Assert.assertFalse(expr.debugString(), expr.getChild(0) instanceof LiteralExpr);
+        Assertions.assertFalse(expr.debugString(), expr.getChild(0) instanceof LiteralExpr);
       }
     }
     for (Expr child: expr.getChildren()) {
@@ -2234,9 +2234,9 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     stmt = (SelectStmt)AnalyzesOk(String.format(sqlTemplate, decodeSql));
     CaseExpr decodeExpr =
         (CaseExpr)stmt.getSelectList().getItems().get(0).getExpr();
-    Assert.assertEquals(caseSql, decodeExpr.toCaseSql());
+    Assertions.assertEquals(caseSql, decodeExpr.toCaseSql());
     makeExprExecutable(caseExpr, stmt.getAnalyzer());
-    Assert.assertEquals(caseThrift, decodeExpr.treeToThrift());
+    Assertions.assertEquals(caseThrift, decodeExpr.treeToThrift());
   }
 
   /**
@@ -2669,7 +2669,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
         (SelectStmt) AnalyzesOk("select " + expr, createAnalysisCtx(queryOpts));
     Expr root = selectStmt.resultExprs_.get(0);
     Type actualType = root.getType();
-    Assert.assertTrue(
+    Assertions.assertTrue(
         "Expr: " + expr + " Decimal Version: " + (isV2? "2" : "1") +
         " Expected: " + decimalExpectedType + " Actual: " + actualType,
         decimalExpectedType.equals(actualType));
@@ -3248,14 +3248,14 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     Function decimalFn = new Function(fnName,
         new Type[] {ScalarType.TINYINT, ScalarType.createDecimalType(30, 10)},
         Type.INVALID, false);
-    Assert.assertFalse(tinyIntFn.compare(decimalFn, CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(tinyIntFn.compare(decimalFn,
+    Assertions.assertFalse(tinyIntFn.compare(decimalFn, CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(tinyIntFn.compare(decimalFn,
         CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
     // Check that this resolves to the decimal version of the function.
     Db db = catalog_.getDb(BuiltinsDb.NAME);
     Function foundFn = db.getFunction(decimalFn, CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
     assertNotNull(foundFn);
-    Assert.assertTrue(foundFn.getArgs()[0].isDecimal());
+    Assertions.assertTrue(foundFn.getArgs()[0].isDecimal());
 
     // The double version of the function is a non-strict supertype if the arguments are
     // (double, decimal).
@@ -3263,44 +3263,44 @@ public class AnalyzeExprsTest extends AnalyzerTest {
         new Type[] {ScalarType.DOUBLE, ScalarType.createDecimalType(30, 10)},
         Type.INVALID, false);
     foundFn = db.getFunction(doubleDecimalFn, CompareMode.IS_SUPERTYPE_OF);
-    Assert.assertNull(foundFn);
+    Assertions.assertNull(foundFn);
     foundFn = db.getFunction(doubleDecimalFn, CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
     assertNotNull(foundFn);
-    Assert.assertEquals(Type.DOUBLE, foundFn.getArgs()[0]);
+    Assertions.assertEquals(Type.DOUBLE, foundFn.getArgs()[0]);
 
     // Float and any precision decimal can be matched to FLOAT non-strictly.
     Function floatDecimalFn = new Function(fnName,
         new Type[] {ScalarType.FLOAT, ScalarType.createDecimalType(10, 7)},
         Type.INVALID, false);
     foundFn = db.getFunction(floatDecimalFn, CompareMode.IS_SUPERTYPE_OF);
-    Assert.assertNull(foundFn);
+    Assertions.assertNull(foundFn);
     foundFn = db.getFunction(floatDecimalFn, CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
     assertNotNull(foundFn);
-    Assert.assertEquals(Type.FLOAT, foundFn.getArgs()[0]);
+    Assertions.assertEquals(Type.FLOAT, foundFn.getArgs()[0]);
 
     // Float and bigint should be matched to double.
     Function floatBigIntFn = new Function(fnName,
         new Type[] {ScalarType.FLOAT, ScalarType.BIGINT}, Type.INVALID, false);
     foundFn = db.getFunction(floatBigIntFn, CompareMode.IS_SUPERTYPE_OF);
-    Assert.assertNotNull(foundFn);
-    Assert.assertEquals(Type.DOUBLE, foundFn.getArgs()[0]);
+    Assertions.assertNotNull(foundFn);
+    Assertions.assertEquals(Type.DOUBLE, foundFn.getArgs()[0]);
 
     FunctionName lagFnName = new FunctionName(BuiltinsDb.NAME, "lag");
     // String should not be converted to timestamp or date if string overload available.
     Function lagStringFn = new Function(lagFnName,
         new Type[] {ScalarType.STRING, Type.TINYINT}, Type.INVALID, false);
     foundFn = db.getFunction(lagStringFn, CompareMode.IS_SUPERTYPE_OF);
-    Assert.assertNotNull(foundFn);
-    Assert.assertEquals(Type.STRING, foundFn.getArgs()[0]);
+    Assertions.assertNotNull(foundFn);
+    Assertions.assertEquals(Type.STRING, foundFn.getArgs()[0]);
 
     // Date should not be converted to timestamp if date overload is available.
     Function lagDateFn = new Function(lagFnName,
         new Type[] {ScalarType.DATE, Type.TINYINT}, Type.INVALID, false);
     foundFn = db.getFunction(lagDateFn, CompareMode.IS_INDISTINGUISHABLE);
-    Assert.assertNull(foundFn);
+    Assertions.assertNull(foundFn);
     foundFn = db.getFunction(lagDateFn, CompareMode.IS_SUPERTYPE_OF);
-    Assert.assertNotNull(foundFn);
-    Assert.assertEquals(Type.DATE, foundFn.getArgs()[0]);
+    Assertions.assertNotNull(foundFn);
+    Assertions.assertEquals(Type.DATE, foundFn.getArgs()[0]);
 
     // String is matched non-strictly to date, instead of converting both string and date
     // arguments to timestamp.
@@ -3309,22 +3309,22 @@ public class AnalyzeExprsTest extends AnalyzerTest {
         new Type[] {ScalarType.BOOLEAN, ScalarType.STRING, ScalarType.DATE}, Type.INVALID,
             false);
     foundFn = db.getFunction(ifStringDateFn, CompareMode.IS_SUPERTYPE_OF);
-    Assert.assertNull(foundFn);
+    Assertions.assertNull(foundFn);
     foundFn = db.getFunction(ifStringDateFn, CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
-    Assert.assertNotNull(foundFn);
-    Assert.assertEquals(Type.DATE, foundFn.getArgs()[1]);
-    Assert.assertEquals(Type.DATE, foundFn.getArgs()[2]);
+    Assertions.assertNotNull(foundFn);
+    Assertions.assertEquals(Type.DATE, foundFn.getArgs()[1]);
+    Assertions.assertEquals(Type.DATE, foundFn.getArgs()[2]);
 
     // Date is matched non-strictly to timestamp
     ifStringDateFn = new Function(ifFnName,
         new Type[] {ScalarType.BOOLEAN, ScalarType.TIMESTAMP, ScalarType.DATE},
             Type.INVALID, false);
     foundFn = db.getFunction(ifStringDateFn, CompareMode.IS_SUPERTYPE_OF);
-    Assert.assertNull(foundFn);
+    Assertions.assertNull(foundFn);
     foundFn = db.getFunction(ifStringDateFn, CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
-    Assert.assertNotNull(foundFn);
-    Assert.assertEquals(Type.TIMESTAMP, foundFn.getArgs()[1]);
-    Assert.assertEquals(Type.TIMESTAMP, foundFn.getArgs()[2]);
+    Assertions.assertNotNull(foundFn);
+    Assertions.assertEquals(Type.TIMESTAMP, foundFn.getArgs()[1]);
+    Assertions.assertEquals(Type.TIMESTAMP, foundFn.getArgs()[2]);
 
     // String is matched non-strictly to timestamp if there's no string overload but both
     // timestamp and date overloads are available.
@@ -3332,10 +3332,10 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     Function yearStringFn = new Function(yearFnName,
         new Type[] {ScalarType.STRING}, Type.INT, false);
     foundFn = db.getFunction(yearStringFn, CompareMode.IS_SUPERTYPE_OF);
-    Assert.assertNull(foundFn);
+    Assertions.assertNull(foundFn);
     foundFn = db.getFunction(yearStringFn, CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
-    Assert.assertNotNull(foundFn);
-    Assert.assertEquals(Type.TIMESTAMP, foundFn.getArgs()[0]);
+    Assertions.assertNotNull(foundFn);
+    Assertions.assertEquals(Type.TIMESTAMP, foundFn.getArgs()[0]);
   }
 
   @Test
@@ -3436,17 +3436,17 @@ public class AnalyzeExprsTest extends AnalyzerTest {
   public void TestToStringOnCastFormatClause() throws AnalysisException {
     String cast_str = "CAST('05-01-2017' AS TIMESTAMP FORMAT 'MM-dd-yyyy')";
     SelectStmt select = (SelectStmt) AnalyzesOk("select " + cast_str);
-    Assert.assertEquals(cast_str, select.getResultExprs().get(0).toSqlImpl());
+    Assertions.assertEquals(cast_str, select.getResultExprs().get(0).toSqlImpl());
 
     cast_str = "CAST('05-01-2017' AS DATE FORMAT 'MM-dd-yyyy')";
     select = (SelectStmt) AnalyzesOk("select " + cast_str);
-    Assert.assertEquals(cast_str, select.getResultExprs().get(0).toSqlImpl());
+    Assertions.assertEquals(cast_str, select.getResultExprs().get(0).toSqlImpl());
 
     // Check that escaped single quotes in the format remain escaped in the printout.
     cast_str = "CAST('2019-01-01te\\\'xt' AS DATE FORMAT " +
         "'YYYY\\\'MM\\\'DD\"te\\\'xt\"')";
     select = (SelectStmt) AnalyzesOk("select " + cast_str);
-    Assert.assertEquals(cast_str, select.getResultExprs().get(0).toSqlImpl());
+    Assertions.assertEquals(cast_str, select.getResultExprs().get(0).toSqlImpl());
 
     // Check that non-escaped single quotes in the format are escaped in the printout.
     // Also check that the surrounding double quotes around the format string are
@@ -3456,7 +3456,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     select = (SelectStmt) AnalyzesOk(cast_str);
     String expected_str = "CAST('2019-01-02te\\\'xt' AS DATE FORMAT " +
         "'YYYY\\\'MM\\\'DD\\\"te\\\'xt\\\"')";
-    Assert.assertEquals(expected_str, select.getResultExprs().get(0).toSqlImpl());
+    Assertions.assertEquals(expected_str, select.getResultExprs().get(0).toSqlImpl());
 
     // Check that a single quote in a free text token is escaped in the output even if it
     // is after an escaped backslash.
@@ -3465,7 +3465,7 @@ public class AnalyzeExprsTest extends AnalyzerTest {
     select = (SelectStmt) AnalyzesOk(cast_str);
     expected_str = "CAST('2019-01-02te\\\'xt' AS DATE FORMAT " +
         "'YYYY-MM-DD\\\"te\\\\\\'xt\\\"')";
-    Assert.assertEquals(expected_str, select.getResultExprs().get(0).toSqlImpl());
+    Assertions.assertEquals(expected_str, select.getResultExprs().get(0).toSqlImpl());
   }
 
   @Test

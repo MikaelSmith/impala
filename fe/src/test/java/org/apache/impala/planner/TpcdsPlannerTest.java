@@ -21,8 +21,8 @@ import java.nio.file.Paths;
 import java.util.Set;
 
 import org.apache.impala.thrift.TQueryOptions;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 
 /**
@@ -35,7 +35,7 @@ public class TpcdsPlannerTest extends PlannerTestBase {
 
   private static TQueryOptions options = tpcdsParquetQueryOptions();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     PlannerTestBase.setUp();
     Paths.get(outDir_.toString(), "tpcds").toFile().mkdirs();

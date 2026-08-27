@@ -39,9 +39,9 @@ import org.apache.impala.service.Frontend;
 import org.apache.impala.testutil.ImpaladTestCatalog;
 import org.apache.impala.thrift.TImpalaTableType;
 import org.apache.impala.util.EventSequence;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 public class StmtMetadataLoaderTest {
 
@@ -93,7 +93,7 @@ public class StmtMetadataLoaderTest {
     String[] actualTables = new String[stmtTableCache.tables.size()];
     int idx = 0;
     for (FeTable t: stmtTableCache.tables.values()) {
-      Assert.assertTrue(t.isLoaded());
+      Assertions.assertTrue(t.isLoaded());
       actualTables[idx++] = t.getFullName();
     }
     Arrays.sort(expectedTables);
@@ -102,11 +102,11 @@ public class StmtMetadataLoaderTest {
   }
 
   private void validateTablesWriteIds(StmtTableCache stmtTableCache) {
-    Assert.assertTrue(stmtTableCache.tables.size() > 0);
+    Assertions.assertTrue(stmtTableCache.tables.size() > 0);
     for (FeTable t: stmtTableCache.tables.values()) {
-      Assert.assertTrue(t.isLoaded());
-      Assert.assertTrue(t.getValidWriteIds() != null);
-      Assert.assertTrue(t.getValidWriteIds().isWriteIdValid(t.getWriteId()));
+      Assertions.assertTrue(t.isLoaded());
+      Assertions.assertTrue(t.getValidWriteIds() != null);
+      Assertions.assertTrue(t.getValidWriteIds().isWriteIdValid(t.getWriteId()));
     }
   }
 
@@ -119,12 +119,12 @@ public class StmtMetadataLoaderTest {
         new StmtMetadataLoader(fe, Catalog.DEFAULT_DB, timeline);
     StmtTableCache stmtTableCache = mdLoader.loadTables(stmt);
     // Validate metrics.
-    Assert.assertEquals(expectedNumLoadRequests,
+    Assertions.assertEquals(expectedNumLoadRequests,
         mdLoader.getNumLoadRequestsSent());
-    Assert.assertEquals(expectedNumCatalogUpdates,
+    Assertions.assertEquals(expectedNumCatalogUpdates,
         mdLoader.getNumCatalogUpdatesReceived());
     // Validate timeline.
-    Assert.assertEquals(2, mdLoader.getTimeline().getNumEvents());
+    Assertions.assertEquals(2, mdLoader.getTimeline().getNumEvents());
     // Validate dbs and tables.
     validateDbs(stmtTableCache, expectedDbs);
     validateTables(stmtTableCache, expectedTables);
@@ -137,10 +137,10 @@ public class StmtMetadataLoaderTest {
         new StmtMetadataLoader(fe, Catalog.DEFAULT_DB, timeline);
     StmtTableCache stmtTableCache = mdLoader.loadTables(stmt);
     // Validate metrics. Expect all tables to already be in the cache.
-    Assert.assertEquals(0, mdLoader.getNumLoadRequestsSent());
-    Assert.assertEquals(0, mdLoader.getNumCatalogUpdatesReceived());
+    Assertions.assertEquals(0, mdLoader.getNumLoadRequestsSent());
+    Assertions.assertEquals(0, mdLoader.getNumCatalogUpdatesReceived());
     // Validate timeline. Expect a single "everything is cached" event.
-    Assert.assertEquals(1, mdLoader.getTimeline().getNumEvents());
+    Assertions.assertEquals(1, mdLoader.getTimeline().getNumEvents());
     // Validate dbs and tables.
     validateDbs(stmtTableCache, expectedDbs);
     validateTables(stmtTableCache, expectedTables);
@@ -241,7 +241,7 @@ public class StmtMetadataLoaderTest {
 
   @Test
   public void testTableWriteID() throws ImpalaException {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     testLoadAcidTables("select * from functional.insert_only_transactional_table");
   }
 

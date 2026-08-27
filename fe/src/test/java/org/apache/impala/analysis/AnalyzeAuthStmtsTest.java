@@ -30,15 +30,15 @@ import org.apache.impala.common.FrontendTestBase;
 import org.apache.impala.testutil.TestUtils;
 import org.apache.impala.thrift.TQueryCtx;
 import org.apache.impala.util.EventSequence;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class AnalyzeAuthStmtsTest extends FrontendTestBase {
   protected static final String SERVER_NAME = "server1";
   protected static final String RANGER_SERVICE_TYPE = "hive";
   protected static final String RANGER_APP_ID = "impala";
 
-  // TODO: Change this to a @BeforeClass method. Then, clean up these
-  // items in @AfterClass, else we've made a global change that may affect
+  // TODO: Change this to a @BeforeAll method. Then, clean up these
+  // items in @AfterAll, else we've made a global change that may affect
   // other tests in random ways.
   public AnalyzeAuthStmtsTest() {
     catalog_.getAuthPolicy().addPrincipal(

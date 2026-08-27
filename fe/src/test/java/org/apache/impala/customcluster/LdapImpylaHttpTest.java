@@ -17,8 +17,8 @@
 
 package org.apache.impala.customcluster;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Lists;
 
@@ -35,10 +35,10 @@ import org.apache.impala.testutil.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.common.collect.Range;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 
 /**
@@ -73,7 +73,7 @@ public class LdapImpylaHttpTest {
 
   WebClient client_ = new WebClient();
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     String uri =
         String.format("ldap://localhost:%s", serverRule.getLdapServer().getPort());
@@ -87,7 +87,7 @@ public class LdapImpylaHttpTest {
     verifyMetrics(zero, zero, zero, zero);
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws Exception {
     CustomClusterRunner.StartImpalaCluster();
     client_.close();

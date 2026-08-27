@@ -17,7 +17,7 @@
 
 package org.apache.impala.catalog.metastore;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,8 +32,8 @@ import org.apache.impala.compat.MetastoreShim;
 import org.apache.impala.service.CatalogOpExecutor;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
 import org.apache.impala.testutil.CatalogTestMetastoreServer;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Base class for Catalog metastore server tests which sets up a Catalog metastore
@@ -46,7 +46,7 @@ public abstract class AbstractCatalogMetastoreTest {
   protected static HiveMetaStoreClient catalogHmsClient_;
   protected static final Configuration CONF = MetastoreConf.newMetastoreConf();
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws Exception {
     catalog_ = CatalogServiceTestCatalog.create();
     catalogOpExecutor_ = catalog_.getCatalogOpExecutor();
@@ -78,7 +78,7 @@ public abstract class AbstractCatalogMetastoreTest {
         (part) -> MetastoreShim.makePartName(partitionColNames, part.getValues())));
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUp() throws Exception {
     catalogMetastoreServer_.stop();
     catalog_.close();

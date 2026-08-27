@@ -27,16 +27,16 @@ import org.apache.impala.rewrite.EqualityDisjunctsToInRule;
 import org.apache.impala.rewrite.ExprRewriteRule;
 import org.apache.impala.rewrite.ExprRewriter;
 import org.apache.impala.thrift.TQueryOptions;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Preconditions;
 
 import static org.apache.impala.analysis.ToSqlOptions.DEFAULT;
 import static org.apache.impala.analysis.ToSqlOptions.REWRITTEN;
 import static org.apache.impala.analysis.ToSqlOptions.SHOW_IMPLICIT_CASTS;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests that the ExprRewriter framework covers all clauses as well as nested statements.
@@ -94,12 +94,12 @@ public class ExprRewriterTest extends AnalyzerTest {
     StatementBase stmtBase = (StatementBase) parsedStmt.getTopLevelNode();
     exprToTrue_.reset();
     stmtBase.rewriteExprs(exprToTrue_);
-    Assert.assertEquals(expectedNumChanges, exprToTrue_.getNumChanges());
+    Assertions.assertEquals(expectedNumChanges, exprToTrue_.getNumChanges());
 
     // Verify that the Exprs were actually replaced.
     trueToFalse_.reset();
     stmtBase.rewriteExprs(trueToFalse_);
-    Assert.assertEquals(expectedNumExprTrees, trueToFalse_.getNumChanges());
+    Assertions.assertEquals(expectedNumExprTrees, trueToFalse_.getNumChanges());
 
     // Make sure the stmt can be successfully re-analyzed.
     stmtBase.reset();
@@ -114,7 +114,7 @@ public class ExprRewriterTest extends AnalyzerTest {
     AnalysisContext analysisCtx = createAnalysisCtx();
     AnalysisResult result = parseAndAnalyze(stmt, analysisCtx);
     Preconditions.checkNotNull(result.getStmt());
-    Assert.assertEquals(0, exprToTrue_.getNumChanges());
+    Assertions.assertEquals(0, exprToTrue_.getNumChanges());
   }
 
   private Expr analyze(String query) {
@@ -215,7 +215,7 @@ public class ExprRewriterTest extends AnalyzerTest {
     ExprRewriter rewriter = new ExprRewriter(EqualityDisjunctsToInRule.INSTANCE);
     StatementBase stmtBase = (StatementBase) parsedStmt.getTopLevelNode();
     stmtBase.rewriteExprs(rewriter);
-    Assert.assertEquals(expectedNumChanges, rewriter.getNumChanges());
+    Assertions.assertEquals(expectedNumChanges, rewriter.getNumChanges());
   }
 
   @Test
@@ -401,7 +401,7 @@ public class ExprRewriterTest extends AnalyzerTest {
     StatementBase stmt = (StatementBase) AnalyzesOk("with t as (select 1 + 1) " +
         "select id from functional.alltypes union select id from functional.alltypesagg",
         ctx);
-    Assert.assertEquals(stmt.toSql(), stmt.toSql());
+    Assertions.assertEquals(stmt.toSql(), stmt.toSql());
   }
 
   @Test
@@ -513,16 +513,16 @@ public class ExprRewriterTest extends AnalyzerTest {
   private void assertToSql(AnalysisContext ctx, String query, String expectedToSql,
       String expectedToRewrittenSql) {
     StatementBase stmt = (StatementBase) AnalyzesOk(query, ctx);
-    Assert.assertEquals(expectedToSql, stmt.toSql(DEFAULT));
-    Assert.assertEquals(expectedToSql, stmt.toSql());
-    Assert.assertEquals(expectedToRewrittenSql, stmt.toSql(REWRITTEN));
+    Assertions.assertEquals(expectedToSql, stmt.toSql(DEFAULT));
+    Assertions.assertEquals(expectedToSql, stmt.toSql());
+    Assertions.assertEquals(expectedToRewrittenSql, stmt.toSql(REWRITTEN));
   }
 
   private void assertToSqlWithImplicitCasts(
       AnalysisContext ctx, String query, String expectedToSqlWithImplicitCasts) {
     StatementBase stmt = (StatementBase) AnalyzesOk(query, ctx);
     String actual = stmt.toSql(SHOW_IMPLICIT_CASTS);
-    Assert.assertEquals("Bad sql with implicit casts from original query:\n" + query,
+    Assertions.assertEquals("Bad sql with implicit casts from original query:\n" + query,
         expectedToSqlWithImplicitCasts, actual);
   }
 

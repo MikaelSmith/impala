@@ -17,9 +17,9 @@
 
 package org.apache.impala.calcite.planner;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
@@ -61,7 +61,7 @@ import org.apache.impala.thrift.TQueryOptions;
 
 import static org.apache.impala.calcite.schema.FilterSelectivityEstimator.DEFAULT_IS_NULL_PERCENTAGE;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,7 +98,7 @@ public class TestCalciteStats extends PlannerTestBase {
   private static TQueryOptions options =
       tpcdsParquetQueryOptions();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass() throws Exception {
     RuntimeEnv.INSTANCE.setTestEnv(true);
     ImpalaOperatorTable.create(BuiltinsDb.getInstance());
@@ -106,7 +106,7 @@ public class TestCalciteStats extends PlannerTestBase {
         JaninoRelMetadataProvider.of(DefaultRelMetadataProvider.INSTANCE));
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUpClass() {
     RuntimeEnv.INSTANCE.reset();
   }

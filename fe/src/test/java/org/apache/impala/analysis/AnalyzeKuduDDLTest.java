@@ -22,8 +22,8 @@ import org.apache.impala.common.FrontendTestBase;
 import org.apache.impala.service.BackendConfig;
 import org.apache.kudu.ColumnSchema.CompressionAlgorithm;
 import org.apache.kudu.ColumnSchema.Encoding;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
@@ -35,7 +35,7 @@ import java.util.List;
  */
 public class AnalyzeKuduDDLTest extends FrontendTestBase {
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     BackendConfig.INSTANCE.getBackendCfg().setKudu_master_hosts("127.0.0.1");
   }

@@ -34,10 +34,10 @@ import org.apache.impala.thrift.TDescribeOutputStyle;
 import org.apache.impala.thrift.TPrivilegeLevel;
 import org.apache.impala.thrift.TQueryOptions;
 import org.apache.impala.thrift.TTableName;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -53,9 +53,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * This class contains authorization tests for SQL statements.
@@ -72,17 +72,17 @@ public class AuthorizationStmtTest extends AuthorizationTestBase {
     FeSupport.loadLibrary();
   }
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() {
     RuntimeEnv.INSTANCE.setTestEnv(true);
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUp() {
     RuntimeEnv.INSTANCE.reset();
   }
 
-  @After
+  @AfterEach
   public void closeAuthzCatalog() {
     // This is to prevent HMS connection leak between tests (see IMPALA-8073).
     // Class constructor will be called and create a new instance of authzCatalog_

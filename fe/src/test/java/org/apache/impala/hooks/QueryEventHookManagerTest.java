@@ -23,17 +23,17 @@ import org.apache.impala.testutil.AlwaysErrorQueryEventHook;
 import org.apache.impala.testutil.CountingQueryEventHook;
 import org.apache.impala.testutil.PostQueryErrorEventHook;
 import org.apache.impala.thrift.TBackendGflags;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.rules.ExpectedException;
 
 import java.util.List;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class QueryEventHookManagerTest {
   private TBackendGflags origFlags;
@@ -43,7 +43,7 @@ public class QueryEventHookManagerTest {
   private QueryCompleteContext mockQueryCompleteContext =
       new QueryCompleteContext("unit-test lineage");
 
-  @Before
+  @BeforeEach
   public void setUp()  {
     // since some test cases will need to modify the (static)
     // be flags, we need to save the original values so they
@@ -54,7 +54,7 @@ public class QueryEventHookManagerTest {
     origFlags = BackendConfig.INSTANCE.getBackendCfg();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     BackendConfig.create(origFlags);
   }

@@ -40,12 +40,12 @@ import org.apache.impala.service.MetadataOp;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
 import org.apache.impala.testutil.CatalogTestMetastoreServer;
 import org.apache.thrift.TException;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
@@ -55,8 +55,8 @@ import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.CurrentNotificationEventId;
 import org.apache.impala.catalog.CatalogException;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 import java.util.ArrayList;
@@ -89,7 +89,7 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
     private static boolean flagEnableCatalogCache ,flagInvalidateCache,
         flagSyncToLatestEventId;
 
-    @BeforeClass
+    @BeforeAll
     public static void setup() throws Exception {
         catalog_ = CatalogServiceTestCatalog.create();
         catalogOpExecutor_ = catalog_.getCatalogOpExecutor();
@@ -122,7 +122,7 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         flagSyncToLatestEventId = BackendConfig.INSTANCE.enableSyncToLatestEventOnDdls();
     }
 
-    @AfterClass
+    @AfterAll
     public static void cleanUp() throws Exception {
         // in cleanup, set flag's values to previous value
         BackendConfig.INSTANCE.setEnableCatalogdHMSCache(flagEnableCatalogCache);
@@ -136,7 +136,7 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
 
     }
 
-    @After
+    @AfterEach
     public void afterTest() throws TException, CatalogException {
         String dbName = TEST_DB_NAME;
         try {
@@ -150,7 +150,7 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
         }
     }
 
-    @Before
+    @BeforeEach
     public void beforeTest() throws Exception {
         BackendConfig.INSTANCE.setEnableCatalogdHMSCache(true);
         BackendConfig.INSTANCE.setEnableSyncToLatestEventOnDdls(true);
@@ -301,7 +301,7 @@ public class CatalogHmsSyncToLatestEventIdTest extends AbstractCatalogMetastoreT
     @Test
     public void testExchangePartition() throws Exception {
         // run this test only for managed table
-        Assume.assumeTrue(tableType_.equals(managedTableType));
+        Assumptions.assumeTrue(tableType_.equals(managedTableType));
         LOG.info("Executing testExchangePartition");
         String srcTblName = "test_exchange_partition_src_" + tableType_ + "_tbl";
         String destTblName = "test_exchange_partition_dest_" + tableType_ + "_tbl";

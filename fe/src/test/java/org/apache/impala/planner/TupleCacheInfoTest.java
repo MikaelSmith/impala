@@ -17,8 +17,8 @@
 
 package org.apache.impala.planner;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
@@ -30,7 +30,7 @@ import org.apache.impala.catalog.ScalarType;
 import org.apache.impala.planner.TupleCacheInfo.HashTraceElement;
 import org.apache.impala.thrift.TUniqueId;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Basic unit tests for TupleCacheInfo

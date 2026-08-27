@@ -17,10 +17,10 @@
 
 package org.apache.impala.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -51,8 +51,8 @@ import org.apache.impala.thrift.TMetadataOpcode;
 import org.apache.impala.thrift.TResultRow;
 import org.apache.impala.thrift.TResultSet;
 import org.apache.impala.thrift.TWaitForHmsEventRequest;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -260,7 +260,7 @@ public class FrontendTest extends FrontendTestBase {
   public void TestGetTablesWithCommentsOnHive2() throws ImpalaException {
     // run the test only when it is running against Hive-2 since index tables are
     // skipped during data-load against Hive-3
-    Assume.assumeTrue(
+    Assumptions.assumeTrue(
         "Skipping this test since it is only supported when running against Hive-2",
         TestUtils.getHiveMajorVersion() == 2);
 

@@ -23,7 +23,7 @@ import org.apache.hadoop.hive.metastore.api.NotificationEvent;
 import org.apache.impala.catalog.CatalogException;
 import org.apache.impala.common.Metrics;
 import org.apache.impala.service.CatalogOpExecutor;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 
 /**
  * A test MetastoreEventProcessor which executes in the same thread. Useful for testing
@@ -48,7 +48,7 @@ public class SynchronousHMSEventProcessorForTests extends MetastoreEventsProcess
   @Override
   public void processEvents() {
     super.processEvents();
-    Assert.assertTrue(ensureEventsProcessedInHierarchicalMode(100000));
+    Assertions.assertTrue(ensureEventsProcessedInHierarchicalMode(100000));
     super.updateLatestEventId();
     verifyEventSyncedMetrics();
   }
@@ -57,7 +57,7 @@ public class SynchronousHMSEventProcessorForTests extends MetastoreEventsProcess
   protected void processEvents(long currentEventId, List<NotificationEvent> events)
       throws MetastoreNotificationException {
     super.processEvents(currentEventId, events);
-    Assert.assertTrue(ensureEventsProcessedInHierarchicalMode(100000));
+    Assertions.assertTrue(ensureEventsProcessedInHierarchicalMode(100000));
   }
 
   private void verifyEventSyncedMetrics() {
@@ -74,10 +74,10 @@ public class SynchronousHMSEventProcessorForTests extends MetastoreEventsProcess
         MetastoreEventsProcessor.GREATEST_SYNCED_EVENT_ID).getValue();
     long greatestSyncedEventTime = (Long) metrics.getGauge(
         MetastoreEventsProcessor.GREATEST_SYNCED_EVENT_TIME).getValue();
-    Assert.assertEquals(greatestSyncedEventId, lastSyncedEventId);
-    Assert.assertEquals(greatestSyncedEventTime, lastSyncedEventTime);
+    Assertions.assertEquals(greatestSyncedEventId, lastSyncedEventId);
+    Assertions.assertEquals(greatestSyncedEventTime, lastSyncedEventTime);
     if (lastSyncedEventId == latestEventId) {
-      Assert.assertEquals("Incorrect last synced event time for event " + latestEventId,
+      Assertions.assertEquals("Incorrect last synced event time for event " + latestEventId,
           latestEventTime, lastSyncedEventTime);
     }
   }

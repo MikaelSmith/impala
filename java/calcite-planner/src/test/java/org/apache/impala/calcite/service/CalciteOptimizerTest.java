@@ -17,11 +17,11 @@
 
 package org.apache.impala.calcite.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -50,8 +50,8 @@ import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.UnsupportedFeatureException;
 import org.apache.impala.thrift.TQueryOptions;
 import org.apache.impala.util.NoOpEventSequence;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class CalciteOptimizerTest extends FrontendTestBase {
   private static final String TEST_DB = "calcite_optimizer_test";
@@ -162,7 +162,7 @@ public class CalciteOptimizerTest extends FrontendTestBase {
               + "select cte_int from c",
           "cte_int"));
 
-  @Before
+  @BeforeEach
   public void addSyntheticTestTable() {
     addTestDb(TEST_DB, "Synthetic Calcite optimizer test database");
     addTestTable("create table " + TEST_TABLE

@@ -18,9 +18,9 @@
 package org.apache.impala.customcluster;
 
 import static org.apache.impala.testutil.LdapUtil.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -56,10 +56,10 @@ import org.apache.hive.service.rpc.thrift.*;
 import org.apache.impala.testutil.WebClient;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.ietf.jgss.*;
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.ClassRule;
 import org.junit.rules.TemporaryFolder;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -97,7 +97,7 @@ public class SpnegoAuthTest {
         .build();
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws IOException {
     client_.close();
   }

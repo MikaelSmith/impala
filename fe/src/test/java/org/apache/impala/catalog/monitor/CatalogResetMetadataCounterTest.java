@@ -20,12 +20,12 @@ package org.apache.impala.catalog.monitor;
 import org.apache.impala.thrift.TOperationUsageCounter;
 import org.apache.impala.thrift.TResetMetadataRequest;
 import org.apache.impala.thrift.TTableName;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CatalogResetMetadataCounterTest {
   private CatalogResetMetadataCounter catalogResetMetadataCounter;
@@ -33,7 +33,7 @@ public class CatalogResetMetadataCounterTest {
   private final String TEST_DB_NAME = "TEST";
   private final String TEST_TABLE_NAME = "TABLE";
 
-  @Before
+  @BeforeEach
   public void setUp() {
     catalogResetMetadataCounter = new CatalogResetMetadataCounter();
   }

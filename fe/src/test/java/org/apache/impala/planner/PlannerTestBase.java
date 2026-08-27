@@ -17,10 +17,10 @@
 
 package org.apache.impala.planner;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.impala.service.BackendConfig;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -78,9 +78,9 @@ import org.apache.impala.thrift.TUpdateExecutorMembershipRequest;
 import org.apache.impala.util.ExecutorMembershipSnapshot;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduScanToken;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -128,7 +128,7 @@ public class PlannerTestBase extends FrontendTestBase {
     BackendConfig.INSTANCE.getBackendCfg().setKudu_master_hosts("127.0.0.1");
   }
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     // Mimic the 3 node test mini-cluster.
     // 20 is the default num_expected_executors startup flag.
@@ -136,7 +136,7 @@ public class PlannerTestBase extends FrontendTestBase {
     setUpKuduClientAndLogDir();
   }
 
-  @Before
+  @BeforeEach
   public void setUpTest() throws Exception {
     // Reset the RuntimeEnv - individual tests may change it.
     RuntimeEnv.INSTANCE.reset();
@@ -146,7 +146,7 @@ public class PlannerTestBase extends FrontendTestBase {
     RuntimeEnv.INSTANCE.setTestEnv(true);
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUp() throws Exception {
     RuntimeEnv.INSTANCE.reset();
 
@@ -861,7 +861,7 @@ public class PlannerTestBase extends FrontendTestBase {
     try {
       TExecRequest execRequest = frontend_.createExecRequest(planCtx);
     } catch (ImpalaException e) {
-      Assert.fail("Failed to create exec request for '" + query + "': " + e.getMessage());
+      Assertions.fail("Failed to create exec request for '" + query + "': " + e.getMessage());
     }
 
     String explainStr = planCtx.getExplainString();
@@ -869,7 +869,7 @@ public class PlannerTestBase extends FrontendTestBase {
     Pattern rowSizePattern = Pattern.compile("row-size=([0-9]*)B");
     Matcher m = rowSizePattern.matcher(explainStr);
     boolean matchFound = m.find();
-    Assert.assertTrue("Row size not found in plan.", matchFound);
+    Assertions.assertTrue("Row size not found in plan.", matchFound);
     String rowSizeStr = m.group(1);
     return Integer.valueOf(rowSizeStr);
   }

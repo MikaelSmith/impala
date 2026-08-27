@@ -17,9 +17,9 @@
 
 package org.apache.impala.catalog;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.HashMap;
 import java.util.List;
@@ -30,13 +30,13 @@ import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.impala.catalog.HdfsStorageDescriptor.InvalidStorageDescriptorException;
 import org.apache.impala.service.FeSupport;
 import org.apache.impala.thrift.THdfsFileFormat;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
 
 public class HdfsStorageDescriptorTest {
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     FeSupport.loadLibrary();
   }

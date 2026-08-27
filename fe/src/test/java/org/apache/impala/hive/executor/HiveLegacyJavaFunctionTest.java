@@ -33,8 +33,8 @@ import org.apache.impala.thrift.TFunctionBinaryType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 
 @SuppressWarnings("restriction")
@@ -127,13 +127,13 @@ public class HiveLegacyJavaFunctionTest {
           }
         }
         if (!found) {
-          Assert.fail("Expected function not extracted: " + expectedFunction.retType +
+          Assertions.fail("Expected function not extracted: " + expectedFunction.retType +
               " " + expectedFunction.className + "(" +
               Joiner.on(",").join(expectedFunction.paramTypes) + ")");
         }
       }
       if (!scalarFnsCopy.isEmpty()) {
-        Assert.fail("Extracted unexpected function " +
+        Assertions.fail("Extracted unexpected function " +
             scalarFnsCopy.get(0).getFunctionName() + " with signature: " +
             scalarFnsCopy.get(0).signatureString());
         }
@@ -148,11 +148,11 @@ public class HiveLegacyJavaFunctionTest {
     try {
       testScalar(udfClass, expectedFuncs);
     } catch (CatalogException e) {
-      Assert.assertTrue(e.getMessage().contains(
+      Assertions.assertTrue(e.getMessage().contains(
           "No compatible signatures found for function: " + expectedFunctionName));
       return;
     }
-    Assert.fail("Extraction should not have succeeded.");
+    Assertions.fail("Extraction should not have succeeded.");
   }
 
   @Test
@@ -162,10 +162,10 @@ public class HiveLegacyJavaFunctionTest {
     try {
       testScalar(udfClass, expectedFuncs);
     } catch (CatalogException e) {
-      Assert.assertTrue(e.getMessage().contains("Unable to cast to UDF instance."));
+      Assertions.assertTrue(e.getMessage().contains("Unable to cast to UDF instance."));
       return;
     }
-    Assert.fail("Extraction should not have succeeded.");
+    Assertions.fail("Extraction should not have succeeded.");
   }
 
   @Test

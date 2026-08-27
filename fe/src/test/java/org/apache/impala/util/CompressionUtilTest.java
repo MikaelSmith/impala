@@ -21,8 +21,8 @@ import com.google.common.base.Strings;
 import org.apache.impala.common.JniUtil;
 import org.apache.impala.thrift.TCacheJarParams;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class CompressionUtilTest {
   private static TBinaryProtocol.Factory protocolFactory_ = new TBinaryProtocol.Factory();
@@ -34,7 +34,7 @@ public class CompressionUtilTest {
     for (String test: stringsToTest) {
       byte[] compressed = CompressionUtil.deflateCompress(test.getBytes());
       byte[] decompressed = CompressionUtil.deflateDecompress(compressed);
-      Assert.assertEquals(new String(decompressed), test);
+      Assertions.assertEquals(new String(decompressed), test);
     }
 
     // Compress and decompress a thrift struct.
@@ -46,7 +46,7 @@ public class CompressionUtilTest {
 
     TCacheJarParams deserializedTestObj = new TCacheJarParams();
     JniUtil.deserializeThrift(protocolFactory_, deserializedTestObj, decompressed);
-    Assert.assertEquals(deserializedTestObj.hdfs_location, "test string");
+    Assertions.assertEquals(deserializedTestObj.hdfs_location, "test string");
   }
 
 }

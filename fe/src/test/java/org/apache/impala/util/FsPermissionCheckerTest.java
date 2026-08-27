@@ -25,8 +25,8 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.AccessControlException;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 public class FsPermissionCheckerTest {
@@ -43,7 +43,7 @@ public class FsPermissionCheckerTest {
     Mockito.doThrow(new AccessControlException()).when(fs).access(path, read);
 
     boolean access = checker.checkAccess(path, fs, read, true);
-    Assert.assertFalse(access);
+    Assertions.assertFalse(access);
   }
 
   @Test
@@ -56,7 +56,7 @@ public class FsPermissionCheckerTest {
     Mockito.doNothing().when(fs).access(path, read);
 
     boolean access = checker.checkAccess(path, fs, read, true);
-    Assert.assertTrue(access);
+    Assertions.assertTrue(access);
   }
 
   @Test
@@ -72,7 +72,7 @@ public class FsPermissionCheckerTest {
     Mockito.doReturn(permission).when(fileStatus).getPermission();
 
     boolean access = checker.checkAccess(path, fs, read, false);
-    Assert.assertFalse(access);
+    Assertions.assertFalse(access);
   }
 
   @Test
@@ -88,6 +88,6 @@ public class FsPermissionCheckerTest {
     Mockito.doReturn(permission).when(fileStatus).getPermission();
 
     boolean access = checker.checkAccess(path, fs, read, false);
-    Assert.assertTrue(access);
+    Assertions.assertTrue(access);
   }
 }

@@ -17,26 +17,26 @@
 
 package org.apache.impala.catalog;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class CatalogTableWriteIdTest {
 
   private CatalogServiceCatalog catalog_;
 
-  @Before
+  @BeforeEach
   public void init() {
     catalog_ = CatalogServiceTestCatalog.create();
   }
 
-  @After
+  @AfterEach
   public void cleanUp() {
     catalog_.close();
   }

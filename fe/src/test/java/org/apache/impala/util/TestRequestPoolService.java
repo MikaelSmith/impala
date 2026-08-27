@@ -34,13 +34,13 @@ import java.util.Map;
 import org.apache.log4j.AppenderSkeleton;
 import org.apache.log4j.Logger;
 import org.apache.log4j.spi.LoggingEvent;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
 import static java.util.Arrays.asList;
@@ -146,22 +146,22 @@ public class TestRequestPoolService {
     // QueuePlacementPolicy.
     QueuePlacementPolicy policy = poolService_.getAllocationConfig().getPlacementPolicy();
     Configuration conf = policy.getConf();
-    Assert.assertTrue(conf.getBoolean("impala.core-site.overridden", false));
+    Assertions.assertTrue(conf.getBoolean("impala.core-site.overridden", false));
   }
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass() throws Exception {
     RuntimeEnv.INSTANCE.setTestEnv(true);
     User.setRulesForTesting(
         new Configuration().get(HADOOP_SECURITY_AUTH_TO_LOCAL, "DEFAULT"));
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUpClass() {
     RuntimeEnv.INSTANCE.reset();
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws Exception {
     if (poolService_ != null && poolService_.isRunning()) poolService_.stop();
   }
@@ -176,8 +176,8 @@ public class TestRequestPoolService {
   @Test
   public void testPoolResolution() throws Exception {
     createPoolService(ALLOCATION_FILE, LLAMA_CONFIG_FILE);
-    Assert.assertEquals("root.queueA", poolService_.assignToPool("root.queueA", "userA"));
-    Assert.assertNull(poolService_.assignToPool("nonexistentQueue", "userA"));
+    Assertions.assertEquals("root.queueA", poolService_.assignToPool("root.queueA", "userA"));
+    Assertions.assertNull(poolService_.assignToPool("nonexistentQueue", "userA"));
   }
 
   @Test
@@ -186,13 +186,13 @@ public class TestRequestPoolService {
     createPoolService(ALLOCATION_FILE, LLAMA_CONFIG_FILE);
     TResolveRequestPoolResult result = poolService_.resolveRequestPool(
         new TResolveRequestPoolParams("userA@abc.com", "root.queueA"));
-    Assert.assertEquals(TErrorCode.OK, result.getStatus().getStatus_code());
-    Assert.assertEquals("root.queueA", result.getResolved_pool());
+    Assertions.assertEquals(TErrorCode.OK, result.getStatus().getStatus_code());
+    Assertions.assertEquals("root.queueA", result.getResolved_pool());
 
     result = poolService_.resolveRequestPool(
         new TResolveRequestPoolParams("userA/a.qualified.domain@abc.com", "root.queueA"));
-    Assert.assertEquals(TErrorCode.OK, result.getStatus().getStatus_code());
-    Assert.assertEquals("root.queueA", result.getResolved_pool());
+    Assertions.assertEquals(TErrorCode.OK, result.getStatus().getStatus_code());
+    Assertions.assertEquals("root.queueA", result.getResolved_pool());
   }
 
   @Test
@@ -201,15 +201,15 @@ public class TestRequestPoolService {
     createPoolService(ALLOCATION_FILE_GROUP_RULE, LLAMA_CONFIG_FILE);
     TResolveRequestPoolResult result = poolService_.resolveRequestPool(
         new TResolveRequestPoolParams("userA", "root.NOT_A_POOL"));
-    Assert.assertEquals(false, result.isSetResolved_pool());
-    Assert.assertEquals(false, result.isSetHas_access());
-    Assert.assertEquals(TErrorCode.INTERNAL_ERROR, result.getStatus().getStatus_code());
+    Assertions.assertEquals(false, result.isSetResolved_pool());
+    Assertions.assertEquals(false, result.isSetHas_access());
+    Assertions.assertEquals(TErrorCode.INTERNAL_ERROR, result.getStatus().getStatus_code());
 
     String expectedMessage = "Failed to resolve user 'userA' to a pool while " +
     "evaluating the 'primaryGroup' or 'secondaryGroup' queue placement rules because " +
     "no groups were found for the user. This is likely because the user does not " +
     "exist on the local operating system.";
-    Assert.assertEquals(expectedMessage,
+    Assertions.assertEquals(expectedMessage,
         Iterables.getOnlyElement(result.getStatus().getError_msgs()));
   }
 
@@ -257,9 +257,9 @@ public class TestRequestPoolService {
       String expected_error = expected_errors.get(i);
       try {
         createPoolService("bad_configurations/" + config, LLAMA_CONFIG_FILE);
-        Assert.fail("should have got exception");
+        Assertions.fail("should have got exception");
       } catch (Exception e) {
-        Assert.assertTrue(e.getMessage().contains(expected_error));
+        Assertions.assertTrue(e.getMessage().contains(expected_error));
       }
     }
   }
@@ -317,7 +317,7 @@ public class TestRequestPoolService {
 
       // Check for expected warnings
       for (String expected_warning : expected_messages) {
-        Assert.assertTrue("missing message: " + expected_warning + " in " + messages,
+        Assertions.assertTrue("missing message: " + expected_warning + " in " + messages,
             containsSubstring(messages, expected_warning));
       }
     } finally { logger.removeAppender(logAppender); }
@@ -332,10 +332,10 @@ public class TestRequestPoolService {
   private void checkPoolAcls(String queueName, List<String> allowedUsers,
       List<String> deniedUsers) throws InternalException {
     for (String allowed : allowedUsers) {
-      Assert.assertTrue(poolService_.hasAccess(queueName, allowed));
+      Assertions.assertTrue(poolService_.hasAccess(queueName, allowed));
     }
     for (String denied : deniedUsers) {
-      Assert.assertFalse(poolService_.hasAccess(queueName, denied));
+      Assertions.assertFalse(poolService_.hasAccess(queueName, denied));
     }
   }
 
@@ -372,13 +372,13 @@ public class TestRequestPoolService {
   @Test
   public void testDefaultConfigs() throws Exception {
     createPoolService(ALLOCATION_FILE_EMPTY, LLAMA_CONFIG_FILE_EMPTY);
-    Assert.assertEquals("root.userA", poolService_.assignToPool("", "userA"));
+    Assertions.assertEquals("root.userA", poolService_.assignToPool("", "userA"));
     checkPoolAcls("root.userA", asList("userA", "userB", "userZ"), EMPTY_LIST);
     checkPoolConfigResult("root", -1, 200, -1, null, "", 0, 0, true, 0, 0, null, null,
         false);
   }
 
-  @Ignore("IMPALA-4868") @Test
+  @Disabled("IMPALA-4868") @Test
   public void testUpdatingConfigs() throws Exception {
     // Tests updating the config files and then checking the pool resolution, ACLs, and
     // pool limit configs. This tests all three together rather than separating into
@@ -431,11 +431,11 @@ public class TestRequestPoolService {
         put("jade", 100);
       }
     };
-    Assert.assertEquals(rootUserExpected, rootConfig.user_query_limits);
+    Assertions.assertEquals(rootUserExpected, rootConfig.user_query_limits);
     Map<String, Integer> rootGroupExpected = new HashMap<String, Integer>() {
       { put("support", 6); }
     };
-    Assert.assertEquals(rootGroupExpected, rootConfig.group_query_limits);
+    Assertions.assertEquals(rootGroupExpected, rootConfig.group_query_limits);
 
     TPoolConfig smallConfig = poolService_.getPoolConfig("root.group-set-small");
     Map<String, Integer> smallUserExpected = new HashMap<String, Integer>() {
@@ -447,7 +447,7 @@ public class TestRequestPoolService {
         put("jade", 8);
       }
     };
-    Assert.assertEquals(smallUserExpected, smallConfig.user_query_limits);
+    Assertions.assertEquals(smallUserExpected, smallConfig.user_query_limits);
     Map<String, Integer> smallGroupExpected = new HashMap<String, Integer>() {
       {
         put("support", 5);
@@ -455,7 +455,7 @@ public class TestRequestPoolService {
         put("it", 2);
       }
     };
-    Assert.assertEquals(smallGroupExpected, smallConfig.group_query_limits);
+    Assertions.assertEquals(smallGroupExpected, smallConfig.group_query_limits);
 
     TPoolConfig largeConfig = poolService_.getPoolConfig("root.group-set-large");
     Map<String, Integer> largeUserExpected = new HashMap<String, Integer>() {
@@ -465,14 +465,14 @@ public class TestRequestPoolService {
         put("claire", 3);
       }
     };
-    Assert.assertEquals(largeUserExpected, largeConfig.user_query_limits);
+    Assertions.assertEquals(largeUserExpected, largeConfig.user_query_limits);
     Map<String, Integer> largeGroupExpected = new HashMap<String, Integer>() {
       {
         put("support", 1);
         put("dev", 2);
       }
     };
-    Assert.assertEquals(largeGroupExpected, largeConfig.group_query_limits);
+    Assertions.assertEquals(largeGroupExpected, largeConfig.group_query_limits);
   }
 
   // Test pool resolution
@@ -481,9 +481,9 @@ public class TestRequestPoolService {
     createPoolService(ALLOCATION_FILE_MODIFIED, null);
 
     // Test pool resolution
-    Assert.assertEquals("root.queueA", poolService_.assignToPool("queueA", "userA"));
-    Assert.assertNull(poolService_.assignToPool("queueX", "userA"));
-    Assert.assertEquals("root.queueC", poolService_.assignToPool("queueC", "userA"));
+    Assertions.assertEquals("root.queueA", poolService_.assignToPool("queueA", "userA"));
+    Assertions.assertNull(poolService_.assignToPool("queueX", "userA"));
+    Assertions.assertEquals("root.queueC", poolService_.assignToPool("queueC", "userA"));
 
     // Test pool ACLs
     checkPoolAcls("root.queueA", asList("userA", "userB"), EMPTY_LIST);
@@ -543,12 +543,12 @@ public class TestRequestPoolService {
   private static void assertFailureMessage(String xmlString, String expectedError) {
     try {
       doQueryLimitParsing(xmlString, "user");
-      Assert.fail(
+      Assertions.fail(
           "did not get expected exception, with expected message " + expectedError);
     } catch (Exception e) {
-      Assert.assertTrue(e instanceof AllocationConfigurationException);
+      Assertions.assertTrue(e instanceof AllocationConfigurationException);
 
-      Assert.assertTrue(e.getMessage().contains(expectedError));
+      Assertions.assertTrue(e.getMessage().contains(expectedError));
     }
   }
 
@@ -568,7 +568,7 @@ public class TestRequestPoolService {
     }};
 
     Map<String, Integer> parsed = doQueryLimitParsing(xmlString, "user");
-    Assert.assertEquals(expected, parsed);
+    Assertions.assertEquals(expected, parsed);
 
     String xmlString2 = String.join("\n", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
         "<userQueryLimit>",
@@ -583,7 +583,7 @@ public class TestRequestPoolService {
     }};
 
     Map<String, Integer> parsed2 = doQueryLimitParsing(xmlString2, "user");
-    Assert.assertEquals(expected2, parsed2);
+    Assertions.assertEquals(expected2, parsed2);
 
     String xmlString3 = String.join("\n", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
         "<groupQueryLimit>",
@@ -597,7 +597,7 @@ public class TestRequestPoolService {
       put("group2", 1);
     }};
     Map<String, Integer> parsed3 = doQueryLimitParsing(xmlString3, "group");
-    Assert.assertEquals(expected3, parsed3);
+    Assertions.assertEquals(expected3, parsed3);
   }
 
   /**
@@ -649,9 +649,9 @@ public class TestRequestPoolService {
   private void checkModifiedConfigResults()
       throws InternalException, IOException {
     // Test pool resolution: now there's a queueC
-    Assert.assertEquals("root.queueA", poolService_.assignToPool("queueA", "userA"));
-    Assert.assertNull(poolService_.assignToPool("queueX", "userA"));
-    Assert.assertEquals("root.queueC", poolService_.assignToPool("queueC", "userA"));
+    Assertions.assertEquals("root.queueA", poolService_.assignToPool("queueA", "userA"));
+    Assertions.assertNull(poolService_.assignToPool("queueX", "userA"));
+    Assertions.assertEquals("root.queueC", poolService_.assignToPool("queueC", "userA"));
 
     // Test pool ACL changes
     checkPoolAcls("root.queueA", asList("userA", "userB"), EMPTY_LIST);
@@ -708,7 +708,7 @@ public class TestRequestPoolService {
     expectedResult.setOnly_coordinators(onlyCoordinators);
 
     TPoolConfig poolConfig = poolService_.getPoolConfig(pool);
-    Assert.assertEquals(
+    Assertions.assertEquals(
         "Unexpected config values for pool " + pool, expectedResult, poolConfig);
   }
 

@@ -20,13 +20,13 @@ package org.apache.impala.catalog.monitor;
 import org.apache.impala.thrift.TDdlType;
 import org.apache.impala.thrift.TOperationUsageCounter;
 import org.apache.impala.thrift.TTableName;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CatalogDdlCounterTest {
   private CatalogDdlCounter catalogDdlCounter;
@@ -38,7 +38,7 @@ public class CatalogDdlCounterTest {
   private final Optional<TTableName> TEST_TTABLENAME =
       Optional.of(new TTableName(TEST_DB_NAME, TEST_TABLE_NAME));
 
-  @Before
+  @BeforeEach
   public void setUp() {
     catalogDdlCounter = new CatalogDdlCounter();
   }

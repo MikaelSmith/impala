@@ -273,8 +273,21 @@ under the License.
     </dependency>
 
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-suite-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-suite-engine</artifactId>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -287,6 +300,12 @@ under the License.
       <groupId>com.googlecode.json-simple</groupId>
       <artifactId>json-simple</artifactId>
       <version>1.1.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>junit</groupId>
+          <artifactId>junit</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -329,6 +348,10 @@ under the License.
         <exclusion>
           <groupId>org.bouncycastle</groupId>
           <artifactId>bcprov-jdk15on</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>junit</groupId>
+          <artifactId>junit</artifactId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -839,8 +862,9 @@ under the License.
                     <exclude>org.apache.sentry:*</exclude>
                     <!-- IMPALA-11673: Ensure spring-jcl is not present. -->
                     <exclude>org.springframework:spring-jcl</exclude>
-                    <!-- We don't support junit 5 yet. -->
-                    <exclude>org.junit.jupiter:*</exclude>
+                    <!-- Exclude JUnit 4 and legacy engines -->
+                    <exclude>junit:junit</exclude>
+                    <exclude>org.junit.vintage:junit-vintage-engine</exclude>
                     <!-- Assert that we only use artifacts from only the specified
                          version of these components. -->
                     <exclude>org.apache.hadoop:*</exclude>
@@ -1043,6 +1067,10 @@ under the License.
               <groupId>log4j</groupId>
               <artifactId>log4j</artifactId>
             </exclusion>
+            <exclusion>
+              <groupId>junit</groupId>
+              <artifactId>junit</artifactId>
+            </exclusion>
             <!-- We should exclude hive-serde since it brings along a
                different version of flatbuffers causing problems for loading tables -->
             <exclusion>
@@ -1080,6 +1108,12 @@ under the License.
           <groupId>org.apache.hive</groupId>
           <artifactId>hive-classification</artifactId>
           <version>${hive.version}</version>
+          <exclusions>
+            <exclusion>
+              <groupId>junit</groupId>
+              <artifactId>junit</artifactId>
+            </exclusion>
+          </exclusions>
         </dependency>
 
         <dependency>

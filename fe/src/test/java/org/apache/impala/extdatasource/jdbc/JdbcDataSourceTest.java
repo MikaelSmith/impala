@@ -44,11 +44,11 @@ import org.apache.impala.thrift.TScalarType;
 import org.apache.impala.thrift.TTypeNode;
 import org.apache.impala.thrift.TTypeNodeType;
 import org.apache.impala.thrift.TUniqueId;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.FixMethodOrder;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.runners.MethodSorters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +57,7 @@ import org.slf4j.LoggerFactory;
 public class JdbcDataSourceTest {
   private static TBackendGflags origFlags;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     // The original BackendConfig need to be mocked, we are saving the values here, so
     // they can be restored and not break other tests
@@ -67,7 +67,7 @@ public class JdbcDataSourceTest {
     origFlags = BackendConfig.INSTANCE.getBackendCfg();
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown() {
     BackendConfig.create(origFlags);
   }
@@ -121,7 +121,7 @@ public class JdbcDataSourceTest {
         expectReturnRows_);
 
     boolean ret = jdbcDataSource_.convertInitStringToConfiguration(initString_);
-    Assert.assertTrue(ret);
+    Assertions.assertTrue(ret);
   }
 
   @Test
@@ -131,7 +131,7 @@ public class JdbcDataSourceTest {
     params.setInit_string(initString_);
     params.setPredicates(predicates_);
     TPrepareResult resp = jdbcDataSource_.prepare(params);
-    Assert.assertEquals(TErrorCode.OK, resp.getStatus().status_code);
+    Assertions.assertEquals(TErrorCode.OK, resp.getStatus().status_code);
     if (resp.isSetAccepted_conjuncts()) {
       acceptedPredicates_ = Lists.newArrayList();
       // @see org.apache.impala.planner.DataSourceScanNode#removeAcceptedConjuncts
@@ -149,7 +149,7 @@ public class JdbcDataSourceTest {
     }
     if (resp.isSetNum_rows_estimate()) {
       long estimate = resp.getNum_rows_estimate();
-      Assert.assertEquals(5, estimate);
+      Assertions.assertEquals(5, estimate);
     }
   }
 
@@ -167,9 +167,9 @@ public class JdbcDataSourceTest {
     params.setBatch_size(5);
     params.setPredicates(acceptedPredicates_);
     TOpenResult resp = jdbcDataSource_.open(params);
-    Assert.assertEquals(TErrorCode.OK, resp.getStatus().status_code);
+    Assertions.assertEquals(TErrorCode.OK, resp.getStatus().status_code);
     scanHandle_ = resp.getScan_handle();
-    Assert.assertTrue(StringUtils.isNoneBlank(scanHandle_));
+    Assertions.assertTrue(StringUtils.isNoneBlank(scanHandle_));
   }
 
   @Test
@@ -180,15 +180,15 @@ public class JdbcDataSourceTest {
     long totalNumRows = 0;
     do {
       TGetNextResult resp = jdbcDataSource_.getNext(params);
-      Assert.assertEquals(TErrorCode.OK, resp.getStatus().status_code);
+      Assertions.assertEquals(TErrorCode.OK, resp.getStatus().status_code);
       eos = resp.isEos();
       TRowBatch rowBatch = resp.getRows();
       long numRows = rowBatch.getNum_rows();
       totalNumRows += numRows;
       List<TColumnData> cols = rowBatch.getCols();
-      Assert.assertEquals(schema_.getColsSize(), cols.size());
+      Assertions.assertEquals(schema_.getColsSize(), cols.size());
     } while (!eos);
-    Assert.assertEquals(expectReturnRows_, totalNumRows);
+    Assertions.assertEquals(expectReturnRows_, totalNumRows);
   }
 
   @Test
@@ -196,7 +196,7 @@ public class JdbcDataSourceTest {
     TCloseParams params = new TCloseParams();
     params.setScan_handle(scanHandle_);
     TCloseResult resp = jdbcDataSource_.close(params);
-    Assert.assertEquals(TErrorCode.OK, resp.getStatus().status_code);
+    Assertions.assertEquals(TErrorCode.OK, resp.getStatus().status_code);
   }
 
   private static TTableSchema initSchema() {

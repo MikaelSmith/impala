@@ -18,8 +18,8 @@
 package org.apache.impala.catalog;
 
 import static org.apache.impala.catalog.HdfsPartition.comparePartitionKeyValues;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,7 +33,7 @@ import org.apache.impala.analysis.StringLiteral;
 import org.apache.impala.service.FeSupport;
 import org.apache.impala.thrift.TNetworkAddress;
 import org.apache.impala.util.ListMap;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Lists;
 

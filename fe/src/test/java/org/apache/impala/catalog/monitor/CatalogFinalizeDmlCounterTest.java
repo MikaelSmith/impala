@@ -20,13 +20,13 @@ package org.apache.impala.catalog.monitor;
 import org.apache.impala.thrift.TCatalogServiceRequestHeader;
 import org.apache.impala.thrift.TOperationUsageCounter;
 import org.apache.impala.thrift.TUpdateCatalogRequest;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.apache.impala.catalog.monitor.CatalogFinalizeDmlCounter.*;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CatalogFinalizeDmlCounterTest {
   private CatalogFinalizeDmlCounter catalogFinalizeDmlCounter;
@@ -43,7 +43,7 @@ public class CatalogFinalizeDmlCounterTest {
   private final TUpdateCatalogRequest testUpdateRequest =
       createTestTUpdateCatalogRequest(TEST_DB_NAME, TEST_TABLE_NAME, TEST_UPDATE_SQL);
 
-  @Before
+  @BeforeEach
   public void setUp() {
     catalogFinalizeDmlCounter = new CatalogFinalizeDmlCounter();
   }

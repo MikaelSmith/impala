@@ -19,8 +19,8 @@ package org.apache.impala.analysis;
 
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.FrontendTestBase;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests selectivity estimates for Exprs
@@ -49,7 +49,7 @@ public class ExprSelectivityTest extends FrontendTestBase {
     // to be difficult. So we are setting the delta to essentially ignores
     // precision beyond 6.
     if (Math.abs(actual - expected) > 0.000001) {
-      Assert.fail(
+      Assertions.fail(
           String.format("\nActual: %.7f\nExpected: %.7f\n", actual, expected));
     }
   }

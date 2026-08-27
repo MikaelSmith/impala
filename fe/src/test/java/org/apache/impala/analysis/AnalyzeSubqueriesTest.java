@@ -19,7 +19,7 @@ package org.apache.impala.analysis;
 
 import org.apache.impala.catalog.Type;
 import org.apache.impala.common.AnalysisException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class AnalyzeSubqueriesTest extends AnalyzerTest {
   private static String cmpOperators[] = {"=", "!=", "<=", ">=", ">", "<"};

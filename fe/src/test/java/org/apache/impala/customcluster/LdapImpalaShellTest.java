@@ -20,9 +20,9 @@ package org.apache.impala.customcluster;
 import static org.apache.impala.testutil.LdapUtil.*;
 import static org.apache.impala.testutil.TestUtils.retryUntilSuccess;
 import static org.apache.impala.testutil.TestUtils.writeCookieSecret;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Range;
 
@@ -39,8 +39,8 @@ import org.apache.directory.server.core.annotations.ApplyLdifFiles;
 import org.apache.directory.server.core.integ.CreateLdapServerRule;
 import org.apache.impala.testutil.InterruptibleProxyServer;
 import org.apache.impala.testutil.WebClient;
-import org.junit.After;
-import org.junit.Assume;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.rules.TemporaryFolder;
@@ -80,7 +80,7 @@ public class LdapImpalaShellTest {
     verifyMetrics(zero, zero, zero, zero);
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws Exception {
     client_.close();
   }
@@ -276,7 +276,7 @@ public class LdapImpalaShellTest {
    */
   protected void testHttpImpersonationImpl() throws Exception {
     // Ignore the test if python SSLContext support is not available.
-    Assume.assumeTrue(pythonSupportsSSLContext());
+    Assumptions.assumeTrue(pythonSupportsSSLContext());
     String invalidDelegateUser = "invalid-delegate-user";
     String query = "select logged_in_user()";
     String errTemplate = "User '%s' is not authorized to delegate to '%s'";

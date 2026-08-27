@@ -34,10 +34,10 @@ import org.apache.impala.compat.MetastoreShim;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
 import org.apache.impala.util.PatternMatcher;
 import org.apache.thrift.TException;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,7 +102,7 @@ public class EventsProcessorStressTest {
   /**
    * Initialize the test catalog and start a synchronous events processor
    */
-  @BeforeClass
+  @BeforeAll
   public static void setupTestEnv() throws Exception {
     catalog_ = CatalogServiceTestCatalog.create();
     CatalogOpExecutor catalogOpExecutor = catalog_.getCatalogOpExecutor();
@@ -119,7 +119,7 @@ public class EventsProcessorStressTest {
   /**
    * Cleans up the test databases and shuts down the event processor
    */
-  @AfterClass
+  @AfterAll
   public static void destroyTestEnv() {
     try {
       for (int i = 0; i < numClients_; i++) {
@@ -207,12 +207,12 @@ public class EventsProcessorStressTest {
         eventsProcessor_.processEvents();
         // make sure that events processor is in ACTIVE state after every batch which
         // is processed
-        Assert.assertEquals(EventProcessorStatus.ACTIVE, eventsProcessor_.getStatus());
+        Assertions.assertEquals(EventProcessorStatus.ACTIVE, eventsProcessor_.getStatus());
       }
       queryRunner.checkForErrors();
     } catch (Exception ex) {
       LOG.error(ex.getMessage(), ex);
-      Assert.fail(unwrapCause(ex));
+      Assertions.fail(unwrapCause(ex));
     } finally {
       stopImpalaRefreshClients();
       queryRunner.shutdownNow();

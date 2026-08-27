@@ -17,11 +17,11 @@
 
 package org.apache.impala.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -38,8 +38,8 @@ import java.util.Map;
 import org.apache.impala.testutil.ImpalaJdbcClient;
 import org.apache.impala.testutil.TestUtils;
 import org.apache.impala.testutil.WebClient;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * JdbcTest
@@ -51,7 +51,7 @@ import org.junit.Test;
 public class JdbcTest extends JdbcTestBase {
   public JdbcTest(String connectionType) { super(connectionType); }
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     con_ = createConnection(ImpalaJdbcClient.getNoAuthConnectionStr(connectionType_));
   }

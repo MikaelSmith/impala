@@ -17,7 +17,7 @@
 
 package org.apache.impala.analysis;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class AnalyzeUpsertStmtTest extends AnalyzerTest {
   @Test

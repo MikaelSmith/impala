@@ -51,10 +51,10 @@ import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.RuntimeEnv;
 import org.apache.impala.thrift.TQueryOptions;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
 
@@ -72,7 +72,7 @@ public class TestLoptJoinRule extends PlannerTestBase {
   private static TQueryOptions options =
       tpcdsParquetQueryOptions();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass() throws Exception {
     RuntimeEnv.INSTANCE.setTestEnv(true);
     ImpalaOperatorTable.create(BuiltinsDb.getInstance());
@@ -80,7 +80,7 @@ public class TestLoptJoinRule extends PlannerTestBase {
         JaninoRelMetadataProvider.of(DefaultRelMetadataProvider.INSTANCE));
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUpClass() {
     RuntimeEnv.INSTANCE.reset();
   }

@@ -46,9 +46,9 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.transport.TSocket;
 
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class ExternalFrontendTest {
   private final FrontendFixture feFixture_ = FrontendFixture.instance();
@@ -66,7 +66,7 @@ public class ExternalFrontendTest {
     // arguments
     int ret = CustomClusterRunner.StartImpalaCluster(
         "", "", "", "--per_impalad_args=" + impaladFlags);
-    Assert.assertEquals(
+    Assertions.assertEquals(
         "custom cluster failed to start with args: " + impaladFlags, ret, 0);
   }
 
@@ -122,7 +122,7 @@ public class ExternalFrontendTest {
     try {
       request = frontend_.createExecRequest(new PlanCtx(queryCtx));
     } catch (ImpalaException e) {
-      Assert.fail(
+      Assertions.fail(
           "Failed to create exec request for '" + testStmt + "': " + e.getMessage());
     }
 
@@ -152,8 +152,8 @@ public class ExternalFrontendTest {
 
     // Verify Results
     List<TColumn> columns = fetchResp.getResults().getColumns();
-    Assert.assertEquals(1, columns.size());
-    Assert.assertEquals(expectedValue, columns.get(0).getStringVal().getValues().get(0));
+    Assertions.assertEquals(1, columns.size());
+    Assertions.assertEquals(expectedValue, columns.get(0).getStringVal().getValues().get(0));
 
     // Close Session
     TCloseSessionResp closeResp =
@@ -178,16 +178,16 @@ public class ExternalFrontendTest {
     setupExternalFe();
     // Try to execute a planned query against the hs2 service (it should fail)
     TStatus status = executeTestQueryExpectFailure(createBinaryClient(hs2BinaryPort));
-    Assert.assertEquals(status.getStatusCode(), TStatusCode.ERROR_STATUS);
-    Assert.assertTrue(status.toString().contains("Unsupported operation"));
+    Assertions.assertEquals(status.getStatusCode(), TStatusCode.ERROR_STATUS);
+    Assertions.assertTrue(status.toString().contains("Unsupported operation"));
 
     // Now try to execute against the hs2 http service (it should also fail)
     status = executeTestQueryExpectFailure(createHttpClient(hs2HttpPort));
-    Assert.assertEquals(status.getStatusCode(), TStatusCode.ERROR_STATUS);
-    Assert.assertTrue(status.toString().contains("Unsupported operation"));
+    Assertions.assertEquals(status.getStatusCode(), TStatusCode.ERROR_STATUS);
+    Assertions.assertTrue(status.toString().contains("Unsupported operation"));
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws Exception {
     // Restore cluster to state before the test
     CustomClusterRunner.StartImpalaCluster();

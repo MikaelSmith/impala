@@ -17,8 +17,8 @@
 
 package org.apache.impala.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -38,14 +38,14 @@ import org.apache.impala.common.InternalException;
 import org.apache.impala.common.JniUtil;
 import org.apache.impala.thrift.TBackendGflags;
 import org.apache.impala.thrift.TStringLiteral;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class JniFrontendTest {
   private static TBackendGflags origFlags;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     // The original BackendConfig need to be mocked, we are saving the values here, so
     // they can be restored and not break other tests
@@ -55,7 +55,7 @@ public class JniFrontendTest {
     origFlags = BackendConfig.INSTANCE.getBackendCfg();
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown() {
     BackendConfig.create(origFlags);
   }

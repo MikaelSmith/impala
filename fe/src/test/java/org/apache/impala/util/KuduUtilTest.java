@@ -16,7 +16,7 @@
 // under the License.
 
 package org.apache.impala.util;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -26,9 +26,9 @@ import org.apache.impala.service.BackendConfig;
 import org.apache.impala.thrift.TBackendGflags;
 import org.apache.kudu.client.KuduClient;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for KuduUtil functions.
@@ -36,7 +36,7 @@ import org.junit.Test;
 public class KuduUtilTest {
   private static TBackendGflags origFlags;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     // The original BackendConfig need to be mocked, we are saving the values here, so
     // they can be restored and not break other tests
@@ -46,7 +46,7 @@ public class KuduUtilTest {
     origFlags = BackendConfig.INSTANCE.getBackendCfg();
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown() {
     BackendConfig.create(origFlags);
   }

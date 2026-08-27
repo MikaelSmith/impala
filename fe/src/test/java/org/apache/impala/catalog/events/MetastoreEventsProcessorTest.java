@@ -17,13 +17,13 @@
 
 package org.apache.impala.catalog.events;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.when;
 
 import com.google.common.base.Preconditions;
@@ -170,13 +170,13 @@ import org.apache.impala.util.DebugUtils;
 import org.apache.impala.util.EventSequence;
 import org.apache.impala.util.NoOpEventSequence;
 import org.apache.thrift.TException;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -203,7 +203,7 @@ public class MetastoreEventsProcessorTest {
   private static final Logger LOG =
       LoggerFactory.getLogger(MetastoreEventsProcessorTest.class);
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpTestEnvironment() throws TException, ImpalaException {
     catalog_ = CatalogServiceTestCatalog.create();
     catalogOpExecutor_ = catalog_.getCatalogOpExecutor();
@@ -217,7 +217,7 @@ public class MetastoreEventsProcessorTest {
     catalog_.setMetastoreEventProcessor(eventsProcessor_);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDownTestSetup() {
     try {
       dropDatabaseCascadeFromHMS();
@@ -253,7 +253,7 @@ public class MetastoreEventsProcessorTest {
    * Cleans up the test database from both metastore and catalog
    * @throws TException
    */
-  @Before
+  @BeforeEach
   public void beforeTest() throws Exception {
     try (MetaStoreClient msClient = catalog_.getMetaStoreClient()) {
       msClient.getHiveClient().dropDatabase(TEST_DB_NAME, true, true, true);
@@ -271,7 +271,7 @@ public class MetastoreEventsProcessorTest {
    * the test. All tests should make sure that the eventprocessor is returned back to
    * active state so that next test execution starts clean
    */
-  @After
+  @AfterEach
   public void afterTest() {
     assertEquals(EventProcessorStatus.ACTIVE, eventsProcessor_.getStatus());
   }
@@ -833,7 +833,7 @@ public class MetastoreEventsProcessorTest {
    */
   @Test
   public void testInsertFromImpala() throws Exception {
-    Assume.assumeTrue("Skipping this test because it only works with Hive-3 or greater",
+    Assumptions.assumeTrue("Skipping this test because it only works with Hive-3 or greater",
         TestUtils.getHiveMajorVersion() >= 3);
     // Test insert into multiple partitions
     createDatabaseFromImpala(TEST_DB_NAME, null);
@@ -853,7 +853,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testInsertOverwriteFromImpala() throws Exception {
-    Assume.assumeTrue("Skipping this test because it only works with Hive-3 or greater",
+    Assumptions.assumeTrue("Skipping this test because it only works with Hive-3 or greater",
         TestUtils.getHiveMajorVersion() >= 3);
     // Test insert into multiple partitions
     createDatabaseFromImpala(TEST_DB_NAME, null);
@@ -1870,7 +1870,7 @@ public class MetastoreEventsProcessorTest {
 
     AlterTableEvent alterTableEvent = new AlterTableEvent(
         fakeCatalogOpExecutor, eventsProcessor_.getMetrics(), fakeAlterTableNotification);
-    Assert.assertFalse("Alter table which changes the flags should not be skipped. "
+    Assertions.assertFalse("Alter table which changes the flags should not be skipped. "
             + printFlagTransistions(dbFlag, tblFlagTransition),
         alterTableEvent.isEventProcessingDisabled());
 
@@ -2862,7 +2862,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testCommitEvent() throws TException, ImpalaException, IOException {
-    Assume.assumeFalse("Skipping this since it depends on the behavior of CDP Hive 3",
+    Assumptions.assumeFalse("Skipping this since it depends on the behavior of CDP Hive 3",
         TestUtils.isApacheHiveVersion());
     // Turn on incremental refresh for transactional table
     final TBackendGflags origCfg = BackendConfig.INSTANCE.getBackendCfg();
@@ -2884,7 +2884,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testAbortEvent() throws TException, ImpalaException, IOException {
-    Assume.assumeFalse("COMMIT_TXN events are not processed on Apache Hive 2/3",
+    Assumptions.assumeFalse("COMMIT_TXN events are not processed on Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     // Turn on incremental refresh for transactional table
     final TBackendGflags origCfg = BackendConfig.INSTANCE.getBackendCfg();
@@ -3656,7 +3656,7 @@ public class MetastoreEventsProcessorTest {
    */
   @Test
   public void testSkipFetchOpenTransactionEvent() throws Exception {
-    Assume.assumeFalse("EventTypeSkipList is not supported on Apache Hive 2/3",
+    Assumptions.assumeFalse("EventTypeSkipList is not supported on Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     long currentEventId = eventsProcessor_.getCurrentEventId();
     try (MetaStoreClient client = catalog_.getMetaStoreClient()) {
@@ -3704,7 +3704,7 @@ public class MetastoreEventsProcessorTest {
    */
   @Test
   public void testFetchEventsInBatchWithOpenTxnAsLastEvent() throws Exception {
-    Assume.assumeFalse("EventTypeSkipList is not supported on Apache Hive 2/3",
+    Assumptions.assumeFalse("EventTypeSkipList is not supported on Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     long currentEventId = eventsProcessor_.getCurrentEventId();
     try (MetaStoreClient client = catalog_.getMetaStoreClient()) {
@@ -3722,7 +3722,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testNotFetchingUnwantedEvents() throws Exception {
-    Assume.assumeFalse("EventTypeSkipList is not supported on Apache Hive 2/3",
+    Assumptions.assumeFalse("EventTypeSkipList is not supported on Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     String tblName = "test_event_skip_list";
     createDatabase(TEST_DB_NAME, null);
@@ -3870,7 +3870,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testReloadEventOnLoadedTable() throws Exception {
-    Assume.assumeFalse("RELOAD event is not generated on Apache Hive 2/3",
+    Assumptions.assumeFalse("RELOAD event is not generated on Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     String tblName = "test_reload";
     createDatabase(TEST_DB_NAME, null);
@@ -3917,7 +3917,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testCommitCompactionEventOnLoadedTable() throws Exception {
-    Assume.assumeFalse("Skipping this since COMMIT_TXN event is not supported on " +
+    Assumptions.assumeFalse("Skipping this since COMMIT_TXN event is not supported on " +
             "Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     String tblName = "test_commit_compaction";
@@ -4019,7 +4019,7 @@ public class MetastoreEventsProcessorTest {
    */
   @Test
   public void testEmptyPartitionValues() throws Exception {
-    Assume.assumeFalse("RELOAD event is not generated on Apache Hive 2/3",
+    Assumptions.assumeFalse("RELOAD event is not generated on Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     String prevFlag = BackendConfig.INSTANCE.debugActions();
     try {
@@ -4117,7 +4117,7 @@ public class MetastoreEventsProcessorTest {
 
   public void testAllocWriteIdEvent(String tblName, boolean isPartitioned,
       boolean isLoadTable) throws TException, TransactionException, CatalogException {
-    Assume.assumeFalse("COMMIT_TXN events are not processed on Apache Hive 2/3",
+    Assumptions.assumeFalse("COMMIT_TXN events are not processed on Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     createDatabase(TEST_DB_NAME, null);
     eventsProcessor_.processEvents();
@@ -4161,7 +4161,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testNotificationEventRequest() throws Exception {
-    Assume.assumeFalse("EventTypeSkipList is not supported on Apache Hive 2/3",
+    Assumptions.assumeFalse("EventTypeSkipList is not supported on Apache Hive 2/3",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     long currentEventId = eventsProcessor_.getCurrentEventId();
     // Generate some DB only related events
@@ -4280,7 +4280,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testCommitTxnEventTargetName() throws Exception {
-    Assume.assumeFalse("Skipping this since it depends on the behavior of CDP Hive 3",
+    Assumptions.assumeFalse("Skipping this since it depends on the behavior of CDP Hive 3",
         TestUtils.isApacheHiveVersion());
     String tblName = "test_commit_txn";
     String partTblName = "test_commit_txn_part";
@@ -4416,7 +4416,7 @@ public class MetastoreEventsProcessorTest {
 
   @Test
   public void testTruncateTxnTbl() throws Exception {
-    Assume.assumeFalse("Skipping this since it depends on the behavior of CDP Hive 3",
+    Assumptions.assumeFalse("Skipping this since it depends on the behavior of CDP Hive 3",
         TestUtils.isApacheHiveVersion());
     // Prepare a transactional non-partitioned table and a partitioned table with some
     // data.

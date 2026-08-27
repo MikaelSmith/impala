@@ -19,9 +19,9 @@ package org.apache.impala.catalog;
 
 import org.apache.impala.common.FrontendTestBase;
 import org.apache.impala.thrift.TSystemTableName;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests for the SystemTable class

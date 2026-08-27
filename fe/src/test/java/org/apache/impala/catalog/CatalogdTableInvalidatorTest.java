@@ -22,10 +22,10 @@ import org.apache.impala.common.Reference;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
 import org.apache.impala.thrift.TTableName;
 import org.apache.impala.util.NoOpEventSequence;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
 
@@ -35,7 +35,7 @@ import static java.lang.Thread.sleep;
 public class CatalogdTableInvalidatorTest {
   private static CatalogServiceCatalog catalog_ = CatalogServiceTestCatalog.create();
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() { catalog_.close(); }
 
   private long waitForTrigger(long previousTriggerCount) throws InterruptedException {
@@ -65,21 +65,21 @@ public class CatalogdTableInvalidatorTest {
         new CatalogdTableInvalidator(catalog_, /*unusedTableTtlSec=*/
             2, /*invalidateTablesOnMemoryPressure=*/false, /*oldGenFullThreshold=*/
             0.6, /*gcInvalidationFraction=*/0.1));
-    Assert.assertFalse(catalog_.getDb(dbName).getTable(tblName).isLoaded());
+    Assertions.assertFalse(catalog_.getDb(dbName).getTable(tblName).isLoaded());
     Table table = catalog_.getOrLoadTable(dbName, tblName, "test", null);
-    Assert.assertTrue(table.isLoaded());
-    Assert.assertEquals(ticker.now_, table.getLastUsedTime());
+    Assertions.assertTrue(table.isLoaded());
+    Assertions.assertEquals(ticker.now_, table.getLastUsedTime());
     long previousTriggerCount = catalog_.getCatalogdTableInvalidator().scanCount_.get();
     ticker.set(TimeUnit.SECONDS.toNanos(1));
     table.refreshLastUsedTime();
     ticker.set(TimeUnit.SECONDS.toNanos(3));
     previousTriggerCount = waitForTrigger(previousTriggerCount);
     // The last used time is refreshed so the table won't be invalidated
-    Assert.assertTrue(catalog_.getTable(dbName, tblName).isLoaded());
+    Assertions.assertTrue(catalog_.getTable(dbName, tblName).isLoaded());
     ticker.set(TimeUnit.SECONDS.toNanos(6));
     waitForTrigger(previousTriggerCount);
     // The table is now invalidated
-    Assert.assertFalse(catalog_.getTable(dbName, tblName).isLoaded());
+    Assertions.assertFalse(catalog_.getTable(dbName, tblName).isLoaded());
   }
 
   /**
@@ -122,12 +122,12 @@ public class CatalogdTableInvalidatorTest {
     ticker.set(baseNanos);
 
     Table table1 = catalog_.getOrLoadTable(dbName, tblName1, "test", null);
-    Assert.assertTrue(table1.isLoaded());
+    Assertions.assertTrue(table1.isLoaded());
 
     long previousTriggerCount = catalog_.getCatalogdTableInvalidator().scanCount_.get();
     ticker.set(baseNanos + TimeUnit.SECONDS.toNanos(ttlSec + 10));
     previousTriggerCount = waitForTrigger(previousTriggerCount);
-    Assert.assertFalse(catalog_.getTable(dbName, tblName1).isLoaded());
+    Assertions.assertFalse(catalog_.getTable(dbName, tblName1).isLoaded());
 
     // Sliding-window metrics use wall-clock time; wait so the first batch falls outside
     // the 10s window before the second batch runs.
@@ -136,40 +136,40 @@ public class CatalogdTableInvalidatorTest {
     ticker.set(baseNanos + TimeUnit.SECONDS.toNanos(ttlSec + 11));
     previousTriggerCount = waitForTrigger(previousTriggerCount);
     Table table2 = catalog_.getOrLoadTable(dbName, tblName2, "test", null);
-    Assert.assertTrue(table2.isLoaded());
+    Assertions.assertTrue(table2.isLoaded());
 
     ticker.set(baseNanos + TimeUnit.SECONDS.toNanos(2 * ttlSec + 21));
     waitForTrigger(previousTriggerCount);
-    Assert.assertFalse(catalog_.getTable(dbName, tblName2).isLoaded());
+    Assertions.assertFalse(catalog_.getTable(dbName, tblName2).isLoaded());
 
-    Assert.assertEquals("TTL invalidation count should increase by 2",
+    Assertions.assertEquals("TTL invalidation count should increase by 2",
         initialTtlCount + 2, catalog_.getNumTtlInvalidatedTables());
-    Assert.assertEquals("Memory pressure invalidation count should not change",
+    Assertions.assertEquals("Memory pressure invalidation count should not change",
         initialMemoryCount, catalog_.getNumMemoryPressureInvalidatedTables());
 
     CatalogdTableInvalidator.InvalidationMetrics metrics =
         catalog_.getCatalogdTableInvalidator().getMetrics();
 
-    Assert.assertEquals("10-sec window should count only the latest batch", 1,
+    Assertions.assertEquals("10-sec window should count only the latest batch", 1,
         metrics.ttlInvalidations10Sec());
-    Assert.assertEquals("1-min window should include both batches", 2,
+    Assertions.assertEquals("1-min window should include both batches", 2,
         metrics.ttlInvalidations1Min());
-    Assert.assertEquals("5-min window should include both batches", 2,
+    Assertions.assertEquals("5-min window should include both batches", 2,
         metrics.ttlInvalidations5Min());
-    Assert.assertEquals("30-min window should include both batches", 2,
+    Assertions.assertEquals("30-min window should include both batches", 2,
         metrics.ttlInvalidations30Min());
-    Assert.assertTrue("Longer windows should be at least as large as shorter ones",
+    Assertions.assertTrue("Longer windows should be at least as large as shorter ones",
         metrics.ttlInvalidations30Min() >= metrics.ttlInvalidations5Min()
             && metrics.ttlInvalidations5Min() >= metrics.ttlInvalidations1Min()
             && metrics.ttlInvalidations1Min() >= metrics.ttlInvalidations10Sec());
 
-    Assert.assertEquals("Last TTL batch should report 1 table", 1,
+    Assertions.assertEquals("Last TTL batch should report 1 table", 1,
         metrics.lastTtlInvalidatedTables());
-    Assert.assertTrue("Last TTL batch timestamp should be set",
+    Assertions.assertTrue("Last TTL batch timestamp should be set",
         metrics.lastTtlInvalidationMillis() > 0);
   }
 
-  @After
+  @AfterEach
   public void cleanUp() {
     catalog_.getCatalogdTableInvalidator().stop();
     catalog_.setCatalogdTableInvalidator(null);

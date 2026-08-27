@@ -29,15 +29,15 @@ import org.apache.impala.thrift.TDdlExecResponse;
 import org.apache.impala.thrift.TGrantRevokeRoleParams;
 import org.apache.ranger.audit.model.AuthzAuditEvent;
 import org.apache.ranger.plugin.model.RangerRole;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class RangerCatalogdAuthorizationManagerTest extends AuthorizationTestBase {
 
@@ -72,10 +72,10 @@ public class RangerCatalogdAuthorizationManagerTest extends AuthorizationTestBas
     };
   }
 
-  @Before
+  @BeforeEach
   public void setUpTest() throws Exception {
     // The role 'TEST_ROLE' only has to be created once for the tests to run.
-    // We do not annotate this method as @BeforeClass and call
+    // We do not annotate this method as @BeforeAll and call
     // 'staticPluginRef.createRole()' because 'staticPluginRef' would have been null
     // when this method is called.
     if (!isSetupDone) {
@@ -87,7 +87,7 @@ public class RangerCatalogdAuthorizationManagerTest extends AuthorizationTestBas
     }
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown() throws Exception {
     // We do not call rangerImpalaPlugin_.createRole() because 'rangerImpalaPlugin_' is
     // not static.

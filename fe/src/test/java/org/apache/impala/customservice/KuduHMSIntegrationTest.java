@@ -17,7 +17,7 @@
 
 package org.apache.impala.customservice;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.apache.commons.lang3.StringUtils;
 
 import org.apache.impala.analysis.AnalyzeKuduDDLTest;
@@ -27,8 +27,8 @@ import org.apache.impala.analysis.ToSqlTest;
 import org.apache.impala.customservice.CustomServiceRunner;
 import org.apache.impala.testutil.TestUtils;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 import org.junit.runners.Suite.SuiteClasses;
@@ -86,12 +86,12 @@ public class KuduHMSIntegrationTest {
     return envp;
   }
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     restartKudu(true);
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUp() throws Exception {
     restartKudu(false);
   }

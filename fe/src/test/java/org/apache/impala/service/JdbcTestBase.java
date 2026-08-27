@@ -17,9 +17,9 @@
 
 package org.apache.impala.service;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -30,7 +30,7 @@ import org.apache.impala.analysis.CreateTableStmt;
 import org.apache.impala.analysis.Parser;
 import org.apache.impala.analysis.StatementBase;
 import org.apache.impala.testutil.ImpalaJdbcClient;
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.runners.Parameterized;
 import org.junit.runner.RunWith;
 
@@ -44,7 +44,7 @@ public abstract class JdbcTestBase {
   protected String connectionType_;
   protected Connection con_;
 
-  // Test-local list of test tables. These are cleaned up in @After.
+  // Test-local list of test tables. These are cleaned up in @AfterEach.
   protected final List<String> testTableNames_ = Lists.newArrayList();
 
   public JdbcTestBase(String connectionType) { connectionType_ = connectionType; }
@@ -58,7 +58,7 @@ public abstract class JdbcTestBase {
    * Closes 'con_'. Any subclasses that specify their own 'After' will need to call this
    * function there.
    */
-  @After
+  @AfterEach
   public void cleanUp() throws Exception {
     for (String tableName : testTableNames_) {
       dropTestTable(tableName);
@@ -115,7 +115,7 @@ public abstract class JdbcTestBase {
     }
 
     // Once the stmt was executed successfully, add the fully-qualified table name
-    // for cleanup in @After.
+    // for cleanup in @AfterEach.
     CreateTableStmt parsedStmt = (CreateTableStmt) result;
     testTableNames_.add(parsedStmt.getTableName().toString());
   }

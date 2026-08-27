@@ -17,7 +17,7 @@
 
 package org.apache.impala.calcite.service;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.impala.calcite.functions.ImplicitTypeChecker;
@@ -27,7 +27,7 @@ import org.apache.impala.catalog.ScalarType;
 import org.apache.impala.catalog.Type;
 import org.apache.impala.catalog.TypeCompatibility;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class CompatibilityTest {
   @Test

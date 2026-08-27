@@ -22,7 +22,7 @@ import java.nio.file.Paths;
 import org.apache.impala.planner.PlannerTestBase;
 import org.apache.impala.thrift.TPlannerType;
 import org.apache.impala.thrift.TQueryOptions;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class CalcitePlannerTest extends PlannerTestBase {
 

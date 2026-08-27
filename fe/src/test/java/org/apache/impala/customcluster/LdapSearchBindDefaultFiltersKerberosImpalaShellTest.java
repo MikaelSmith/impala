@@ -21,14 +21,14 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
 import org.apache.directory.server.core.annotations.CreateDS;
 import org.apache.directory.server.core.annotations.CreatePartition;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static org.apache.impala.testutil.LdapUtil.TEST_USER_1;
 import static org.apache.impala.testutil.LdapUtil.TEST_USER_2;
 import static org.apache.impala.testutil.LdapUtil.TEST_USER_3;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Impala shell connectivity tests with LDAP Search Bind and Kerberos authentication.

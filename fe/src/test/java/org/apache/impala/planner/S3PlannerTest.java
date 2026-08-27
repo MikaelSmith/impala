@@ -17,16 +17,16 @@
 
 package org.apache.impala.planner;
 
-import static org.junit.Assume.assumeTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.net.URI;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.impala.thrift.TQueryOptions;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import org.junit.experimental.categories.Category;
 
 import com.google.common.collect.ImmutableSet;
@@ -46,7 +46,7 @@ public class S3PlannerTest extends PlannerTestBase {
    * Environment variable TARGET_FILESYSTEM will be set to s3 when running against S3.
    * If not, then skip this test.  Also remember the scheme://bucket for later.
    */
-  @Before
+  @BeforeEach
   public void setUpTest() throws Exception {
     super.setUpTest();
     String targetFs = System.getenv("TARGET_FILESYSTEM");
@@ -66,7 +66,7 @@ public class S3PlannerTest extends PlannerTestBase {
     path = super.cleanseFilePath(path);
     URI fsURI = fsName.toUri();
     URI pathURI = path.toUri();
-    Assert.assertTrue("error: " + path + " is not on filesystem " + fsName,
+    Assertions.assertTrue("error: " + path + " is not on filesystem " + fsName,
         fsURI.getScheme().equals(pathURI.getScheme()) &&
         fsURI.getAuthority().equals(pathURI.getAuthority()));
     return Path.mergePaths(S3A_CANONICAL_BUCKET, path);
@@ -75,7 +75,7 @@ public class S3PlannerTest extends PlannerTestBase {
   /**
    * Verify that S3 scan ranges are generated correctly.
    */
-  @Ignore("IMPALA-8944, IMPALA-5931")
+  @Disabled("IMPALA-8944, IMPALA-5931")
   @Test
   public void testS3ScanRanges() {
     runPlannerTestFile("s3");
@@ -115,7 +115,7 @@ public class S3PlannerTest extends PlannerTestBase {
     runPlannerTestFile("nested-collections", options);
   }
 
-  @Ignore("IMPALA-8949")
+  @Disabled("IMPALA-8949")
   @Test
   public void testJoinOrder() {
     runPlannerTestFile("join-order");
@@ -136,7 +136,7 @@ public class S3PlannerTest extends PlannerTestBase {
     runPlannerTestFile("inline-view-limit");
   }
 
-  @Ignore("IMPALA-8949")
+  @Disabled("IMPALA-8949")
   @Test
   public void testSubqueryRewrite() {
     runPlannerTestFile("subquery-rewrite");
@@ -167,7 +167,7 @@ public class S3PlannerTest extends PlannerTestBase {
     runPlannerTestFile("data-source-tables");
   }
 
-  @Ignore("IMPALA-8949")
+  @Disabled("IMPALA-8949")
   @Test
   public void testTpch() {
     runPlannerTestFile("tpch-all", "tpch",
@@ -175,7 +175,7 @@ public class S3PlannerTest extends PlannerTestBase {
             PlannerTestOption.VALIDATE_RESOURCES));
   }
 
-  @Ignore("IMPALA-8949")
+  @Disabled("IMPALA-8949")
   @Test
   public void testTpcds() {
     // Uses ss_sold_date_sk as the partition key of store_sales to allow static partition

@@ -20,13 +20,13 @@ package org.apache.impala.catalog.monitor;
 import org.apache.impala.catalog.DatabaseNotFoundException;
 import org.apache.impala.catalog.Table;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static org.apache.impala.catalog.monitor.CatalogTableMetrics.INSTANCE;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CatalogTableMetricsTest {
   private final CatalogServiceTestCatalog catalog_ = CatalogServiceTestCatalog.create();

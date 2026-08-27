@@ -31,17 +31,17 @@ import org.apache.impala.common.FrontendTestBase;
 import org.apache.impala.common.RuntimeEnv;
 import org.apache.impala.compat.MetastoreShim;
 import org.apache.impala.util.FunctionUtils;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class AnalyzerTest extends FrontendTestBase {
   protected final static Logger LOG = LoggerFactory.getLogger(AnalyzerTest.class);
@@ -66,14 +66,14 @@ public class AnalyzerTest extends FrontendTestBase {
     typeToLiteralValue_.put(Type.NULL, "NULL");
   }
 
-  @Before
+  @BeforeEach
   public void setUpTest() throws Exception {
     // Reset the RuntimeEnv - individual tests may change it.
     RuntimeEnv.INSTANCE.reset();
     RuntimeEnv.INSTANCE.setTestEnv(true);
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUpClass() throws Exception {
     // Reset the RuntimeEnv - individual tests may have changed it.
     RuntimeEnv.INSTANCE.reset();
@@ -156,7 +156,7 @@ public class AnalyzerTest extends FrontendTestBase {
     checkLayoutParams(tupleDesc, "bool_col", 1, 78, 81, 3, analyzer);
     checkLayoutParams(tupleDesc, "tinyint_col", 1, 79, 81, 4, analyzer);
 
-    Assert.assertEquals(12, dateTblTupleDesc.getAvgSerializedSize(), 0.0);
+    Assertions.assertEquals(12, dateTblTupleDesc.getAvgSerializedSize(), 0.0);
     checkLayoutParams(dateTblTupleDesc, "id_col", 4, 0, 12, 0, analyzer);
     checkLayoutParams(dateTblTupleDesc, "date_col", 4, 4, 12, 1, analyzer);
     checkLayoutParams(dateTblTupleDesc, "date_part", 4, 8, 12, 2, analyzer);
@@ -239,7 +239,7 @@ public class AnalyzerTest extends FrontendTestBase {
     checkLayoutParams(tupleDesc, "bool_col", 1, 54, 57, 0, analyzer);
     checkLayoutParams(tupleDesc, "tinyint_col", 1, 55, 57, 1, analyzer);
 
-    Assert.assertEquals(4, dateTblTupleDesc.getAvgSerializedSize(), 0.0);
+    Assertions.assertEquals(4, dateTblTupleDesc.getAvgSerializedSize(), 0.0);
     // Non-materialized slots.
     checkLayoutParams(dateTblTupleDesc, "id_col", 0, -1, 0, 0, analyzer);
     checkLayoutParams(dateTblTupleDesc, "date_col", 0, -1, 0, 0, analyzer);
@@ -580,7 +580,7 @@ public class AnalyzerTest extends FrontendTestBase {
 
   @Test
   public void TestAnalyzeTransactional() {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() > 2);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() > 2);
     String fullAcidErrorMsg = "%s not supported on full " +
         "transactional (ACID) table: functional_orc_def.full_transactional_table";
     String transactionalErrorMsg = "%s not supported on " +
@@ -656,7 +656,7 @@ public class AnalyzerTest extends FrontendTestBase {
 
   @Test
   public void TestAnalyzeMaterializedView() {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() > 2);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() > 2);
     AnalysisError("alter table functional.materialized_view " +
         "set tblproperties ('foo'='bar')",
         "Write not supported. Table functional.materialized_view  " +
@@ -737,85 +737,85 @@ public class AnalyzerTest extends FrontendTestBase {
     // test(binary...)
     fns[18] = createFunction(true, Type.BINARY);
 
-    Assert.assertFalse(fns[1].compare(fns[0], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[1].compare(fns[2], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[1].compare(fns[3], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[1].compare(fns[4], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertFalse(fns[1].compare(fns[5], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertFalse(fns[1].compare(fns[6], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertFalse(fns[1].compare(fns[7], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertFalse(fns[1].compare(fns[8], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertFalse(fns[1].compare(fns[0], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(fns[1].compare(fns[2], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(fns[1].compare(fns[3], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(fns[1].compare(fns[4], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertFalse(fns[1].compare(fns[5], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertFalse(fns[1].compare(fns[6], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertFalse(fns[1].compare(fns[7], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertFalse(fns[1].compare(fns[8], Function.CompareMode.IS_SUPERTYPE_OF));
 
-    Assert.assertTrue(fns[1].compare(fns[2], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertTrue(fns[3].compare(fns[4], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertTrue(fns[5].compare(fns[6], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertFalse(fns[5].compare(fns[7], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertFalse(fns[5].compare(fns[8], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertTrue(fns[6].compare(fns[7], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertTrue(fns[6].compare(fns[8], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertTrue(fns[7].compare(fns[8], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertFalse(fns[1].compare(fns[3], Function.CompareMode.IS_INDISTINGUISHABLE));
-    Assert.assertFalse(fns[1].compare(fns[4], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertTrue(fns[1].compare(fns[2], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertTrue(fns[3].compare(fns[4], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertTrue(fns[5].compare(fns[6], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertFalse(fns[5].compare(fns[7], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertFalse(fns[5].compare(fns[8], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertTrue(fns[6].compare(fns[7], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertTrue(fns[6].compare(fns[8], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertTrue(fns[7].compare(fns[8], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertFalse(fns[1].compare(fns[3], Function.CompareMode.IS_INDISTINGUISHABLE));
+    Assertions.assertFalse(fns[1].compare(fns[4], Function.CompareMode.IS_INDISTINGUISHABLE));
 
-    Assert.assertFalse(fns[9].compare(fns[4], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[2].compare(fns[9], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertFalse(fns[9].compare(fns[4], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(fns[2].compare(fns[9], Function.CompareMode.IS_SUPERTYPE_OF));
 
-    Assert.assertTrue(fns[8].compare(fns[10], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertFalse(fns[10].compare(fns[8], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(fns[8].compare(fns[10], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertFalse(fns[10].compare(fns[8], Function.CompareMode.IS_SUPERTYPE_OF));
 
-    Assert.assertTrue(fns[11].compare(fns[12], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertFalse(fns[11].compare(fns[13], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(fns[11].compare(fns[12], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertFalse(fns[11].compare(fns[13], Function.CompareMode.IS_SUPERTYPE_OF));
 
-    Assert.assertFalse(fns[15].compare(fns[14], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[15].compare(fns[14],
+    Assertions.assertFalse(fns[15].compare(fns[14], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(fns[15].compare(fns[14],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
-    Assert.assertFalse(fns[15].compare(fns[16],
+    Assertions.assertFalse(fns[15].compare(fns[16],
         Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[15].compare(fns[16],
+    Assertions.assertTrue(fns[15].compare(fns[16],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
-    Assert.assertFalse(fns[15].compare(fns[17],
+    Assertions.assertFalse(fns[15].compare(fns[17],
         Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[15].compare(fns[17],
+    Assertions.assertTrue(fns[15].compare(fns[17],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
-    Assert.assertFalse(fns[16].compare(fns[14], Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[16].compare(fns[14],
+    Assertions.assertFalse(fns[16].compare(fns[14], Function.CompareMode.IS_SUPERTYPE_OF));
+    Assertions.assertTrue(fns[16].compare(fns[14],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
-    Assert.assertFalse(fns[16].compare(fns[15],
+    Assertions.assertFalse(fns[16].compare(fns[15],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
-    Assert.assertFalse(fns[16].compare(fns[17],
+    Assertions.assertFalse(fns[16].compare(fns[17],
         Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(fns[16].compare(fns[17],
+    Assertions.assertTrue(fns[16].compare(fns[17],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
-    Assert.assertFalse(fns[17].compare(fns[14],
+    Assertions.assertFalse(fns[17].compare(fns[14],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
-    Assert.assertFalse(fns[17].compare(fns[15],
+    Assertions.assertFalse(fns[17].compare(fns[15],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
-    Assert.assertFalse(fns[17].compare(fns[16],
+    Assertions.assertFalse(fns[17].compare(fns[16],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
-    Assert.assertFalse(fns[18].compare(fns[17],
+    Assertions.assertFalse(fns[18].compare(fns[17],
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
     for (int i = 0; i < fns.length; ++i) {
       for (int j = 0; j < fns.length; ++j) {
         if (i == j) {
-          Assert.assertTrue(
+          Assertions.assertTrue(
               fns[i].compare(fns[i], Function.CompareMode.IS_IDENTICAL));
-          Assert.assertTrue(
+          Assertions.assertTrue(
               fns[i].compare(fns[i], Function.CompareMode.IS_INDISTINGUISHABLE));
-          Assert.assertTrue(
+          Assertions.assertTrue(
               fns[i].compare(fns[i], Function.CompareMode.IS_SUPERTYPE_OF));
         } else {
-          Assert.assertFalse(fns[i].compare(fns[j], Function.CompareMode.IS_IDENTICAL));
+          Assertions.assertFalse(fns[i].compare(fns[j], Function.CompareMode.IS_IDENTICAL));
           if (fns[i].compare(fns[j], Function.CompareMode.IS_INDISTINGUISHABLE)) {
             // If it's a indistinguishable, at least one of them must be a super type
             // of the other
-            Assert.assertTrue(
+            Assertions.assertTrue(
                 fns[i].compare(fns[j], Function.CompareMode.IS_SUPERTYPE_OF) ||
                 fns[j].compare(fns[i], Function.CompareMode.IS_SUPERTYPE_OF));
             // This is reflexive
-            Assert.assertTrue(
+            Assertions.assertTrue(
                 fns[j].compare(fns[i], Function.CompareMode.IS_INDISTINGUISHABLE));
           } else if (fns[i].compare(fns[j], Function.CompareMode.IS_INDISTINGUISHABLE)) {
           }
@@ -834,46 +834,46 @@ public class AnalyzerTest extends FrontendTestBase {
 
     // test(string, date, tinyint)
     Function fn = createFunction(false, Type.STRING, Type.DATE, Type.TINYINT);
-    Assert.assertEquals(-1,
+    Assertions.assertEquals(-1,
         fnDate.calcMatchScore(fn, Function.CompareMode.IS_SUPERTYPE_OF));
     int fnDateScore = fnDate.calcMatchScore(fn,
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
-    Assert.assertTrue(fnDateScore >= 0);
+    Assertions.assertTrue(fnDateScore >= 0);
 
-    Assert.assertEquals(-1,
+    Assertions.assertEquals(-1,
         fnTimestamp.calcMatchScore(fn, Function.CompareMode.IS_SUPERTYPE_OF));
     int fnTimestampScore = fnTimestamp.calcMatchScore(fn,
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
-    Assert.assertTrue(fnTimestampScore >= 0);
+    Assertions.assertTrue(fnTimestampScore >= 0);
 
-    Assert.assertTrue(fnDateScore > fnTimestampScore);
+    Assertions.assertTrue(fnDateScore > fnTimestampScore);
 
     // test(string, timestamp, tinyint)
     fn = createFunction(false, Type.STRING, Type.TIMESTAMP, Type.TINYINT);
-    Assert.assertEquals(-1,
+    Assertions.assertEquals(-1,
         fnDate.calcMatchScore(fn, Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
-    Assert.assertEquals(-1,
+    Assertions.assertEquals(-1,
         fnTimestamp.calcMatchScore(fn, Function.CompareMode.IS_SUPERTYPE_OF));
-    Assert.assertTrue(
+    Assertions.assertTrue(
         fnTimestamp.calcMatchScore(fn, Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF)
         >= 0);
 
     // test(string, string, tinyint)
     fn = createFunction(false, Type.STRING, Type.STRING, Type.TINYINT);
-    Assert.assertEquals(-1,
+    Assertions.assertEquals(-1,
         fnDate.calcMatchScore(fn, Function.CompareMode.IS_SUPERTYPE_OF));
     fnDateScore = fnDate.calcMatchScore(fn,
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
-    Assert.assertTrue(fnDateScore >= 0);
+    Assertions.assertTrue(fnDateScore >= 0);
 
-    Assert.assertEquals(-1,
+    Assertions.assertEquals(-1,
         fnTimestamp.calcMatchScore(fn, Function.CompareMode.IS_SUPERTYPE_OF));
     fnTimestampScore = fnTimestamp.calcMatchScore(fn,
         Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF);
-    Assert.assertTrue(fnTimestampScore >= 0);
+    Assertions.assertTrue(fnTimestampScore >= 0);
 
-    Assert.assertTrue(fnDateScore == fnTimestampScore);
+    Assertions.assertTrue(fnDateScore == fnTimestampScore);
   }
 
   @Test
@@ -884,40 +884,40 @@ public class AnalyzerTest extends FrontendTestBase {
 
     // fns[0] and fns[1] has the same match score, so fns[0] will be chosen.
     Function fnStr = createFunction(false, Type.STRING, Type.STRING, Type.TINYINT);
-    Assert.assertEquals(fns[0],
+    Assertions.assertEquals(fns[0],
         FunctionUtils.resolveFunction(Arrays.asList(fns), fnStr,
             Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
     // fns[0] is a better match. First argument is an exact match.
     Function fnTimestamp = createFunction(false, Type.TIMESTAMP, Type.STRING,
         Type.TINYINT);
-    Assert.assertEquals(fns[0],
+    Assertions.assertEquals(fns[0],
         FunctionUtils.resolveFunction(Arrays.asList(fns), fnTimestamp,
             Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
     // fns[0] is a better match. First argument is an exact match.
     fnTimestamp = createFunction(false, Type.TIMESTAMP, Type.DATE,
         Type.TINYINT);
-    Assert.assertEquals(fns[0],
+    Assertions.assertEquals(fns[0],
         FunctionUtils.resolveFunction(Arrays.asList(fns), fnTimestamp,
             Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
     // fns[0] is a better match. Second argument is an exact match.
     fnTimestamp = createFunction(false, Type.DATE, Type.TIMESTAMP,
         Type.TINYINT);
-    Assert.assertEquals(fns[0],
+    Assertions.assertEquals(fns[0],
         FunctionUtils.resolveFunction(Arrays.asList(fns), fnTimestamp,
             Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
     // fns[1] is a better match. First argument is an exact match.
     Function fnDate = createFunction(false, Type.DATE, Type.STRING, Type.TINYINT);
-    Assert.assertEquals(fns[1],
+    Assertions.assertEquals(fns[1],
         FunctionUtils.resolveFunction(Arrays.asList(fns), fnDate,
             Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
 
     // fns[1] is a better match. Second argument is an exact match.
     fnDate = createFunction(false, Type.STRING, Type.DATE, Type.TINYINT);
-    Assert.assertEquals(fns[1],
+    Assertions.assertEquals(fns[1],
         FunctionUtils.resolveFunction(Arrays.asList(fns), fnDate,
             Function.CompareMode.IS_NONSTRICT_SUPERTYPE_OF));
   }

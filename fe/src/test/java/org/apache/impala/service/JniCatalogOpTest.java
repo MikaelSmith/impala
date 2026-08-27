@@ -18,8 +18,8 @@
 package org.apache.impala.service;
 
 import static org.apache.impala.service.JniCatalogOp.execOp;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.impala.common.FrontendTestBase;
 import org.apache.impala.common.ImpalaException;
@@ -27,7 +27,7 @@ import org.apache.impala.common.Pair;
 import org.apache.impala.thrift.TCatalogObject;
 import org.apache.impala.thrift.TCatalogObjectType;
 import org.apache.thrift.TException;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class JniCatalogOpTest extends FrontendTestBase {
   public static final String RESULT_STRING = "result";

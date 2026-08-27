@@ -17,8 +17,8 @@
 
 package org.apache.impala.service;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,7 +30,7 @@ import org.apache.impala.thrift.THboStatsType;
 import org.apache.impala.thrift.TPlanNodeRun;
 import org.apache.impala.thrift.TPlanNodeRunWithKeys;
 import org.apache.impala.thrift.TScanInputStats;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for the per-scan-node-pair similarity matching in {@link HistoricalStats}.

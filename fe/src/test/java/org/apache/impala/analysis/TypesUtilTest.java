@@ -17,14 +17,14 @@
 
 package org.apache.impala.analysis;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
 
 import org.apache.impala.catalog.TypeCompatibility;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import org.apache.impala.catalog.ArrayType;
 import org.apache.impala.catalog.MapType;
@@ -129,56 +129,56 @@ public class TypesUtilTest extends AnalyzerTest {
   // Test for implicit casts between numeric types, with many boundary cases.
   public void TestNumericImplicitCast() {
     // Decimals can be cast to integers if there is no loss of precision.
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(2, 0), Type.TINYINT, TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(4, 0), Type.SMALLINT, TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(9, 0), Type.INT, TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(18, 0), Type.BIGINT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(3, 0), Type.TINYINT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(5, 0), Type.SMALLINT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(10, 0), Type.INT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(19, 0), Type.BIGINT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(2, 1), Type.TINYINT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(4, 1), Type.SMALLINT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(2, 1), Type.INT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         ScalarType.createDecimalType(18, 5), Type.BIGINT, TypeCompatibility.DEFAULT));
 
     // Integers are only converted to decimal when all values of the source type can be
     // represented in the destination type.
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         Type.TINYINT, ScalarType.createDecimalType(2, 0), TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         Type.SMALLINT, ScalarType.createDecimalType(4, 0), TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         Type.INT, ScalarType.createDecimalType(9, 0), TypeCompatibility.DEFAULT));
-    Assert.assertFalse(Type.isImplicitlyCastable(
+    Assertions.assertFalse(Type.isImplicitlyCastable(
         Type.BIGINT, ScalarType.createDecimalType(18, 0), TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         Type.TINYINT, ScalarType.createDecimalType(3, 0), TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         Type.SMALLINT, ScalarType.createDecimalType(5, 0), TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         Type.INT, ScalarType.createDecimalType(10, 0), TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         Type.BIGINT, ScalarType.createDecimalType(19, 0), TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         Type.TINYINT, ScalarType.createDecimalType(4, 1), TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         Type.SMALLINT, ScalarType.createDecimalType(6, 1), TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         Type.INT, ScalarType.createDecimalType(11, 1), TypeCompatibility.DEFAULT));
-    Assert.assertTrue(Type.isImplicitlyCastable(
+    Assertions.assertTrue(Type.isImplicitlyCastable(
         Type.BIGINT, ScalarType.createDecimalType(20, 1), TypeCompatibility.DEFAULT));
 
     // Only promotions are allowed for integer types.
@@ -187,44 +187,44 @@ public class TypesUtilTest extends AnalyzerTest {
     for (Type t1: intTypes) {
       for (Type t2: intTypes) {
         if (t1.getSlotSize() == t2.getSlotSize()) {
-          Assert.assertTrue(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.STRICT));
-          Assert.assertTrue(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.DEFAULT));
+          Assertions.assertTrue(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.STRICT));
+          Assertions.assertTrue(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.DEFAULT));
         } else if (t1.getSlotSize() < t2.getSlotSize()) {
-          Assert.assertTrue(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.STRICT));
-          Assert.assertTrue(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.DEFAULT));
-          Assert.assertFalse(Type.isImplicitlyCastable(t2, t1, TypeCompatibility.STRICT));
-          Assert.assertFalse(
+          Assertions.assertTrue(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.STRICT));
+          Assertions.assertTrue(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.DEFAULT));
+          Assertions.assertFalse(Type.isImplicitlyCastable(t2, t1, TypeCompatibility.STRICT));
+          Assertions.assertFalse(
               Type.isImplicitlyCastable(t2, t1, TypeCompatibility.DEFAULT));
         } else {
-          Assert.assertFalse(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.STRICT));
-          Assert.assertFalse(
+          Assertions.assertFalse(Type.isImplicitlyCastable(t1, t2, TypeCompatibility.STRICT));
+          Assertions.assertFalse(
               Type.isImplicitlyCastable(t1, t2, TypeCompatibility.DEFAULT));
-          Assert.assertTrue(Type.isImplicitlyCastable(t2, t1, TypeCompatibility.STRICT));
-          Assert.assertTrue(Type.isImplicitlyCastable(t2, t1, TypeCompatibility.DEFAULT));
+          Assertions.assertTrue(Type.isImplicitlyCastable(t2, t1, TypeCompatibility.STRICT));
+          Assertions.assertTrue(Type.isImplicitlyCastable(t2, t1, TypeCompatibility.DEFAULT));
         }
       }
     }
     // Only promotions are allowed for floating point types.
-    Assert.assertTrue(
+    Assertions.assertTrue(
         Type.isImplicitlyCastable(Type.FLOAT, Type.FLOAT, TypeCompatibility.STRICT));
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(Type.DOUBLE, Type.FLOAT, TypeCompatibility.DEFAULT));
-    Assert.assertTrue(
+    Assertions.assertTrue(
         Type.isImplicitlyCastable(Type.FLOAT, Type.DOUBLE, TypeCompatibility.DEFAULT));
-    Assert.assertTrue(
+    Assertions.assertTrue(
         Type.isImplicitlyCastable(Type.FLOAT, Type.DOUBLE, TypeCompatibility.STRICT));
 
     // Decimal is convertible to a floating point types only in non-strict mode.
     List<ScalarType> dts = Arrays.asList(ScalarType.createDecimalType(30, 10),
         ScalarType.createDecimalType(2, 0));
     for (Type dt: dts) {
-      Assert.assertFalse(
+      Assertions.assertFalse(
           Type.isImplicitlyCastable(dt, Type.FLOAT, TypeCompatibility.STRICT));
-      Assert.assertTrue(
+      Assertions.assertTrue(
           Type.isImplicitlyCastable(dt, Type.FLOAT, TypeCompatibility.DEFAULT));
-      Assert.assertFalse(
+      Assertions.assertFalse(
           Type.isImplicitlyCastable(dt, Type.DOUBLE, TypeCompatibility.STRICT));
-      Assert.assertTrue(
+      Assertions.assertTrue(
           Type.isImplicitlyCastable(dt, Type.DOUBLE, TypeCompatibility.DEFAULT));
     }
   }
@@ -233,24 +233,24 @@ public class TypesUtilTest extends AnalyzerTest {
   // Test that we don't allow casting to/from complex types.
   public void TestComplexImplicitCast() {
     ArrayType arrayType = new ArrayType(Type.INT);
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(Type.INT, arrayType, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(arrayType, Type.INT, TypeCompatibility.DEFAULT));
     MapType mapType = new MapType(Type.STRING, Type.INT);
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(Type.INT, mapType, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(mapType, Type.INT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(mapType, arrayType, TypeCompatibility.DEFAULT));
     StructType structType = new StructType(Lists.newArrayList(
         new StructField("foo", Type.FLOAT, ""), new StructField("bar", Type.FLOAT, "")));
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(structType, Type.INT, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(Type.INT, structType, TypeCompatibility.DEFAULT));
-    Assert.assertFalse(
+    Assertions.assertFalse(
         Type.isImplicitlyCastable(arrayType, structType, TypeCompatibility.DEFAULT));
   }
 }

@@ -17,10 +17,10 @@
 package org.apache.impala.service.catalogmanager;
 
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -28,9 +28,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 import org.apache.impala.common.ImpalaRuntimeException;
-import org.junit.Before;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
 public class ConfigLoaderTest {
@@ -40,7 +40,7 @@ public class ConfigLoaderTest {
 
   private File tempDir;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     tempDir = tempFolder.newFolder("config");
   }

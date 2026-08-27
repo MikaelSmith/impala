@@ -17,9 +17,9 @@
 
 package org.apache.impala.catalog;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -30,9 +30,9 @@ import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.impala.catalog.MetaStoreClientPool.MetaStoreClient;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test for the {@link HdfsPartition#compareSd(StorageDescriptor)} method which is used
@@ -42,7 +42,7 @@ public class HdfsPartitionSdCompareTest {
   private CatalogServiceCatalog catalog_;
   private Partition hmsPartition_ = null;
 
-  @Before
+  @BeforeEach
   public void init() throws Exception {
     catalog_ = CatalogServiceTestCatalog.create();
     try (MetaStoreClient client = catalog_.getMetaStoreClient()) {
@@ -51,7 +51,7 @@ public class HdfsPartitionSdCompareTest {
     }
   }
 
-  @After
+  @AfterEach
   public void cleanUp() { catalog_.close(); }
 
   /**

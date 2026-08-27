@@ -17,10 +17,10 @@
 
 package org.apache.impala.catalog;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,10 +46,10 @@ import org.apache.impala.thrift.TDdlQueryOptions;
 import org.apache.impala.thrift.TDdlType;
 import org.apache.impala.thrift.TDropDbParams;
 import org.apache.impala.thrift.TOwnerType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test issues concurrent alter database operations to reproduce the race described in
@@ -83,7 +83,7 @@ public class AlterDatabaseTest {
    * Sets up the test class by instantiating the catalog service
    * @throws ImpalaException
    */
-  @BeforeClass
+  @BeforeAll
   public static void setUpTest() throws ImpalaException {
     CatalogServiceTestCatalog testSrcCatalog = CatalogServiceTestCatalog.create();
     catalog_ = new ImpaladTestCatalog(testSrcCatalog);
@@ -94,12 +94,12 @@ public class AlterDatabaseTest {
    * Clean-up the database once the test completes
    * @throws ImpalaException
    */
-  @After
+  @AfterEach
   public void cleanUp() throws ImpalaException {
     catalogOpExecutor_.execDdlRequest(dropDbRequest());
   }
 
-  @Before
+  @BeforeEach
   public void setUpDatabase() throws ImpalaException {
     // cleanup and recreate any pre-existing testdb
     catalogOpExecutor_.execDdlRequest(dropDbRequest());

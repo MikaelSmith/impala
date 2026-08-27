@@ -20,10 +20,10 @@ package org.apache.impala.customcluster;
 import static org.apache.impala.testutil.LdapUtil.*;
 import static org.apache.impala.testutil.TestUtils.retryUntilSuccess;
 import static org.apache.impala.testutil.TestUtils.writeCookieSecret;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
 import java.util.HashMap;
@@ -46,10 +46,10 @@ import org.apache.http.protocol.HttpContext;
 import org.apache.impala.testutil.WebClient;
 import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.ClassRule;
 import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,7 +87,7 @@ public class LdapHS2Test {
     assertEquals(ret, 0);
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws Exception {
     client_.close();
   }

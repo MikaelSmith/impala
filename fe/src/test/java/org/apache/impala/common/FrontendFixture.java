@@ -17,8 +17,8 @@
 
 package org.apache.impala.common;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -127,14 +127,14 @@ public class FrontendFixture {
   }
 
   /**
-   * Call this from the test's @BeforeClass method.
+   * Call this from the test's @BeforeAll method.
    */
   public void setUp() throws Exception {
     RuntimeEnv.INSTANCE.setTestEnv(true);
   }
 
   /**
-   * Call this from the test's @AfterClass method.
+   * Call this from the test's @AfterAll method.
    */
   public void cleanUp() throws Exception {
     RuntimeEnv.INSTANCE.reset();
@@ -142,7 +142,7 @@ public class FrontendFixture {
   }
 
   /**
-   * Call this from the test's @After method.
+   * Call this from the test's @AfterEach method.
    */
   public void tearDown() {
     clearTestTables();
@@ -164,7 +164,7 @@ public class FrontendFixture {
   /**
    * Add a new dummy database with the given name to the catalog.
    * Returns the new dummy database.
-   * The database is registered in testDbs_ and removed in the @After method.
+   * The database is registered in testDbs_ and removed in the @AfterEach method.
    */
   public Db addTestDb(String dbName, String comment) {
     Db db = catalog_.getDb(dbName);
@@ -187,7 +187,7 @@ public class FrontendFixture {
    * returned table only has its metadata partially set, but is capable of being planned.
    * Only HDFS tables and external Kudu tables are supported.
    * Returns the new dummy table.
-   * The test tables are registered in testTables_ and removed in the @After method.
+   * The test tables are registered in testTables_ and removed in the @AfterEach method.
    */
   public Table addTestTable(String createTableSql) {
     CreateTableStmt createTableStmt = (CreateTableStmt) analyzeStmt(createTableSql);
@@ -240,7 +240,7 @@ public class FrontendFixture {
 
   /**
    * Adds a test-local view to the catalog based on the given CREATE VIEW sql.
-   * The test views are registered in testTables_ and removed in the @After method.
+   * The test views are registered in testTables_ and removed in the @AfterEach method.
    * Returns the new view.
    */
   public Table addTestView(String createViewSql) {
@@ -249,7 +249,7 @@ public class FrontendFixture {
 
   /**
    * Adds a test-local view to the specified catalog based on the given CREATE VIEW sql.
-   * The test views are registered in testTables_ and removed in the @After method.
+   * The test views are registered in testTables_ and removed in the @AfterEach method.
    * Returns the new view.
    */
   public Table addTestView(Catalog catalog, String createViewSql) {

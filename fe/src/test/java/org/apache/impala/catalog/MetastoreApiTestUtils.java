@@ -17,7 +17,7 @@
 
 package org.apache.impala.catalog;
 
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;

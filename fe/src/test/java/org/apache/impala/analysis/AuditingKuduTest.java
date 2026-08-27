@@ -26,8 +26,8 @@ import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.FrontendTestBase;
 import org.apache.impala.thrift.TAccessEvent;
 import org.apache.impala.thrift.TCatalogObjectType;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests that auditing access events are properly captured during analysis for all
@@ -39,7 +39,7 @@ public class AuditingKuduTest extends FrontendTestBase {
     // Select
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("select * from functional_kudu.testtbl");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_kudu.testtbl",
                          TCatalogObjectType.TABLE, "SELECT")));
 
@@ -47,7 +47,7 @@ public class AuditingKuduTest extends FrontendTestBase {
     accessEvents = AnalyzeAccessEvents(
         "insert into functional_kudu.testtbl (id) select id from " +
         "functional_kudu.alltypes");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_kudu.alltypes",
                          TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional_kudu.testtbl",
@@ -57,7 +57,7 @@ public class AuditingKuduTest extends FrontendTestBase {
     accessEvents = AnalyzeAccessEvents(
         "upsert into functional_kudu.testtbl (id) select id from " +
         "functional_kudu.alltypes");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_kudu.alltypes",
                          TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional_kudu.testtbl",
@@ -66,7 +66,7 @@ public class AuditingKuduTest extends FrontendTestBase {
     // Delete
     accessEvents = AnalyzeAccessEvents(
         "delete from functional_kudu.testtbl where id = 1");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_kudu.testtbl",
                          TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional_kudu.testtbl",
@@ -76,7 +76,7 @@ public class AuditingKuduTest extends FrontendTestBase {
     accessEvents = AnalyzeAccessEvents(
         "delete c from functional_kudu.testtbl c, functional_kudu.alltypes s where " +
         "c.id = s.id and s.int_col < 10");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_kudu.testtbl",
                          TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional_kudu.alltypes",
@@ -87,7 +87,7 @@ public class AuditingKuduTest extends FrontendTestBase {
     // Update
     accessEvents = AnalyzeAccessEvents(
         "update functional_kudu.testtbl set name = 'test' where id < 10");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_kudu.testtbl",
                          TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional_kudu.testtbl",
@@ -95,22 +95,22 @@ public class AuditingKuduTest extends FrontendTestBase {
 
     // Drop table
     accessEvents = AnalyzeAccessEvents("drop table functional_kudu.testtbl");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional_kudu.testtbl", TCatalogObjectType.TABLE, "DROP")));
 
     // Drop table if exist
     accessEvents = AnalyzeAccessEvents("drop table if exists functional_kudu.testtbl");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
             "functional_kudu.testtbl", TCatalogObjectType.TABLE, "DROP")));
 
     // Show create table
     accessEvents = AnalyzeAccessEvents("show create table functional_kudu.testtbl");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional_kudu.testtbl", TCatalogObjectType.TABLE, "VIEW_METADATA")));
 
     // Compute stats
     accessEvents = AnalyzeAccessEvents("compute stats functional_kudu.testtbl");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_kudu.testtbl",
                          TCatalogObjectType.TABLE, "ALTER"),
         new TAccessEvent("functional_kudu.testtbl",
@@ -118,12 +118,12 @@ public class AuditingKuduTest extends FrontendTestBase {
 
     // Describe
     accessEvents = AnalyzeAccessEvents("describe functional_kudu.testtbl");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional_kudu.testtbl", TCatalogObjectType.TABLE, "ANY")));
 
     // Describe formatted
     accessEvents = AnalyzeAccessEvents("describe formatted functional_kudu.testtbl");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional_kudu.testtbl", TCatalogObjectType.TABLE, "ANY")));
   }
 }

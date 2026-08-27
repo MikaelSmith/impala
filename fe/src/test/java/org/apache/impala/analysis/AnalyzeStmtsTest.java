@@ -17,10 +17,10 @@
 
 package org.apache.impala.analysis;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -40,8 +40,8 @@ import org.apache.impala.common.ImpalaException;
 import org.apache.impala.service.BackendConfig;
 import org.apache.impala.service.FeSupport;
 import org.apache.impala.thrift.TFunctionCategory;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -236,9 +236,9 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
     List<PlanHint> planHints =
         insertCtx.getAnalysisResult().getInsertStmt().getPlanHints();
     String[] defaultHintsArray = defaultHints.trim().split(":");
-    Assert.assertEquals(defaultHintsArray.length, planHints.size());
+    Assertions.assertEquals(defaultHintsArray.length, planHints.size());
     for (String hint: defaultHintsArray) {
-      Assert.assertTrue(planHints.contains(new PlanHint(hint.trim())));
+      Assertions.assertTrue(planHints.contains(new PlanHint(hint.trim())));
     }
   }
 
@@ -259,7 +259,7 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
         insertCtx.getAnalysisResult().getInsertStmt().getPlanHints();
 
     // Default hint should be ignored when plan hints exist.
-    Assert.assertEquals(planHints, planHintsWithDefaultHints);
+    Assertions.assertEquals(planHints, planHintsWithDefaultHints);
   }
 
   @Test
@@ -544,9 +544,9 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
     Preconditions.checkState(!e.getType().isCollectionType());
     SlotRef slotRef = (SlotRef) e;
     List<Integer> actualAbsPath = slotRef.getDesc().getPath().getAbsolutePath();
-    Assert.assertEquals("Mismatched absolute paths.", expectedAbsPath, actualAbsPath);
+    Assertions.assertEquals("Mismatched absolute paths.", expectedAbsPath, actualAbsPath);
     List<Integer> actualMatPath = slotRef.getDesc().getMaterializedPath();
-    Assert.assertEquals("Mismatched absolute/materialized paths.",
+    Assertions.assertEquals("Mismatched absolute/materialized paths.",
         actualAbsPath, actualMatPath);
   }
 
@@ -565,11 +565,11 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
       SlotRef slotRef = (SlotRef) e;
       List<Integer> actualAbsPath = slotRef.getDesc().getPath().getAbsolutePath();
       List<Integer> actualMatPath = slotRef.getDesc().getMaterializedPath();
-      Assert.assertEquals("Mismatched paths.", actualAbsPath, actualMatPath);
+      Assertions.assertEquals("Mismatched paths.", actualAbsPath, actualMatPath);
       actualAbsPaths.add(actualAbsPath);
     }
     List<List<Integer>> expectedPaths = Lists.newArrayList(expectedAbsPaths);
-    Assert.assertEquals("Mismatched absolute paths.", expectedPaths, actualAbsPaths);
+    Assertions.assertEquals("Mismatched absolute paths.", expectedPaths, actualAbsPaths);
   }
 
   /**
@@ -586,10 +586,10 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
     TableRef lastTblRef = stmt.getTableRefs().get(stmt.getTableRefs().size() - 1);
     // Check absolute path.
     List<Integer> actualAbsPath = lastTblRef.getDesc().getPath().getAbsolutePath();
-    Assert.assertEquals("Mismatched absolute paths.", expectedAbsPath, actualAbsPath);
+    Assertions.assertEquals("Mismatched absolute paths.", expectedAbsPath, actualAbsPath);
     // Check materialized path.
     if (!lastTblRef.isRelative()) {
-      Assert.assertNull("There is no materialized path for non-relative table refs.\n" +
+      Assertions.assertNull("There is no materialized path for non-relative table refs.\n" +
           "The expected materialized path should be null.", expectedMatPath);
       return;
     }
@@ -598,9 +598,9 @@ public class AnalyzeStmtsTest extends AnalyzerTest {
     Preconditions.checkState(collectionExpr instanceof SlotRef);
     SlotRef collectionSlotRef = (SlotRef) collectionExpr;
     SlotDescriptor collectionSlotDesc = collectionSlotRef.getDesc();
-    Assert.assertEquals("Mismatched paths.",
+    Assertions.assertEquals("Mismatched paths.",
         actualAbsPath, collectionSlotDesc.getPath().getAbsolutePath());
-    Assert.assertEquals("Mismatched materialized paths.",
+    Assertions.assertEquals("Mismatched materialized paths.",
         expectedMatPath, collectionSlotDesc.getMaterializedPath());
   }
 

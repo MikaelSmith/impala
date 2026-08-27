@@ -18,14 +18,14 @@
 package org.apache.impala.util;
 
 import static org.apache.impala.common.JniUtil.decodeInjectedGroups;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.JniUtil;
 import org.apache.impala.thrift.TCacheJarParams;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

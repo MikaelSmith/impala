@@ -28,23 +28,23 @@ import static org.apache.impala.util.CatalogBlacklistUtils.verifyTableName;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.collection.IsIterableContainingInAnyOrder.containsInAnyOrder;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.impala.analysis.TableName;
 import org.apache.impala.catalog.Catalog;
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.service.BackendConfig;
 import org.apache.impala.thrift.TBackendGflags;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class CatalogBlacklistUtilsTest {
 
   private static TBackendGflags origFlags;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     // The original BackendConfig need to be saved so they can be restored and not break
     // other tests.
@@ -54,7 +54,7 @@ public class CatalogBlacklistUtilsTest {
     origFlags = BackendConfig.INSTANCE.getBackendCfg();
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown() {
     BackendConfig.create(origFlags);
   }

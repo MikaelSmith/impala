@@ -70,8 +70,8 @@ import org.apache.impala.util.UnsafeUtil;
 import org.apache.thrift.TException;
 import org.apache.thrift.TSerializer;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -316,7 +316,7 @@ public class UdfExecutorTest {
           if (e.getMethod() != null) {
             errMsgs.add("Resolved method: " + e.getMethod().toGenericString());
           }
-          Assert.fail("\n" + Joiner.on("\n").join(errMsgs));
+          Assertions.fail("\n" + Joiner.on("\n").join(errMsgs));
         }
       }
     }

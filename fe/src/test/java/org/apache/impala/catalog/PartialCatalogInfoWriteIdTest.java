@@ -47,14 +47,14 @@ import org.apache.impala.util.NoOpEventSequence;
 import org.apache.thrift.TDeserializer;
 import org.apache.thrift.TException;
 import org.apache.thrift.TSerializer;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.rules.TestName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,13 +84,13 @@ public class PartialCatalogInfoWriteIdTest {
   @Rule
   public TestName name = new TestName();
 
-  @BeforeClass
+  @BeforeAll
   public static void setupTestEnv() throws SQLException, ClassNotFoundException {
     catalog_ = CatalogServiceTestCatalog.create();
     hiveClientPool_ = HiveJdbcClientPool.create(1);
   }
 
-  @AfterClass
+  @AfterAll
   public static void shutdown() {
     if (catalog_ != null) {
       catalog_.close();
@@ -100,7 +100,7 @@ public class PartialCatalogInfoWriteIdTest {
     }
   }
 
-  @Before
+  @BeforeEach
   public void createTestTbls() throws Exception {
     LOG.info("Creating test tables for {}", name.getMethodName());
     Stopwatch st = Stopwatch.createStarted();
@@ -130,7 +130,7 @@ public class PartialCatalogInfoWriteIdTest {
       + "'insert_only')";
   }
 
-  @After
+  @AfterEach
   public void dropTestTbls() throws Exception {
     ImpalaJdbcClient client = ImpalaJdbcClient
         .createClientUsingHiveJdbcDriver();
@@ -150,7 +150,7 @@ public class PartialCatalogInfoWriteIdTest {
   @Test
   public void testCatalogLoadWithWriteIds()
     throws CatalogException, InternalException, TException {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     // invalidate the ACID tables if it already exists
     invalidateTbl(testDbName, testTblName);
     long prevVersion =
@@ -163,10 +163,10 @@ public class PartialCatalogInfoWriteIdTest {
       .wantFiles()
       .build();
     TGetPartialCatalogObjectResponse response = sendRequest(req);
-    Assert.assertEquals(MetastoreShim.convertToTValidWriteIdList(validWriteIdList),
+    Assertions.assertEquals(MetastoreShim.convertToTValidWriteIdList(validWriteIdList),
       response.table_info.valid_write_ids);
     // make sure the table was not loaded in the cache hit scenario
-    Assert.assertTrue(
+    Assertions.assertTrue(
       catalog_.getTable(testDbName, testTblName).getCatalogVersion() == prevVersion);
   }
 
@@ -178,9 +178,9 @@ public class PartialCatalogInfoWriteIdTest {
    */
   @Test
   public void testCatalogBehindClientWriteIds() throws Exception {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testTblName, "test", null);
-    Assert.assertFalse("Table must be loaded",
+    Assertions.assertFalse("Table must be loaded",
       tbl instanceof IncompleteTable);
     long previousVersion = tbl.getCatalogVersion();
     // do some hive operations to advance the writeIds in HMS
@@ -194,10 +194,10 @@ public class PartialCatalogInfoWriteIdTest {
       .wantFiles()
       .build();
     TGetPartialCatalogObjectResponse response = sendRequest(req);
-    Assert.assertEquals(MetastoreShim.convertToTValidWriteIdList(validWriteIdList),
+    Assertions.assertEquals(MetastoreShim.convertToTValidWriteIdList(validWriteIdList),
       response.table_info.valid_write_ids);
     // this should trigger a load of the table and hence the version should be higher
-    Assert.assertTrue(
+    Assertions.assertTrue(
       catalog_.getTable(testDbName, testTblName).getCatalogVersion() > previousVersion);
   }
 
@@ -209,9 +209,9 @@ public class PartialCatalogInfoWriteIdTest {
    */
   @Test
   public void testCatalogAheadOfClientWriteIds() throws Exception {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testTblName, "test", null);
-    Assert.assertFalse("Table must be loaded",
+    Assertions.assertFalse("Table must be loaded",
       tbl instanceof IncompleteTable);
     ValidWriteIdList validWriteIdList = getValidWriteIdList(testDbName, testTblName);
     // now insert into the table to advance the writeId
@@ -232,9 +232,9 @@ public class PartialCatalogInfoWriteIdTest {
       Iterables.getOnlyElement(response.table_info.partitions);
     // since the client requested before the second file was added the number of files
     // should be only 1
-    Assert.assertEquals(1, partialPartitionInfo.file_descriptors.size());
+    Assertions.assertEquals(1, partialPartitionInfo.file_descriptors.size());
     // we don't expect catalog to load the table since catalog is already ahead of client.
-    Assert.assertEquals(tblVersion,
+    Assertions.assertEquals(tblVersion,
       catalog_.getOrLoadTable(testDbName, testTblName, "test", null).getCatalogVersion());
   }
 
@@ -246,10 +246,10 @@ public class PartialCatalogInfoWriteIdTest {
    */
   @Test
   public void testFetchGranularityWithWriteIds() throws Exception {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testPartitionedTbl, "test", null);
     long olderVersion = tbl.getCatalogVersion();
-    Assert.assertFalse("Table must be loaded",
+    Assertions.assertFalse("Table must be loaded",
       tbl instanceof IncompleteTable);
     ValidWriteIdList olderWriteIdList = getValidWriteIdList(testDbName,
       testPartitionedTbl);
@@ -266,17 +266,17 @@ public class PartialCatalogInfoWriteIdTest {
       .wantFiles()
       .build();
     TGetPartialCatalogObjectResponse response = sendRequest(request);
-    Assert.assertEquals(1, response.getTable_info().getPartitionsSize());
-    Assert.assertEquals(1, response.getTable_info().getPartition_prefixesSize());
-    Assert.assertNotNull(
+    Assertions.assertEquals(1, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(1, response.getTable_info().getPartition_prefixesSize());
+    Assertions.assertNotNull(
         response.getTable_info().getPartitions().get(0).getFile_descriptors());
-    Assert.assertNotNull(
+    Assertions.assertNotNull(
         response.getTable_info().getPartitions().get(0).getLocation());
-    Assert.assertEquals(0,
+    Assertions.assertEquals(0,
         response.getTable_info().getPartitions().get(0).getLocation().getPrefix_index());
-    Assert.assertNotNull(
+    Assertions.assertNotNull(
         response.getTable_info().getPartitions().get(0).getHdfs_storage_descriptor());
-    Assert.assertNotNull(
+    Assertions.assertNotNull(
         response.getTable_info().getPartitions().get(0).getHms_parameters());
 
     // skipping request for file-metadata should not affect the result
@@ -287,11 +287,11 @@ public class PartialCatalogInfoWriteIdTest {
       .wantPartitionNames()
       .build();
     response = sendRequest(request);
-    Assert.assertEquals(1, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(1, response.getTable_info().getPartitionsSize());
     for (TPartialPartitionInfo partInfo : response.getTable_info().getPartitions()) {
-      Assert.assertNull(partInfo.getFile_descriptors());
-      Assert.assertNull(partInfo.getHdfs_storage_descriptor());
-      Assert.assertNull(partInfo.getLocation());
+      Assertions.assertNull(partInfo.getFile_descriptors());
+      Assertions.assertNull(partInfo.getHdfs_storage_descriptor());
+      Assertions.assertNull(partInfo.getLocation());
     }
 
     // we request a newer WriteIdList now, and catalog needs to reload
@@ -302,19 +302,19 @@ public class PartialCatalogInfoWriteIdTest {
       .wantFiles()
       .build();
     response = sendRequest(request);
-    Assert.assertEquals(2, response.getTable_info().getPartitionsSize());
-    Assert.assertEquals(1, response.getTable_info().getPartition_prefixesSize());
+    Assertions.assertEquals(2, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(1, response.getTable_info().getPartition_prefixesSize());
     // we expect both the partitions to have the file-metadata in the response
     for (TPartialPartitionInfo partInfo : response.getTable_info().getPartitions()) {
-      Assert.assertNotNull(partInfo.getFile_descriptors());
-      Assert.assertNotNull(partInfo.getHdfs_storage_descriptor());
-      Assert.assertNotNull(partInfo.getLocation());
-      Assert.assertEquals(0, partInfo.getLocation().getPrefix_index());
+      Assertions.assertNotNull(partInfo.getFile_descriptors());
+      Assertions.assertNotNull(partInfo.getHdfs_storage_descriptor());
+      Assertions.assertNotNull(partInfo.getLocation());
+      Assertions.assertEquals(0, partInfo.getLocation().getPrefix_index());
     }
     // table must be reloaded now
     long newerVersion = catalog_.getTable(testDbName, testPartitionedTbl)
       .getCatalogVersion();
-    Assert.assertTrue(newerVersion > olderVersion);
+    Assertions.assertTrue(newerVersion > olderVersion);
 
     request = new RequestBuilder()
       .db(testDbName)
@@ -326,14 +326,14 @@ public class PartialCatalogInfoWriteIdTest {
     // HMS metadata provides read-committed isolation level and hence it is possible
     // that we see partitions which are from a writeId which is ahead of the requested
     // writeId. However, we should not see files pertaining to such partitions
-    Assert.assertEquals(2, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(2, response.getTable_info().getPartitionsSize());
     // since we requested with an older writeIdList, we expect the second partition to
     // be empty
     for (TPartialPartitionInfo partitionInfo : response.getTable_info().getPartitions()) {
       if (partitionInfo.getName().equalsIgnoreCase("part=2")) {
-        Assert.assertTrue(partitionInfo.getFile_descriptors().isEmpty());
+        Assertions.assertTrue(partitionInfo.getFile_descriptors().isEmpty());
       } else {
-        Assert.assertFalse(partitionInfo.getFile_descriptors().isEmpty());
+        Assertions.assertFalse(partitionInfo.getFile_descriptors().isEmpty());
       }
     }
   }
@@ -350,9 +350,9 @@ public class PartialCatalogInfoWriteIdTest {
    */
   @Test
   public void fetchAfterMajorCompaction() throws Exception {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testPartitionedTbl, "test", null);
-    Assert.assertFalse("Table must be loaded",
+    Assertions.assertFalse("Table must be loaded",
         tbl instanceof IncompleteTable);
     // row 2
     executeHiveSql("insert into " + getPartitionedTblName() + " partition (part=1) "
@@ -382,19 +382,19 @@ public class PartialCatalogInfoWriteIdTest {
         .wantFiles()
         .build();
     TGetPartialCatalogObjectResponse response = sendRequest(request);
-    Assert.assertEquals(2, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(2, response.getTable_info().getPartitionsSize());
     for (TPartialPartitionInfo partitionInfo : response.getTable_info().getPartitions()) {
-        Assert.assertEquals(1, partitionInfo.getFile_descriptors().size());
-        Assert.assertEquals(0, partitionInfo.getInsert_file_descriptors().size());
-        Assert.assertEquals(0, partitionInfo.getDelete_file_descriptors().size());
+        Assertions.assertEquals(1, partitionInfo.getFile_descriptors().size());
+        Assertions.assertEquals(0, partitionInfo.getInsert_file_descriptors().size());
+        Assertions.assertEquals(0, partitionInfo.getDelete_file_descriptors().size());
     }
     long numMissesAfter = getMetricCount(testDbName, testPartitionedTbl,
         HdfsTable.FILEMETADATA_CACHE_MISS_METRIC);
     long numHitsAfter = getMetricCount(testDbName, testPartitionedTbl,
         HdfsTable.FILEMETADATA_CACHE_HIT_METRIC);
     // the hit count increases by 2, one for each partition
-    Assert.assertEquals(numHits + 2, numHitsAfter);
-    Assert.assertEquals(numMisses, numMissesAfter);
+    Assertions.assertEquals(numHits + 2, numHitsAfter);
+    Assertions.assertEquals(numMisses, numMissesAfter);
     // now issue a request with older writeId
     request = new RequestBuilder()
         .db(testDbName)
@@ -405,15 +405,15 @@ public class PartialCatalogInfoWriteIdTest {
     response = sendRequest(request);
     // older writeIds should see both the partitions but only one of the partitions should
     // have file-metadata (2 files)
-    Assert.assertEquals(2, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(2, response.getTable_info().getPartitionsSize());
     for (TPartialPartitionInfo partitionInfo : response.getTable_info().getPartitions()) {
       if (partitionInfo.getName().equals("part=1")) {
-        Assert.assertEquals(2, partitionInfo.getFile_descriptors().size());
+        Assertions.assertEquals(2, partitionInfo.getFile_descriptors().size());
       } else {
-        Assert.assertTrue(partitionInfo.getFile_descriptors().isEmpty());
+        Assertions.assertTrue(partitionInfo.getFile_descriptors().isEmpty());
       }
-      Assert.assertEquals(0, partitionInfo.getInsert_file_descriptors().size());
-      Assert.assertEquals(0, partitionInfo.getDelete_file_descriptors().size());
+      Assertions.assertEquals(0, partitionInfo.getInsert_file_descriptors().size());
+      Assertions.assertEquals(0, partitionInfo.getDelete_file_descriptors().size());
     }
 
     numMisses = getMetricCount(testDbName, testPartitionedTbl,
@@ -422,10 +422,10 @@ public class PartialCatalogInfoWriteIdTest {
         HdfsTable.FILEMETADATA_CACHE_HIT_METRIC);
     // hit count increases by 1 since for part=2 we can ignore all the files and there was
     // no need to reload
-    Assert.assertEquals(numHitsAfter+1, numHits);
+    Assertions.assertEquals(numHitsAfter+1, numHits);
     // Catalog reloads the filemetadata for one partition and hence the number of misses
     // should be 1 higher
-    Assert.assertEquals(numMissesAfter+1, numMisses);
+    Assertions.assertEquals(numMissesAfter+1, numMisses);
     // issue a request with current writeId to make we didn't mess up the table's metadata
     request = new RequestBuilder()
         .db(testDbName)
@@ -434,11 +434,11 @@ public class PartialCatalogInfoWriteIdTest {
         .wantFiles()
         .build();
     response = sendRequest(request);
-    Assert.assertEquals(2, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(2, response.getTable_info().getPartitionsSize());
     for (TPartialPartitionInfo partitionInfo : response.getTable_info().getPartitions()) {
-      Assert.assertEquals(1, partitionInfo.getFile_descriptors().size());
-      Assert.assertEquals(0, partitionInfo.getInsert_file_descriptors().size());
-      Assert.assertEquals(0, partitionInfo.getDelete_file_descriptors().size());
+      Assertions.assertEquals(1, partitionInfo.getFile_descriptors().size());
+      Assertions.assertEquals(0, partitionInfo.getInsert_file_descriptors().size());
+      Assertions.assertEquals(0, partitionInfo.getDelete_file_descriptors().size());
     }
   }
 
@@ -448,9 +448,9 @@ public class PartialCatalogInfoWriteIdTest {
    */
   @Test
   public void testFetchAfterMinorCompaction() throws Exception {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     Table tbl = catalog_.getOrLoadTable(testDbName, testTblName, "test", null);
-    Assert.assertFalse("Table must be loaded",
+    Assertions.assertFalse("Table must be loaded",
         tbl instanceof IncompleteTable);
     // row 2, first row is in the setup method
     executeHiveSql("insert into " + getTestTblName() + " values (2)");
@@ -474,9 +474,9 @@ public class PartialCatalogInfoWriteIdTest {
         .wantFiles()
         .build();
     TGetPartialCatalogObjectResponse response = sendRequest(request);
-    Assert.assertEquals(1, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(1, response.getTable_info().getPartitionsSize());
     for (TPartialPartitionInfo partitionInfo : response.getTable_info().getPartitions()) {
-      Assert.assertEquals(1, partitionInfo.getFile_descriptors().size());
+      Assertions.assertEquals(1, partitionInfo.getFile_descriptors().size());
     }
     long numMissesAfter = getMetricCount(testDbName, testTblName,
         HdfsTable.FILEMETADATA_CACHE_MISS_METRIC);
@@ -484,8 +484,8 @@ public class PartialCatalogInfoWriteIdTest {
         HdfsTable.FILEMETADATA_CACHE_HIT_METRIC);
     // we triggered a reload of the table. We expect that filemetadata should be a cache
     // hit
-    Assert.assertEquals(numHits + 1, numHitsAfter);
-    Assert.assertEquals(numMisses, numMissesAfter);
+    Assertions.assertEquals(numHits + 1, numHitsAfter);
+    Assertions.assertEquals(numMisses, numMissesAfter);
     // issue a request with writeId before the minor compaction
     request = new RequestBuilder()
         .db(testDbName)
@@ -494,19 +494,19 @@ public class PartialCatalogInfoWriteIdTest {
         .wantFiles()
         .build();
     response = sendRequest(request);
-    Assert.assertEquals(1, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(1, response.getTable_info().getPartitionsSize());
     for (TPartialPartitionInfo partitionInfo : response.getTable_info().getPartitions()) {
       // we expect that catalog will load the files from FileSystem for this case so
       // the number of delta files will be 2 (files before minor compaction)
-      Assert.assertEquals(2, partitionInfo.getFile_descriptors().size());
+      Assertions.assertEquals(2, partitionInfo.getFile_descriptors().size());
     }
     long numMisses1 = getMetricCount(testDbName, testTblName,
         HdfsTable.FILEMETADATA_CACHE_MISS_METRIC);
     long numHits1 = getMetricCount(testDbName, testTblName,
         HdfsTable.FILEMETADATA_CACHE_HIT_METRIC);
     // we expect the miss count to increase by 1 for the only partition
-    Assert.assertEquals(numMissesAfter + 1, numMisses1 );
-    Assert.assertEquals(numHitsAfter, numHits1 );
+    Assertions.assertEquals(numMissesAfter + 1, numMisses1 );
+    Assertions.assertEquals(numHitsAfter, numHits1 );
   }
 
   @Test
@@ -570,7 +570,7 @@ public class PartialCatalogInfoWriteIdTest {
 
   private void testFileMetadataAfterCompaction(String tableName, String partition,
       boolean isMajorCompaction, int expectedFileCount) throws Exception {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     String tableOrPartition = testDbName + "." + tableName + " " + partition;
     executeHiveSql("insert into " + tableOrPartition + " values (2)");
     executeHiveSql("insert into " + tableOrPartition + " values (3)");
@@ -588,7 +588,7 @@ public class PartialCatalogInfoWriteIdTest {
     int preFileCount = prePartitionInfo.getFile_descriptorsSize()
         + prePartitionInfo.getInsert_file_descriptorsSize()
         + prePartitionInfo.getDelete_file_descriptorsSize();
-    Assert.assertTrue(preFileCount > 1);
+    Assertions.assertTrue(preFileCount > 1);
 
     String compactionType = isMajorCompaction ? "'major'" : "'minor'";
     executeHiveSql(
@@ -617,13 +617,13 @@ public class PartialCatalogInfoWriteIdTest {
         getPathsFromFileDescriptors(afterPartitionInfo.getInsert_file_descriptors()) +
         "\nActual delete_file_descriptors:\n" +
         getPathsFromFileDescriptors(afterPartitionInfo.getDelete_file_descriptors());
-    Assert.assertEquals(message, expectedFileCount, afterFileCount);
+    Assertions.assertEquals(message, expectedFileCount, afterFileCount);
     long numMissesAfterMinor =
         getMetricCount(testDbName, tableName, HdfsTable.FILEMETADATA_CACHE_MISS_METRIC);
     long numHitsAfterMinor =
         getMetricCount(testDbName, tableName, HdfsTable.FILEMETADATA_CACHE_HIT_METRIC);
-    Assert.assertEquals(numHits + 1, numHitsAfterMinor);
-    Assert.assertEquals(numMisses, numMissesAfterMinor);
+    Assertions.assertEquals(numHits + 1, numHitsAfterMinor);
+    Assertions.assertEquals(numMisses, numMissesAfterMinor);
   }
 
   private List<String> getPathsFromFileDescriptors(List<THdfsFileDesc> fileDescriptors) {
@@ -640,15 +640,15 @@ public class PartialCatalogInfoWriteIdTest {
    */
   @Test
   public void testFetchAfterDropAndRecreate() throws Exception {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     // row 2, first row is in the setup method
     executeImpalaSql("insert into " + getTestTblName() + " values (2)");
     Table tbl = catalog_.getOrLoadTable(testDbName, testTblName, "test", null);
-    Assert.assertFalse("Table must be loaded",
+    Assertions.assertFalse("Table must be loaded",
         tbl instanceof IncompleteTable);
     ValidWriteIdList olderWriteIdList = getValidWriteIdList(testDbName,
         testTblName);
-    Assert.assertEquals(olderWriteIdList.toString(), tbl.getValidWriteIds().toString());
+    Assertions.assertEquals(olderWriteIdList.toString(), tbl.getValidWriteIds().toString());
     TGetPartialCatalogObjectRequest request = new RequestBuilder()
         .db(testDbName)
         .tbl(testTblName)
@@ -656,10 +656,10 @@ public class PartialCatalogInfoWriteIdTest {
         .wantFiles()
         .build();
     TGetPartialCatalogObjectResponse response = sendRequest(request);
-    Assert.assertEquals(1, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(1, response.getTable_info().getPartitionsSize());
     List<THdfsFileDesc> oldFds = response.getTable_info().getPartitions()
         .get(0).file_descriptors;
-    Assert.assertEquals(2, oldFds.size());
+    Assertions.assertEquals(2, oldFds.size());
     // now recreate the table from hive so that Impala is not aware of it
     executeHiveSql("drop table " + getTestTblName());
     executeHiveSql("create table " + getTestTblName() + " like "
@@ -670,7 +670,7 @@ public class PartialCatalogInfoWriteIdTest {
     executeHiveSql("insert into " + getTestTblName() + " values (2)");
     ValidWriteIdList newerWriteIdList = getValidWriteIdList(testDbName, testTblName);
     // the validWriteIdList itself is compatible
-    Assert.assertTrue(AcidUtils.compare(newerWriteIdList, olderWriteIdList) == 0);
+    Assertions.assertTrue(AcidUtils.compare(newerWriteIdList, olderWriteIdList) == 0);
     // now a client with the newerValidWriteIdList must re-trigger a load
     request = new RequestBuilder()
         .db(testDbName)
@@ -680,21 +680,21 @@ public class PartialCatalogInfoWriteIdTest {
         .wantFiles()
         .build();
     response = sendRequest(request);
-    Assert.assertEquals(1, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(1, response.getTable_info().getPartitionsSize());
     List<THdfsFileDesc> newFds = response.getTable_info().getPartitions()
         .get(0).file_descriptors;
-    Assert.assertEquals(2, newFds.size());
+    Assertions.assertEquals(2, newFds.size());
     for (int i=0; i<newFds.size(); i++) {
       // we expect that table was reloaded and hence the file descriptors should be
       // different
-      Assert.assertNotEquals("Found the new file descriptor same as old one",
+      Assertions.assertNotEquals("Found the new file descriptor same as old one",
           newFds.get(i), oldFds.get(i));
     }
   }
 
   @Test
   public void testFullAcidCompaction() throws Exception {
-    Assume.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
+    Assumptions.assumeTrue(MetastoreShim.getMajorVersion() >= 3);
     // Create Full ACID table.
     executeImpalaSql("create table " + getTestFullAcidTblName() + " like "
         + "functional_orc_def.alltypes");
@@ -704,7 +704,7 @@ public class PartialCatalogInfoWriteIdTest {
         + " where id % 2 = 0");
     catalog_.reset(NoOpEventSequence.INSTANCE);
     Table tbl = catalog_.getOrLoadTable(testDbName, testAcidTblName, "test", null);
-    Assert.assertFalse("Table must be loaded", tbl instanceof IncompleteTable);
+    Assertions.assertFalse("Table must be loaded", tbl instanceof IncompleteTable);
     ValidWriteIdList olderWriteIdList = getValidWriteIdList(testDbName, testAcidTblName);
     // Let's delete again to generate a new write id for the table.
     executeHiveSql("delete from " + getTestFullAcidTblName()
@@ -721,18 +721,18 @@ public class PartialCatalogInfoWriteIdTest {
         .build();
     TGetPartialCatalogObjectResponse response = sendRequest(request);
     // Check that we see the current state of the table.
-    Assert.assertEquals(24, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(24, response.getTable_info().getPartitionsSize());
     for (TPartialPartitionInfo part : response.getTable_info().getPartitions()) {
       if (part.getName().equalsIgnoreCase("year=2010/month=10")) {
         // The compacted directory only contains a single file. And since there's no
         // delete file, it is put into 'file_descriptors'.
-        Assert.assertEquals(1, part.file_descriptors.size());
-        Assert.assertEquals(0, part.insert_file_descriptors.size());
-        Assert.assertEquals(0, part.delete_file_descriptors.size());
+        Assertions.assertEquals(1, part.file_descriptors.size());
+        Assertions.assertEquals(0, part.insert_file_descriptors.size());
+        Assertions.assertEquals(0, part.delete_file_descriptors.size());
       } else {
-        Assert.assertEquals(0, part.file_descriptors.size());
-        Assert.assertEquals(1, part.insert_file_descriptors.size());
-        Assert.assertEquals(2, part.delete_file_descriptors.size());
+        Assertions.assertEquals(0, part.file_descriptors.size());
+        Assertions.assertEquals(1, part.insert_file_descriptors.size());
+        Assertions.assertEquals(2, part.delete_file_descriptors.size());
       }
     }
     // Now let's retrieve table metadata with the older write id list.
@@ -744,11 +744,11 @@ public class PartialCatalogInfoWriteIdTest {
         .build();
     response = sendRequest(request);
     // Let's check that we don't see the second delete, nor the compacted directory.
-    Assert.assertEquals(24, response.getTable_info().getPartitionsSize());
+    Assertions.assertEquals(24, response.getTable_info().getPartitionsSize());
     for (TPartialPartitionInfo part : response.getTable_info().getPartitions()) {
-      Assert.assertEquals(0, part.file_descriptors.size());
-      Assert.assertEquals(1, part.insert_file_descriptors.size());
-      Assert.assertEquals(1, part.delete_file_descriptors.size());
+      Assertions.assertEquals(0, part.file_descriptors.size());
+      Assertions.assertEquals(1, part.insert_file_descriptors.size());
+      Assertions.assertEquals(1, part.delete_file_descriptors.size());
     }
   }
 
@@ -888,7 +888,7 @@ public class PartialCatalogInfoWriteIdTest {
   private void invalidateTbl(String db, String tbl) throws CatalogException {
     catalog_.invalidateTable(new TTableName(db, tbl), new Reference<>(),
       new Reference<>(), NoOpEventSequence.INSTANCE);
-    Assert.assertTrue("Table must not be loaded",
+    Assertions.assertTrue("Table must not be loaded",
       catalog_.getTable(db, tbl) instanceof IncompleteTable);
   }
 }

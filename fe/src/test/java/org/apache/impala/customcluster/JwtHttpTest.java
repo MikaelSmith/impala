@@ -17,9 +17,9 @@
 
 package org.apache.impala.customcluster;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -38,8 +38,8 @@ import org.apache.impala.testutil.X509CertChain;
 import org.apache.thrift.transport.THttpClient;
 import org.hamcrest.Matcher;
 import org.apache.thrift.protocol.TBinaryProtocol;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -137,7 +137,7 @@ public class JwtHttpTest {
     assertEquals(expectedRetCode, ret);
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws Exception {
     // Leave a cluster running with the default configuration, then delete temporary
     // JWKS file.

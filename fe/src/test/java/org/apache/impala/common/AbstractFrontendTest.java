@@ -17,9 +17,9 @@
 
 package org.apache.impala.common;
 
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Base Unit test class that manages the Frontend fixture
@@ -41,17 +41,17 @@ import org.junit.BeforeClass;
 public abstract class AbstractFrontendTest {
   protected static FrontendFixture feFixture_ = FrontendFixture.instance();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     feFixture_.setUp();
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUp() throws Exception {
     feFixture_.cleanUp();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     feFixture_.tearDown();
   }

@@ -17,7 +17,7 @@
 
 package org.apache.impala.common;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,7 +65,7 @@ import org.apache.impala.thrift.TQueryOptions;
 import org.apache.impala.thrift.TSessionState;
 import org.apache.impala.util.EventSequence;
 import org.apache.impala.util.TSessionStateUtil;
-import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -116,7 +116,7 @@ public class FrontendTestBase extends AbstractFrontendTest {
   /**
    * Add a new dummy database with the given name to the catalog.
    * Returns the new dummy database.
-   * The database is registered in testDbs_ and removed in the @After method.
+   * The database is registered in testDbs_ and removed in the @AfterEach method.
    */
   protected Db addTestDb(String dbName, String comment) {
     return feFixture_.addTestDb(dbName, comment);
@@ -127,7 +127,7 @@ public class FrontendTestBase extends AbstractFrontendTest {
    * returned table only has its metadata partially set, but is capable of being planned.
    * Only HDFS tables and external Kudu tables are supported.
    * Returns the new dummy table.
-   * The test tables are registered in testTables_ and removed in the @After method.
+   * The test tables are registered in testTables_ and removed in the @AfterEach method.
    */
   protected Table addTestTable(String createTableSql) {
     return feFixture_.addTestTable(createTableSql);
@@ -135,7 +135,7 @@ public class FrontendTestBase extends AbstractFrontendTest {
 
   /**
    * Adds a test-local view to the catalog based on the given CREATE VIEW sql.
-   * The test views are registered in testTables_ and removed in the @After method.
+   * The test views are registered in testTables_ and removed in the @AfterEach method.
    * Returns the new view.
    */
   protected Table addTestView(String createViewSql) {
@@ -144,7 +144,7 @@ public class FrontendTestBase extends AbstractFrontendTest {
 
   /**
    * Adds a test-local view to the specified catalog based on the given CREATE VIEW sql.
-   * The test views are registered in testTables_ and removed in the @After method.
+   * The test views are registered in testTables_ and removed in the @AfterEach method.
    * Returns the new view.
    */
   protected Table addTestView(Catalog catalog, String createViewSql) {
@@ -331,7 +331,7 @@ public class FrontendTestBase extends AbstractFrontendTest {
       errorString = errorString.replace("org.codehaus.jackson.JsonParseException",
           "com.fasterxml.jackson.core.JsonParseException");
 
-      Assert.assertTrue(msg, errorString.startsWith(expectedErrorString));
+      Assertions.assertTrue(msg, errorString.startsWith(expectedErrorString));
       return;
     }
     fail("Stmt didn't result in analysis error: " + stmt);

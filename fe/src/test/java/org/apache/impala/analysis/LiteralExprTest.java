@@ -17,14 +17,14 @@
 
 package org.apache.impala.analysis;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.impala.catalog.ScalarType;
 import org.apache.impala.catalog.Type;
 import org.apache.impala.common.FrontendTestBase;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test literal expressions from the Java side. Note that a comprehensive

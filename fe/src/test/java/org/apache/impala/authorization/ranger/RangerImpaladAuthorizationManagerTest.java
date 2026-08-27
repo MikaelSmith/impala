@@ -24,8 +24,8 @@ import org.apache.impala.common.ImpalaException;
 import org.apache.impala.thrift.TShowRolesParams;
 import org.apache.impala.thrift.TShowRolesResult;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 
 /**
@@ -60,9 +60,9 @@ public class RangerImpaladAuthorizationManagerTest extends AuthorizationTestBase
       TShowRolesParams showRolesParams, String desc) {
     try {
       TShowRolesResult result = rangerImpaladAuthzManager_.getRoles(showRolesParams);
-      Assert.assertNotNull(result.getRole_names());
+      Assertions.assertNotNull(result.getRole_names());
     } catch (ImpalaException ex) {
-      Assert.fail("No Exception should be thrown for show role statement:" + desc);
+      Assertions.fail("No Exception should be thrown for show role statement:" + desc);
     }
   }
 

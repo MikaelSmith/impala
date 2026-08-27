@@ -18,8 +18,8 @@
 package org.apache.impala.customcluster;
 
 import static org.apache.impala.testutil.LdapUtil.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,8 +30,8 @@ import java.util.Map;
 
 import com.google.common.collect.Range;
 import org.apache.impala.testutil.WebClient;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests that Web Server works as expected when JWT authentication is being used.
@@ -49,7 +49,7 @@ public class JwtWebserverTest {
     assertEquals(ret, 0);
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws Exception {
     // Leave a cluster running with the default configuration.
     CustomClusterRunner.StartImpalaCluster();

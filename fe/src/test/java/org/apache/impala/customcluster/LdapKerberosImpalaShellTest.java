@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.directory.server.core.annotations.ApplyLdifFiles;
 import org.apache.directory.server.core.annotations.CreateDS;
 import org.apache.directory.server.core.annotations.CreatePartition;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -38,7 +38,7 @@ import static org.apache.impala.testutil.LdapUtil.TEST_USER_4;
 import static org.apache.impala.testutil.LdapUtil.TEST_USER_7;
 import static org.apache.impala.testutil.LdapUtil.TEST_USER_DN_1;
 import static org.apache.impala.testutil.LdapUtil.TEST_USER_GROUP;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Impala shell connectivity tests with Kerberos authentication.
@@ -153,7 +153,7 @@ public class LdapKerberosImpalaShellTest extends LdapKerberosImpalaShellTestBase
   @Test
   public void testHttpImpersonationWithKerberosAuthAndLdapSearchBind() throws Exception {
     // Ignore the test if python SSLContext support is not available.
-    Assume.assumeTrue(pythonSupportsSSLContext());
+    Assumptions.assumeTrue(pythonSupportsSSLContext());
 
     String ldapUri = String.format("ldap://localhost:%s",
             serverRule.getLdapServer().getPort());
@@ -236,7 +236,7 @@ public class LdapKerberosImpalaShellTest extends LdapKerberosImpalaShellTestBase
   public void testHttpImpersonationWithKerberosAuthAndLdapSearchBindWithGroupFilters()
           throws Exception {
     // Ignore the test if python SSLContext support is not available.
-    Assume.assumeTrue(pythonSupportsSSLContext());
+    Assumptions.assumeTrue(pythonSupportsSSLContext());
 
     Map<String, String> flags = mergeFlags(
 
@@ -383,7 +383,7 @@ public class LdapKerberosImpalaShellTest extends LdapKerberosImpalaShellTestBase
   @Test
   public void testHttpImpersonationWithKerberosAuthAndLdapSimpleBind() throws Exception {
     // Ignore the test if python SSLContext support is not available.
-    Assume.assumeTrue(pythonSupportsSSLContext());
+    Assumptions.assumeTrue(pythonSupportsSSLContext());
 
     String ldapUri = String.format("ldap://localhost:%s",
             serverRule.getLdapServer().getPort());

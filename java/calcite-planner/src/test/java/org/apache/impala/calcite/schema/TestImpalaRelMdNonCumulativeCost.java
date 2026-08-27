@@ -17,8 +17,8 @@
 
 package org.apache.impala.calcite.schema;
 
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 
@@ -48,13 +48,13 @@ import org.apache.impala.calcite.type.ImpalaTypeSystemImpl;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 public class TestImpalaRelMdNonCumulativeCost {
   private static final double DOUBLE_ERR = .000001;
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass() {
     RelMetadataQuery.THREAD_PROVIDERS.set(ImpalaRelMetadataProvider.DEFAULT);
   }

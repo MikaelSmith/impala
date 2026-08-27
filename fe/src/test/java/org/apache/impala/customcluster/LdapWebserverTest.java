@@ -20,10 +20,10 @@ package org.apache.impala.customcluster;
 import static org.apache.impala.testutil.LdapUtil.*;
 import static org.apache.impala.testutil.TestUtils.retryUntilSuccess;
 import static org.apache.impala.testutil.TestUtils.writeCookieSecret;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,10 +53,10 @@ import org.apache.impala.testutil.WebClient;
 import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.transport.THttpClient;
 import org.json.simple.JSONObject;
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.ClassRule;
 import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
 @CreateDS(name = "myDS",
@@ -97,7 +97,7 @@ public class LdapWebserverTest {
     assertEquals(0, ret);
   }
 
-  @After
+  @AfterEach
   public void cleanUp() throws IOException {
     client_.close();
   }

@@ -17,9 +17,9 @@
 
 package org.apache.impala.calcite.planner;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -54,7 +54,7 @@ import org.apache.impala.thrift.TColumnValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class TestReduceExprShuttle extends PlannerTestBase {
 
@@ -62,7 +62,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
   private static TQueryOptions options =
       tpcdsParquetQueryOptions();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass() throws Exception {
     RuntimeEnv.INSTANCE.setTestEnv(true);
     ImpalaOperatorTable.create(BuiltinsDb.getInstance());
@@ -70,7 +70,7 @@ public class TestReduceExprShuttle extends PlannerTestBase {
         JaninoRelMetadataProvider.of(DefaultRelMetadataProvider.INSTANCE));
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUpClass() {
     RuntimeEnv.INSTANCE.reset();
   }

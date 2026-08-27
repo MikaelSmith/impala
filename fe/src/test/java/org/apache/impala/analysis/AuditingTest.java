@@ -29,8 +29,8 @@ import org.apache.impala.service.Frontend;
 import org.apache.impala.testutil.ImpaladTestCatalog;
 import org.apache.impala.thrift.TAccessEvent;
 import org.apache.impala.thrift.TCatalogObjectType;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Sets;
 
@@ -44,13 +44,13 @@ public class AuditingTest extends FrontendTestBase {
     // Simple select from a table.
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("select * from functional.alltypesagg");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.alltypesagg", TCatalogObjectType.TABLE, "SELECT")));
 
     // Select from a view. Expect to get 3 events back - one for the view and two
     // for the underlying objects that the view accesses.
     accessEvents = AnalyzeAccessEvents("select * from functional.view_view");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.view_view", TCatalogObjectType.VIEW, "SELECT"),
         new TAccessEvent("functional.alltypes_view", TCatalogObjectType.VIEW, "SELECT"),
         new TAccessEvent("functional.alltypes", TCatalogObjectType.TABLE, "SELECT")
@@ -59,7 +59,7 @@ public class AuditingTest extends FrontendTestBase {
     // Tests audit events after a statement has been rewritten (IMPALA-3915).
     // Select from a view that contains a subquery.
     accessEvents = AnalyzeAccessEvents("select * from functional_rc.subquery_view");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_rc.alltypessmall", TCatalogObjectType.TABLE,
             "SELECT"),
         new TAccessEvent("functional_rc.alltypes", TCatalogObjectType.TABLE,
@@ -73,18 +73,18 @@ public class AuditingTest extends FrontendTestBase {
     // Select from an inline view.
     accessEvents = AnalyzeAccessEvents(
         "select a.* from (select * from functional.alltypesagg) a");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.alltypesagg", TCatalogObjectType.TABLE, "SELECT")));
 
     // Select from collection table references.
     accessEvents = AnalyzeAccessEvents(
         "select item from functional.allcomplextypes.int_array_col");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.allcomplextypes",
             TCatalogObjectType.TABLE, "SELECT")));
     accessEvents = AnalyzeAccessEvents(
         "select item from functional.allcomplextypes a, a.int_array_col");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.allcomplextypes",
             TCatalogObjectType.TABLE, "SELECT")));
   }
@@ -94,7 +94,7 @@ public class AuditingTest extends FrontendTestBase {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(
         "select * from functional.alltypes union all " +
         "select * from functional_rc.alltypes");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.alltypes", TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional_rc.alltypes", TCatalogObjectType.TABLE, "SELECT")));
   }
@@ -104,7 +104,7 @@ public class AuditingTest extends FrontendTestBase {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(
         "insert into functional.alltypes " +
         "partition(month,year) select * from functional_rc.alltypes");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional_rc.alltypes", TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional.alltypes", TCatalogObjectType.TABLE, "INSERT")));
 
@@ -113,7 +113,7 @@ public class AuditingTest extends FrontendTestBase {
         "insert into functional.alltypes partition(month,year) " +
         "select b.* from functional.alltypesagg a join (select * from " +
         "functional_rc.alltypes) b on (a.int_col = b.int_col)");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.alltypesagg", TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional_rc.alltypes", TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("functional.alltypes", TCatalogObjectType.TABLE, "INSERT")));
@@ -124,29 +124,29 @@ public class AuditingTest extends FrontendTestBase {
     // With clause. No audit event should be recorded for the with-clause view.
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(
         "with t as (select * from functional.alltypesagg) select * from t");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.alltypesagg", TCatalogObjectType.TABLE, "SELECT")));
 
     // With clause view referencing a catalog view.
     accessEvents = AnalyzeAccessEvents(
         "with t as (select * from functional.alltypes_view) select * from t");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent(
             "functional.alltypes_view", TCatalogObjectType.VIEW, "SELECT"),
         new TAccessEvent("functional.alltypes", TCatalogObjectType.TABLE, "SELECT")));
 
     accessEvents =
         AnalyzeAccessEvents("with t as (select 1 + 2) select * from t");
-    Assert.assertEquals(0, accessEvents.size());
+    Assertions.assertEquals(0, accessEvents.size());
 
     // Even though the with-clause view isn't selected an access event is generated.
     accessEvents = AnalyzeAccessEvents(
         "with t as (select * from functional.alltypes) select 'abc'");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.alltypes", TCatalogObjectType.TABLE, "SELECT")));
     accessEvents = AnalyzeAccessEvents("with t as (select * from functional.alltypes) " +
         "select * from functional_seq.alltypes");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.alltypes", TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent(
             "functional_seq.alltypes", TCatalogObjectType.TABLE, "SELECT")));
@@ -156,14 +156,14 @@ public class AuditingTest extends FrontendTestBase {
   public void TestExplainEvents() throws AuthorizationException, AnalysisException {
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("explain select * from functional.alltypesagg");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.alltypesagg", TCatalogObjectType.TABLE, "SELECT")));
   }
 
   @Test
   public void TestUseDb() throws AnalysisException, AuthorizationException {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents("use functional");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional", TCatalogObjectType.DATABASE, "ANY")));
   }
 
@@ -173,33 +173,33 @@ public class AuditingTest extends FrontendTestBase {
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("invalidate metadata functional.alltypesagg");
     // The user didn't actually access the table, no reason to set an access event.
-    Assert.assertEquals(0, accessEvents.size());
+    Assertions.assertEquals(0, accessEvents.size());
     accessEvents =  AnalyzeAccessEvents("refresh functional.alltypesagg");
-    Assert.assertEquals(0, accessEvents.size());
+    Assertions.assertEquals(0, accessEvents.size());
   }
 
   @Test
   public void TestCreateTable() throws AnalysisException, AuthorizationException {
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("create table tpch.new_table (i int)");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("tpch.new_table", TCatalogObjectType.TABLE, "CREATE")));
 
     accessEvents =
         AnalyzeAccessEvents("create table tpch.new_lineitem like tpch.lineitem");
 
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("tpch.lineitem", TCatalogObjectType.TABLE, "VIEW_METADATA"),
         new TAccessEvent("tpch.new_lineitem", TCatalogObjectType.TABLE, "CREATE")));
 
     accessEvents = AnalyzeAccessEvents("create table tpch.new_table like parquet "
         + "'/test-warehouse/schemas/zipcode_incomes.parquet'");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("tpch.new_table", TCatalogObjectType.TABLE, "CREATE")));
 
     accessEvents = AnalyzeAccessEvents(
         "create table tpch.new_table as select * from functional.alltypesagg");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("tpch", TCatalogObjectType.DATABASE, "ANY"),
         new TAccessEvent("functional.alltypesagg", TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("tpch.new_table", TCatalogObjectType.TABLE, "CREATE")));
@@ -209,7 +209,7 @@ public class AuditingTest extends FrontendTestBase {
   public void TestCreateView() throws AuthorizationException, AnalysisException {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(
         "create view tpch.new_view as select * from functional.alltypesagg");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.alltypesagg", TCatalogObjectType.TABLE, "SELECT"),
         new TAccessEvent("tpch.new_view", TCatalogObjectType.VIEW, "CREATE")));
   }
@@ -217,34 +217,34 @@ public class AuditingTest extends FrontendTestBase {
   @Test
   public void TestCreateDatabase() throws AnalysisException, AuthorizationException {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents("create database newdb");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "newdb", TCatalogObjectType.DATABASE, "CREATE")));
   }
 
   @Test
   public void TestDropDatabase() throws AnalysisException, AuthorizationException {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents("drop database tpch");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "tpch", TCatalogObjectType.DATABASE, "DROP")));
   }
 
   @Test
   public void TestDropTable() throws AnalysisException, AuthorizationException {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents("drop table tpch.lineitem");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "tpch.lineitem", TCatalogObjectType.TABLE, "DROP")));
 
     // Dropping a table that fails loading should still result in an access event.
     accessEvents = AnalyzeAccessEvents(
         "drop table functional.unsupported_binary_partition");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.unsupported_binary_partition", TCatalogObjectType.TABLE, "DROP")));
 
     // Dropping a table without using a fully qualified path should generate the correct
     // access event (see IMPALA-5318).
     accessEvents = AnalyzeAccessEvents(
         "drop table unsupported_binary_partition", "functional");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.unsupported_binary_partition", TCatalogObjectType.TABLE, "DROP")));
   }
 
@@ -252,7 +252,7 @@ public class AuditingTest extends FrontendTestBase {
   public void TestDropView() throws AnalysisException, AuthorizationException {
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("drop view functional_seq_snap.alltypes_view");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional_seq_snap.alltypes_view", TCatalogObjectType.VIEW, "DROP")));
   }
 
@@ -261,12 +261,12 @@ public class AuditingTest extends FrontendTestBase {
     // User has permissions to modify tables.
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(
         "ALTER TABLE functional_seq_snap.alltypes ADD COLUMNS (c1 int)");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional_seq_snap.alltypes", TCatalogObjectType.TABLE, "ALTER")));
 
     accessEvents =  AnalyzeAccessEvents(
         "ALTER TABLE functional_seq_snap.alltypes RENAME TO functional_seq_snap.t1");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent(
             "functional_seq_snap.alltypes", TCatalogObjectType.TABLE, "ALL"),
         new TAccessEvent("functional_seq_snap.t1", TCatalogObjectType.TABLE, "CREATE")));
@@ -277,7 +277,7 @@ public class AuditingTest extends FrontendTestBase {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(
         "ALTER VIEW functional_seq_snap.alltypes_view AS " +
         "SELECT * FROM functional.alltypes");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent(
             "functional_seq_snap.alltypes_view", TCatalogObjectType.VIEW, "ALTER"),
         new TAccessEvent("functional.alltypes", TCatalogObjectType.TABLE, "SELECT")));
@@ -285,7 +285,7 @@ public class AuditingTest extends FrontendTestBase {
     accessEvents = AnalyzeAccessEvents(
         "ALTER VIEW functional_seq_snap.alltypes_view " +
         "rename to functional_seq_snap.v1");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent(
             "functional_seq_snap.alltypes_view", TCatalogObjectType.VIEW, "ALL"),
         new TAccessEvent("functional_seq_snap.v1", TCatalogObjectType.VIEW, "CREATE")));
@@ -295,7 +295,7 @@ public class AuditingTest extends FrontendTestBase {
   public void TestComputeStats() throws AnalysisException, AuthorizationException {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(
         "COMPUTE STATS functional_seq_snap.alltypes");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent(
             "functional_seq_snap.alltypes", TCatalogObjectType.TABLE, "ALTER"),
         new TAccessEvent(
@@ -305,7 +305,7 @@ public class AuditingTest extends FrontendTestBase {
     // duplicate ALTER events when the fully-qualified table name is not in lowercase.
     accessEvents = AnalyzeAccessEvents(
         "COMPUTE STATS FUNCTIONAL_SEQ_SNAP.ALLTYPES");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent(
             "functional_seq_snap.alltypes", TCatalogObjectType.TABLE, "ALTER"),
         new TAccessEvent(
@@ -316,7 +316,7 @@ public class AuditingTest extends FrontendTestBase {
   public void TestDropStats() throws AnalysisException, AuthorizationException {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(
         "DROP STATS functional_seq_snap.alltypes");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent(
             "functional_seq_snap.alltypes", TCatalogObjectType.TABLE, "ALTER")));
   }
@@ -325,11 +325,11 @@ public class AuditingTest extends FrontendTestBase {
   public void TestDescribeDb() throws AuthorizationException, AnalysisException {
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("describe database default");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "default", TCatalogObjectType.DATABASE, "VIEW_METADATA")));
 
     accessEvents = AnalyzeAccessEvents("describe database extended default");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "default", TCatalogObjectType.DATABASE, "VIEW_METADATA")));
   }
 
@@ -337,20 +337,20 @@ public class AuditingTest extends FrontendTestBase {
   public void TestDescribe() throws AuthorizationException, AnalysisException {
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("describe functional.alltypesagg");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.alltypesagg", TCatalogObjectType.TABLE, "ANY")));
 
     accessEvents = AnalyzeAccessEvents("describe formatted functional.alltypesagg");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.alltypesagg", TCatalogObjectType.TABLE, "ANY")));
 
     accessEvents = AnalyzeAccessEvents("describe functional.complex_view");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.complex_view", TCatalogObjectType.VIEW, "ANY")));
 
     accessEvents = AnalyzeAccessEvents(
         "describe functional.allcomplextypes.int_array_col");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.allcomplextypes", TCatalogObjectType.TABLE, "ANY")));
   }
 
@@ -360,7 +360,7 @@ public class AuditingTest extends FrontendTestBase {
     for (String qual: statsQuals) {
       Set<TAccessEvent> accessEvents =
           AnalyzeAccessEvents(String.format("show %s functional.alltypes", qual));
-      Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+      Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
           "functional.alltypes", TCatalogObjectType.TABLE, "VIEW_METADATA")));
     }
   }
@@ -371,7 +371,7 @@ public class AuditingTest extends FrontendTestBase {
     for (String qual : statsQuals) {
         Set<TAccessEvent> accessEvents = AnalyzeAccessEvents(String.format(
             "show %s in functional", qual));
-        Assert.assertEquals(accessEvents,
+        Assertions.assertEquals(accessEvents,
             Sets.newHashSet(new TAccessEvent("functional", TCatalogObjectType
             .DATABASE, "ANY")));
     }
@@ -381,7 +381,7 @@ public class AuditingTest extends FrontendTestBase {
   public void TestShowCreateTable() throws AuthorizationException, AnalysisException {
     Set<TAccessEvent> accessEvents =
         AnalyzeAccessEvents("show create table functional.alltypesagg");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(new TAccessEvent(
         "functional.alltypesagg", TCatalogObjectType.TABLE, "VIEW_METADATA")));
   }
 
@@ -390,7 +390,7 @@ public class AuditingTest extends FrontendTestBase {
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents("load data inpath " +
         "'hdfs://localhost:20500/test-warehouse/tpch.lineitem' " +
         "into table functional.alltypes partition(month=10, year=2009)");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("functional.alltypes", TCatalogObjectType.TABLE, "INSERT")));
   }
 
@@ -405,9 +405,9 @@ public class AuditingTest extends FrontendTestBase {
       // We should get an audit event even when an authorization failure occurs.
       try {
         parseAndAnalyze("create table foo_does_not_exist(i int)", analysisCtx, fe);
-        Assert.fail("Expected AuthorizationException");
+        Assertions.fail("Expected AuthorizationException");
       } catch (AuthorizationException e) {
-        Assert.assertEquals(1, analysisCtx.getAnalyzer().getAccessEvents().size());
+        Assertions.assertEquals(1, analysisCtx.getAnalyzer().getAccessEvents().size());
       }
     }
   }
@@ -417,7 +417,7 @@ public class AuditingTest extends FrontendTestBase {
     // Test that triggering two identical audit events only emits one de-duplicated event
     Set<TAccessEvent> accessEvents = AnalyzeAccessEvents("select count(1), max(1) from" +
         " functional.alltypesagg a join functional.alltypesagg b on a.id = b.id");
-    Assert.assertEquals(accessEvents, Sets.newHashSet(
+    Assertions.assertEquals(accessEvents, Sets.newHashSet(
         new TAccessEvent("_impala_builtins", TCatalogObjectType.DATABASE, "VIEW_METADATA"),
         new TAccessEvent("functional.alltypesagg", TCatalogObjectType.TABLE, "SELECT")));
   }

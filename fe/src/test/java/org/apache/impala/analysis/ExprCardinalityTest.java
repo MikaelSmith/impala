@@ -17,8 +17,8 @@
 
 package org.apache.impala.analysis;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.Set;
 
@@ -31,9 +31,9 @@ import org.apache.impala.common.AnalysisSessionFixture;
 import org.apache.impala.common.ImpalaException;
 import org.apache.impala.common.QueryFixture.SelectFixture;
 import org.apache.impala.common.RuntimeEnv;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Sets;
 
@@ -78,12 +78,12 @@ import com.google.common.collect.Sets;
 public class ExprCardinalityTest {
   private static AnalysisSessionFixture session_ = new AnalysisSessionFixture();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() {
     RuntimeEnv.INSTANCE.setTestEnv(true);
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUp() {
     RuntimeEnv.INSTANCE.reset();
   }

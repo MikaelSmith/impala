@@ -50,16 +50,16 @@ import org.apache.impala.thrift.TPrincipalType;
 import org.apache.impala.thrift.TPrivilegeLevel;
 import org.apache.impala.thrift.TResetMetadataRequest;
 import org.apache.impala.thrift.TTableName;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CatalogOpUtilTest {
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() {
     // Make sure BackendConfig.INSTANCE is initialized.
     if (BackendConfig.INSTANCE == null) {

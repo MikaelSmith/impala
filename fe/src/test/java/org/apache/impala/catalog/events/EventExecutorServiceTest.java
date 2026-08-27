@@ -16,11 +16,11 @@
 // under the License.
 package org.apache.impala.catalog.events;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,12 +55,12 @@ import org.apache.impala.service.CatalogOpExecutor;
 import org.apache.impala.testutil.CatalogServiceTestCatalog;
 import org.apache.impala.testutil.TestUtils;
 import org.apache.thrift.TException;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class EventExecutorServiceTest {
   private static final String DB_NAME1 = "event_executor_service_test_db1";
@@ -74,7 +74,7 @@ public class EventExecutorServiceTest {
   private static boolean prev_hierarchical_event_processing_;
   private static int prev_min_event_processor_idle_ms;
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass() throws Exception {
     catalog_ = CatalogServiceTestCatalog.create();
     catalogOpExecutor_ = catalog_.getCatalogOpExecutor();
@@ -97,7 +97,7 @@ public class EventExecutorServiceTest {
     catalog_.setMetastoreEventProcessor(eventsProcessor_);
   }
 
-  @AfterClass
+  @AfterAll
   public static void cleanUpClass() throws Exception {
     eventsProcessor_.setEventExecutorService(eventExecutorService_);
     dropDatabase(DB_NAME1);
@@ -110,7 +110,7 @@ public class EventExecutorServiceTest {
         prev_min_event_processor_idle_ms;
   }
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     // Ensure default EventExecutorService created within eventsProcessor_ is restored
     // before running new test
@@ -123,7 +123,7 @@ public class EventExecutorServiceTest {
         eventsProcessor_.getStatus());
   }
 
-  @After
+  @AfterEach
   public void cleanUp() {
     assertEquals(MetastoreEventsProcessor.EventProcessorStatus.ACTIVE,
         eventsProcessor_.getStatus());
@@ -645,7 +645,7 @@ public class EventExecutorServiceTest {
    */
   @Test
   public void testCommitTxn() throws Exception {
-    Assume.assumeFalse("Skipping this since COMMIT_TXN events are ignored on Apache " +
+    Assumptions.assumeFalse("Skipping this since COMMIT_TXN events are ignored on Apache " +
             "Hive 2/3. So the validWriteIds list is not updated correctly.",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     EventExecutorService eventExecutorService = createEventExecutorService(2, 2);
@@ -659,7 +659,7 @@ public class EventExecutorServiceTest {
    */
   @Test
   public void testAbortTxn() throws Exception {
-    Assume.assumeFalse("Skipping this since COMMIT_TXN events are ignored on Apache " +
+    Assumptions.assumeFalse("Skipping this since COMMIT_TXN events are ignored on Apache " +
             "Hive 2/3. So the validWriteIds list is not updated correctly.",
         TestUtils.isApacheHiveVersion() && TestUtils.getHiveMajorVersion() <= 3);
     EventExecutorService eventExecutorService = createEventExecutorService(2, 2);

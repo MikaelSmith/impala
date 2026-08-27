@@ -17,7 +17,7 @@
 
 package org.apache.impala.planner;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -49,9 +49,9 @@ import org.apache.impala.thrift.TKuduReplicaSelection;
 import org.apache.impala.thrift.TQueryCtx;
 import org.apache.impala.thrift.TQueryOptions;
 import org.apache.impala.thrift.TRuntimeFilterMode;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
@@ -62,7 +62,7 @@ import com.google.common.collect.Maps;
 // All planner tests, except for S3 specific tests should go here.
 public class PlannerTest extends PlannerTestBase {
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     PlannerTestBase.setUp();
     // Rebalance the HBase tables. This is necessary because some tests rely on HBase
@@ -850,13 +850,13 @@ public class PlannerTest extends PlannerTestBase {
       PlanCtx planCtx = new PlanCtx(queryCtx);
       request = frontend_.createExecRequest(planCtx);
     } catch (ImpalaException e) {
-      Assert.fail("Failed to create exec request for '" + stmt + "': " + e.getMessage());
+      Assertions.fail("Failed to create exec request for '" + stmt + "': " + e.getMessage());
     }
     Preconditions.checkNotNull(request);
     int actualMtDop = -1;
     if (request.query_options.isSetMt_dop()) actualMtDop = request.query_options.mt_dop;
     // Check that the effective MT_DOP is as expected.
-    Assert.assertEquals(actualMtDop, expectedMtDop);
+    Assertions.assertEquals(actualMtDop, expectedMtDop);
   }
 
   @Test
@@ -903,12 +903,12 @@ public class PlannerTest extends PlannerTestBase {
     int rowSizeTwoFieldsFromInlineView = getRowSize(
         queryTwoFieldsFromInlineView, queryOpts);
 
-    Assert.assertEquals(rowSizeWholeStruct, rowSizeWholeStructFromInlineView);
-    Assert.assertEquals(rowSizeOneField, rowSizeOneFieldFromInlineView);
-    Assert.assertEquals(rowSizeTwoFields, rowSizeTwoFieldsFromInlineView);
+    Assertions.assertEquals(rowSizeWholeStruct, rowSizeWholeStructFromInlineView);
+    Assertions.assertEquals(rowSizeOneField, rowSizeOneFieldFromInlineView);
+    Assertions.assertEquals(rowSizeTwoFields, rowSizeTwoFieldsFromInlineView);
 
-    Assert.assertTrue(rowSizeOneField < rowSizeTwoFields);
-    Assert.assertTrue(rowSizeTwoFields < rowSizeWholeStruct);
+    Assertions.assertTrue(rowSizeOneField < rowSizeTwoFields);
+    Assertions.assertTrue(rowSizeTwoFields < rowSizeWholeStruct);
   }
 
   @Test
@@ -934,7 +934,7 @@ public class PlannerTest extends PlannerTestBase {
     for (List<String> permutation : permutations) {
       String query = String.format(queryTemplate, String.join(", ", permutation));
       int rowSize = getRowSize(query, queryOpts);
-      Assert.assertEquals(rowSizeWithoutFields, rowSize);
+      Assertions.assertEquals(rowSizeWithoutFields, rowSize);
     }
   }
 
@@ -964,7 +964,7 @@ public class PlannerTest extends PlannerTestBase {
     for (List<String> permutation : permutations) {
       String query = String.format(queryTemplate, String.join(", ", permutation));
       int rowSize = getRowSize(query, queryOpts);
-      Assert.assertEquals(rowSizeWithoutFields, rowSize);
+      Assertions.assertEquals(rowSizeWithoutFields, rowSize);
     }
   }
 
@@ -1140,7 +1140,7 @@ public class PlannerTest extends PlannerTestBase {
     queryCtx.client_request.query_options.setDisable_unsafe_spills(true);
     planCtx = new PlanCtx(queryCtx);
     requestWithDisableSpillOn = frontend_.createExecRequest(planCtx);
-    Assert.assertNotNull(requestWithDisableSpillOn);
+    Assertions.assertNotNull(requestWithDisableSpillOn);
   }
 
   @Test
@@ -1691,7 +1691,7 @@ public class PlannerTest extends PlannerTestBase {
     inp.put(Lists.newArrayList(1, 2), 2L);
     inp.put(Lists.newArrayList(4), 3L);
     inp.put(Lists.newArrayList(1), 3L);
-    Assert.assertEquals(
+    Assertions.assertEquals(
         Lists.newArrayList(
             Lists.newArrayList(1),
             Lists.newArrayList(4),
@@ -1750,6 +1750,6 @@ public class PlannerTest extends PlannerTestBase {
         return Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers);
     }).count();
 
-    Assert.assertEquals(expectedMethodNumber, publicMethods);
+    Assertions.assertEquals(expectedMethodNumber, publicMethods);
   }
 }

@@ -26,9 +26,9 @@ import org.apache.impala.thrift.TQueryOptions;
 import org.apache.impala.thrift.TReplicaPreference;
 import org.apache.impala.thrift.TSlotCountStrategy;
 import org.apache.impala.util.RequestPoolService;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -136,7 +136,7 @@ public class TpcdsCtePlannerTest extends PlannerTestBase {
     poolService.start();
   }
 
-  @BeforeClass
+  @BeforeAll
   public static void setUp() throws Exception {
     // Mimic the 10 node test mini-cluster with admission control enabled.
     setupAdmissionControl();
@@ -160,7 +160,7 @@ public class TpcdsCtePlannerTest extends PlannerTestBase {
     invalidateTables();
   }
 
-  @AfterClass
+  @AfterAll
   public static void unsetMetadataScaleAndStopPoolService() {
     RuntimeEnv.INSTANCE.dropSideloadStats();
     RuntimeEnv.INSTANCE.dropTableScanRangeLimit();

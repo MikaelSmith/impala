@@ -16,11 +16,11 @@
 // under the License.
 package org.apache.impala.util;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.base.Preconditions;
 
@@ -32,8 +32,8 @@ import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.impala.catalog.CatalogException;
 import org.apache.impala.compat.MetastoreShim;
 import org.hamcrest.Matchers;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +47,7 @@ public class AcidUtilsTest {
   private static final Path BASE_PATH = new Path("file:///foo/bar/");
 
   public AcidUtilsTest() {
-    Assume.assumeTrue("Tests require Hive 3 to parse and use WriteIdList",
+    Assumptions.assumeTrue("Tests require Hive 3 to parse and use WriteIdList",
         MetastoreShim.getMajorVersion() == 3);
   }
 

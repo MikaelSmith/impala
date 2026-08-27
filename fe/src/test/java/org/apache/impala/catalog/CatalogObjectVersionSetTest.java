@@ -17,13 +17,13 @@
 
 package org.apache.impala.catalog;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Perform various operations on CatalogObjectVersionSet while applying the

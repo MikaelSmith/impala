@@ -41,8 +41,8 @@ import org.apache.impala.thrift.TExplainLevel;
 import org.apache.impala.thrift.TQueryCtx;
 import org.apache.impala.thrift.TQueryOptions;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -119,16 +119,16 @@ public class ExplainTest extends FrontendTestBase {
         Lists.newArrayList(Splitter.on('\n').omitEmptyStrings().trimResults().split(
             hdfsScanNode.getNodeExplainString("", "", TExplainLevel.STANDARD)));
 
-    Assert.assertEquals(
+    Assertions.assertEquals(
         "Scan node explain string not of expected size", 4, explainString.size());
-    Assert.assertTrue("Scan node explain string does not contain correct base table "
+    Assertions.assertTrue("Scan node explain string does not contain correct base table "
             + "scheme",
         explainString.get(0).contains("SCAN HDFS"));
-    Assert.assertTrue("Scan node explain string does not correct ADLS metadata",
+    Assertions.assertTrue("Scan node explain string does not correct ADLS metadata",
         explainString.get(1).contains("ADLS partitions=6/10 files=6 size=6B"));
-    Assert.assertTrue("Scan node explain string does not correct HDFS metadata",
+    Assertions.assertTrue("Scan node explain string does not correct HDFS metadata",
         explainString.get(2).contains("HDFS partitions=2/10 files=2 size=2B"));
-    Assert.assertTrue("Scan node explain string does not correct S3 metadata",
+    Assertions.assertTrue("Scan node explain string does not correct S3 metadata",
         explainString.get(3).contains("S3 partitions=2/10 files=2 size=2B"));
   }
 
