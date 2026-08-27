@@ -63,6 +63,9 @@ public class MigrateStmt extends DmlStatementBase {
     String kuduTableName = table_.getParameter(FeTable.STREAMING_KUDU);
 
     FeKuduTable kuduTbl = KuduUtil.getKuduTable(analyzer, db, kuduTableName);
+    FeKuduTable delsTbl = KuduUtil.getKuduTable(analyzer, db, delsTableName);
+    boolean hasDeletePredicateCol =
+      delsTbl.getColumn(FeTable.STREAMING_DELS_PREDICATE) != null;
     String kuduMasters = kuduTbl.getKuduMasterHosts();
     List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames();
     Preconditions.checkState(!primaryKeys.isEmpty(), "Kudu table %s has no primary keys",
@@ -100,6 +103,14 @@ public class MigrateStmt extends DmlStatementBase {
       // If migration timestamp is available, use it to construct the MERGE statement to
       // capture changes since last migration. Otherwise, fallback to a full table scan.
       if (startMigrationTs > 0) {
+          List<String> logicalDeletePredicates = hasDeletePredicateCol ?
+            KuduUtil.getStreamingDeletePredicates(kuduMasters, hybridMerge_.getDels_table(),
+              startMigrationTs, endMigrationTs) :
+            List.of();
+          String logicalDeletePredicate = logicalDeletePredicates.stream()
+            .map(predicate -> "(" + predicate + ")").collect(Collectors.joining(" or "));
+          String rowIdDeleteFilter = hasDeletePredicateCol ?
+            "where dels.`%s` is null".formatted(FeTable.STREAMING_DELS_PREDICATE) : "";
         if (kuduTbl.isPrimaryKeyUnique()) {
           // Unique PK: full outer join the Kudu DiffScan with an inline view that is
           // the inner join of Iceberg and dels (on _row_id). COALESCE prefers the Kudu
@@ -114,6 +125,16 @@ public class MigrateStmt extends DmlStatementBase {
               KuduUtil.buildJoinCondition(quotedPrimaryKeys, "diff", "dels_ice");
           String updateStmt = updateList.isEmpty() ? "" :
               "when matched and not src.is_delete then update set %s".formatted(updateList);
+          String logicalDeleteSource = logicalDeletePredicates.isEmpty() ? "" : """
+                union all
+                select %1$s, true as is_delete
+                from (select * from %2$s where %7$s) as ice
+                left anti join %3$s for system_time from %4$s as of %5$s as diff_excl
+                  on %6$s
+              """.formatted(icePrefixedColumnList, icebergTable, kuduTbl.getFullName(),
+                  startMigrationTs, endMigrationTs,
+                  KuduUtil.buildJoinCondition(quotedPrimaryKeys, "ice", "diff_excl"),
+                  logicalDeletePredicate);
           return """
               merge into %1$s as tgt using (
                 select %2$s, coalesce(diff.is_deleted, true) as is_delete
@@ -122,25 +143,35 @@ public class MigrateStmt extends DmlStatementBase {
                   select %6$s from %1$s as ice
                   join %7$s for system_time from %4$s as of %5$s as dels
                     using(_row_id)
+                  %13$s
                 ) dels_ice on %8$s
+                %14$s
               ) as src on %9$s
               when matched and src.is_delete then delete
               %10$s
               when not matched and not src.is_delete then insert (%11$s) values (%12$s);
               """.formatted(icebergTable, coalesceSelectList, kuduTbl.getFullName(),
                   startMigrationTs, endMigrationTs, icePrefixedColumnList, delsTable,
-                  kuduDelsPkJoinCond, pkJoinCondition, updateStmt, columnList, valuesList);
+                  kuduDelsPkJoinCond, pkJoinCondition, updateStmt, columnList, valuesList,
+                  rowIdDeleteFilter, logicalDeleteSource);
         } else {
           // Non-unique PK: join dels with the Iceberg snapshot to get rows to delete;
           // insert new Kudu rows via UNION ALL. No subqueries.
           String icePrefixedColumnList = columnNames.stream()
               .map(col -> "ice." + col).collect(Collectors.joining(", "));
+          String logicalDeleteSource = logicalDeletePredicates.isEmpty() ? "" : """
+                union all
+                select %1$s, ice._row_id as row_id, true as is_delete
+                from (select *, _row_id from %2$s where %3$s) as ice
+              """.formatted(icePrefixedColumnList, icebergTable, logicalDeletePredicate);
           return """
               merge into %1$s as tgt using (
                 select %2$s, ice._row_id as row_id, true as is_delete
                 from %1$s as ice
                 join %3$s for system_time from %4$s as of %5$s as dels
                   using(_row_id)
+                %9$s
+                %10$s
                 union all
                 select %6$s, cast(null as bigint) as row_id, false as is_delete
                 from %7$s for system_time from %4$s as of %5$s where not is_deleted
@@ -148,7 +179,8 @@ public class MigrateStmt extends DmlStatementBase {
               when matched and src.is_delete then delete
               when not matched and not src.is_delete then insert (%6$s) values (%8$s);
               """.formatted(icebergTable, icePrefixedColumnList, delsTable,
-                  startMigrationTs, endMigrationTs, columnList, kuduTbl.getFullName(), valuesList);
+                  startMigrationTs, endMigrationTs, columnList, kuduTbl.getFullName(),
+                  valuesList, rowIdDeleteFilter, logicalDeleteSource);
         }
       } else {
         if (kuduTbl.isPrimaryKeyUnique()) {

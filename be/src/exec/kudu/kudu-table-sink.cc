@@ -323,6 +323,34 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
           j : kudu_table_sink_.referenced_columns[j];
 
       void* value = output_expr_evals_[j]->GetValue(current_row);
+        if (kudu_table_sink_.__isset.delete_predicate_expr_idx
+          && j == kudu_table_sink_.delete_predicate_expr_idx) {
+        if (value == nullptr) continue;
+        DCHECK(delete_table_desc_ != nullptr)
+          << "Delete table must be specified for logical delete predicates.";
+        DCHECK(kudu_table_sink_.__isset.delete_row_id_col
+          && kudu_table_sink_.delete_row_id_col >= 0)
+          << "Delete table _row_id column must be specified for logical deletes.";
+        DCHECK(kudu_table_sink_.__isset.delete_predicate_col
+          && kudu_table_sink_.delete_predicate_col >= 0)
+          << "Delete table predicate column must be specified for logical deletes.";
+        unique_ptr<kudu::client::KuduWriteOperation> del(delete_table_->NewInsert());
+        int64_t row_id = -1;
+        Status s = WriteKuduValue(kudu_table_sink_.delete_row_id_col,
+          ColumnType(TYPE_BIGINT), &row_id, true, del->mutable_row());
+        DCHECK(s.ok()) << "WriteKuduValue (logical del _row_id) failed: "
+                 << s.GetDetail();
+        RETURN_IF_ERROR(s);
+        const ColumnType& type = output_expr_evals_[j]->root().type();
+        s = WriteKuduValue(kudu_table_sink_.delete_predicate_col, type, value, true,
+          del->mutable_row());
+        DCHECK(s.ok()) << "WriteKuduValue (logical del predicate) failed: "
+                 << s.GetDetail();
+        RETURN_IF_ERROR(s);
+        write_ops.push_back(move(del));
+        add_row = false;
+        break;
+        }
       if (value == nullptr) {
         DCHECK_GE(col, 0) << "Unexpected null for synthetic row-source indicator column.";
         if (kudu_column_nullabilities_[col]) {

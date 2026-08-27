@@ -71,6 +71,9 @@ public interface FeTable {
   public static final String STREAMING_ICEBERG = "impala.streaming.iceberg";
   public static final String STREAMING_PIT = "impala.streaming.pit";
   public static final String STREAMING_DELS = "impala.streaming.dels";
+  public static final String STREAMING_DELS_ROW_ID = "_row_id";
+  public static final String STREAMING_DELS_PREDICATE = "_delete_predicate";
+  public static final long STREAMING_DELS_PREDICATE_ROW_ID = Long.MAX_VALUE;
 
   /** @see CatalogObject#isLoaded() */
   boolean isLoaded();
