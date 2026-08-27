@@ -25,6 +25,8 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -633,6 +635,41 @@ public class KuduUtil {
           + " columns=" + SNAPSHOT_ID + ", " + MIGRATION_TS + " key=" + migrationId, e);
     }
     return new Pair<>(-1L, -1L);
+  }
+
+    public static List<String> getStreamingDeletePredicates(String kuduMasters,
+      String tableName, long startTimestamp, long endTimestamp)
+      throws TableLoadingException {
+    KuduClient client = getKuduClient(kuduMasters);
+    String autoIncrementingCol = Schema.getAutoIncrementingColumnName();
+    List<Pair<Long, String>> predicates = new ArrayList<>();
+    try {
+      KuduTable table = client.openTable(tableName);
+      KuduScannerBuilder scannerBuilder = client.newScannerBuilder(table);
+        scannerBuilder.diffScan(
+          toHybridClockTimestamp(startTimestamp), toHybridClockTimestamp(endTimestamp));
+      scannerBuilder.setProjectedColumnNames(
+          List.of(autoIncrementingCol, FeTable.STREAMING_DELS_PREDICATE));
+      KuduPredicate predicate = KuduPredicate.newIsNotNullPredicate(
+          table.getSchema().getColumn(FeTable.STREAMING_DELS_PREDICATE));
+      scannerBuilder.addPredicate(predicate);
+      KuduScanner scanner = scannerBuilder.build();
+      while (scanner.hasMoreRows()) {
+        RowResultIterator results = scanner.nextRows();
+        while (results.hasNext()) {
+          RowResult row = results.next();
+          predicates.add(new Pair<>(row.getLong(autoIncrementingCol),
+              row.getString(FeTable.STREAMING_DELS_PREDICATE)));
+        }
+      }
+    } catch (KuduException e) {
+        throw new TableLoadingException(String.format(
+          "Failed to load logical streaming delete predicates from table %s " +
+            "between timestamps %d and %d",
+          tableName, startTimestamp, endTimestamp), e);
+    }
+    predicates.sort(Comparator.comparingLong(p -> p.first));
+    return predicates.stream().map(p -> p.second).collect(Collectors.toList());
   }
 
   public static void kuduPITStartMigration(String kuduMasters, String tableName,

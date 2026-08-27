@@ -1110,6 +1110,10 @@ enum TImpalaQueryOptions {
   // both Kudu and Iceberg portions of a streaming table. Only allowed with unique
   // primary key tables.
   DIRECT_KUDU_UPDATE = 206
+
+  // Minimum estimated Iceberg rows affected by a streaming DELETE before Impala stores
+  // the DELETE predicate as a logical delete marker in the streaming _dels table.
+  STREAMING_PREDICATE_DELETE_THRESHOLD = 207
 }
 
 // The summary of a DML statement.

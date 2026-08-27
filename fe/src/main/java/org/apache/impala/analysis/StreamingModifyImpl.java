@@ -61,6 +61,8 @@ abstract class StreamingModifyImpl extends ModifyImpl {
   protected List<Integer> referencedColumns_ = new ArrayList<>();
   // Column index of _row_id in the dels table (-1 when no dels table is used).
   protected int deleteRowIdColIdx_ = -1;
+  // Column index of _delete_predicate in the dels table (-1 when not used).
+  protected int deletePredicateColIdx_ = -1;
 
   // END: Members that are set in buildAndValidateSelectExprs().
   /////////////////////////////////////////
@@ -75,6 +77,11 @@ abstract class StreamingModifyImpl extends ModifyImpl {
     deleteTable_ = KuduUtil.getKuduTable(analyzer, baseTable_.getDb().getName(),
         baseTable_.getParameter(FeTable.STREAMING_DELS));
     deleteTableId_ = analyzer.getDescTbl().addTargetTable(deleteTable_);
+    Map<String, Integer> deleteTableColIndexMap = indexMap(
+      deleteTable_.getColumnsInHiveOrder());
+    deleteRowIdColIdx_ = deleteTableColIndexMap.get(FeTable.STREAMING_DELS_ROW_ID);
+    deletePredicateColIdx_ = deleteTableColIndexMap.getOrDefault(
+      FeTable.STREAMING_DELS_PREDICATE, -1);
     isKuduOnly_ = analyzer.getQueryOptions().direct_kudu_update;
   }
 
@@ -102,8 +109,6 @@ abstract class StreamingModifyImpl extends ModifyImpl {
     // Mapping from column name to index
     Map<String, Integer> colIndexMap = indexMap(
         modifyStmt_.table_.getColumnsInHiveOrder());
-    Map<String, Integer> deleteTableColIndexMap = indexMap(
-        deleteTable_.getColumnsInHiveOrder());
 
     // The order of the referenced columns equals the order of the result expressions
     for (Column col : getKuduTable().getColumns()) {
@@ -114,8 +119,6 @@ abstract class StreamingModifyImpl extends ModifyImpl {
       resultExprs_.add(ref);
       referencedColumns_.add(colIndexMap.get(kcol.getName()));
     }
-    // dels stores only _row_id for all streaming tables; record its column index.
-    deleteRowIdColIdx_ = deleteTableColIndexMap.get("_row_id");
     keyColumnsOffset_ = selectList.size();
 
     buildAndValidateAssignmentExprs(analyzer, selectList, colIndexMap);
@@ -247,6 +250,8 @@ abstract class StreamingModifyImpl extends ModifyImpl {
   }
 
   protected FeKuduTable getKuduTable() { return (FeKuduTable)modifyStmt_.table_; }
+
+  protected FeTable getBaseTable() { return baseTable_; }
 
   @Override
   public void addCastsToAssignmentsInSourceStmt(Analyzer analyzer)

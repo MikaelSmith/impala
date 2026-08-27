@@ -143,6 +143,12 @@ struct TKuduTableSink {
 
   // Column index of _row_id in the dels table.
   6: optional i32 delete_row_id_col
+
+  // Column index of the logical delete predicate in the dels table.
+  7: optional i32 delete_predicate_col
+
+  // Output expression index that carries a logical delete predicate marker.
+  8: optional i32 delete_predicate_expr_idx
 }
 
 // Sink to create the build side of a JoinNode.

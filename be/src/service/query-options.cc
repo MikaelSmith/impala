@@ -1475,6 +1475,13 @@ Status impala::SetQueryOption(TImpalaQueryOptions::type option, const string& va
         query_options->__set_direct_kudu_update(IsTrue(value));
         break;
       }
+      case TImpalaQueryOptions::STREAMING_PREDICATE_DELETE_THRESHOLD: {
+        int64_t int64_t_val = 0;
+        RETURN_IF_ERROR(QueryOptionParser::Parse<int64_t>(
+            option, value, &int64_t_val));
+        query_options->__set_streaming_predicate_delete_threshold(int64_t_val);
+        break;
+      }
       default:
         string key = to_string(option);
         if (IsRemovedQueryOption(key)) {
