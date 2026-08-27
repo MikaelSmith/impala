@@ -27,10 +27,8 @@ import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.impala.analysis.TableRef.ZippingUnnestType;
-import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.FeTable;
-import org.apache.impala.catalog.KuduColumn;
 import org.apache.impala.catalog.TableLoadingException;
 import org.apache.impala.catalog.Type;
 import org.apache.impala.catalog.View;
@@ -128,6 +126,22 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
       long kuduMigrationTs = kuduPIT.second;
       String icebergPath = db + "." + params.get(FeTable.STREAMING_ICEBERG);
       String delsPath = db + "." + params.get(FeTable.STREAMING_DELS);
+      FeKuduTable delsTbl = KuduUtil.getKuduTable(
+          analyzer, db, params.get(FeTable.STREAMING_DELS));
+      String physicalDelsPath = KuduUtil.getKuduTableName(
+          db, params.get(FeTable.STREAMING_DELS), kuduTbl.getKuduMasterHosts());
+      boolean hasDeletePredicateCol =
+          delsTbl.getColumn(FeTable.STREAMING_DELS_PREDICATE) != null;
+      List<String> logicalDeletePredicates = new ArrayList<>();
+      if (hasDeletePredicateCol) {
+        try {
+          logicalDeletePredicates = KuduUtil.getStreamingDeletePredicates(
+              kuduTbl.getKuduMasterHosts(), physicalDelsPath, kuduMigrationTs,
+              analyzer.getQueryCtx().getStart_unix_millis() * 1_000);
+        } catch (TableLoadingException e) {
+          throw new AnalysisException(e);
+        }
+      }
 
       List<String> primaryKeys = kuduTbl.getExplicitPrimaryKeyColumnNames()
           .stream().map(col -> "`" + col + "`").collect(Collectors.toList());
@@ -148,16 +162,37 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
             ) kudu_excl on %s
             """.formatted(pkList, kuduTbl.getFullName(), kuduMigrationTs, pkJoinCond);
       }
+      String withClause = "";
+      String icebergSource = "%s for system_version as of %s %s".formatted(
+          icebergPath, icebergSnapshot, baseAlias);
+      if (!logicalDeletePredicates.isEmpty()) {
+        List<String> ctes = new ArrayList<>();
+        String input = "%s for system_version as of %s".formatted(
+            icebergPath, icebergSnapshot);
+        for (int i = 0; i < logicalDeletePredicates.size(); ++i) {
+          String cteName = "del" + (i + 1);
+          String cteSelectList = i == 0 ? "*, _row_id" : "*";
+          ctes.add("%s as (select %s from %s where not (%s))".formatted(
+              cteName, cteSelectList, input, logicalDeletePredicates.get(i)));
+          input = cteName;
+        }
+        withClause = "with " + String.join(",\n", ctes) + "\n";
+        icebergSource = "del%s %s".formatted(logicalDeletePredicates.size(), baseAlias);
+      }
+      String rowIdDeleteFilter = hasDeletePredicateCol ?
+          "where `%s` is null".formatted(FeTable.STREAMING_DELS_PREDICATE) : "";
       return """
-          select %1$s%2$s from %3$s for system_version as of %4$s %5$s
+          %11$sselect %1$s%2$s from %3$s
           left anti join (
             select `_row_id` from %6$s for system_time from %7$s as of now()
+            %12$s
           ) deleted using(_row_id)
           %8$s
           union all select %1$s%9$s from %10$s for system_time
             from %7$s as of now() where not is_deleted
-          """.formatted(selectList, iceAuto, icebergPath, icebergSnapshot, baseAlias,
-              delsPath, kuduMigrationTs, kuduAntiJoin, kuduAuto, kuduTbl.getFullName());
+          """.formatted(selectList, iceAuto, icebergSource, icebergSnapshot, baseAlias,
+              delsPath, kuduMigrationTs, kuduAntiJoin, kuduAuto, kuduTbl.getFullName(),
+              withClause, rowIdDeleteFilter);
     } else {
       // If no snapshot exists, then no data has been migrated to Iceberg; ignore it.
       return "select %1$s%4$s from %2$s %3$s".formatted(selectList, kuduTbl.getFullName(),

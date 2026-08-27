@@ -279,19 +279,24 @@ public class CreateStreamingTableStmt extends CreateTableStmt {
 
   /**
    * Builds the {@link CreateTableStmt} for the backing dels (deletes) Kudu table.
-   * The dels table stores only the Iceberg row position ({@code _row_id BIGINT}) so
-   * that deletes can be expressed purely by row position for both unique and non-unique
-   * primary key streaming tables.
+   * The dels table stores Iceberg row positions and optional logical delete predicates.
+   * Predicate rows use a reserved _row_id value and are distinguished by the implicit
+   * auto_incrementing_id column added by the non-unique Kudu primary key.
    */
   private CreateTableStmt buildDelsStmt(
       String db, String tblName, boolean ifNotExists, TQueryOptions queryOptions) {
     TableName delsTableName = new TableName(db, tblName);
     TableDef delsDef = new TableDef(delsTableName, false, ifNotExists);
 
-    ColumnDef rowIdCol = new ColumnDef("_row_id", new TypeDef(Type.BIGINT));
+    ColumnDef rowIdCol = new ColumnDef(
+        FeTable.STREAMING_DELS_ROW_ID, new TypeDef(Type.BIGINT));
     rowIdCol.setNullable(false);
     delsDef.getColumnDefs().add(rowIdCol);
-    delsDef.getPrimaryKeyColumnNames().add("_row_id");
+    ColumnDef predicateCol = new ColumnDef(
+        FeTable.STREAMING_DELS_PREDICATE, new TypeDef(Type.STRING));
+    predicateCol.setNullable(true);
+    delsDef.getColumnDefs().add(predicateCol);
+    delsDef.getPrimaryKeyColumnNames().add(FeTable.STREAMING_DELS_ROW_ID);
     delsDef.setPrimaryKeyUnique(false); // _dels always uses non-unique PKs
 
     Map<String, String> props = new HashMap<>();

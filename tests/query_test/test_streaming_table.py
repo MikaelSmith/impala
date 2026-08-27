@@ -58,6 +58,14 @@ class TestStreamingTable(ImpalaTestSuite):
     self.run_test_case('QueryTest/streaming-repeated-primary-key', vector,
                        use_db=unique_database)
 
+  def test_streaming_logical_delete(self, vector, unique_database):
+    self.run_test_case('QueryTest/streaming-logical-delete', vector,
+                       use_db=unique_database)
+
+  def test_streaming_logical_delete_non_unique(self, vector, unique_database):
+    self.run_test_case('QueryTest/streaming-logical-delete-non-unique', vector,
+                       use_db=unique_database)
+
   def _create_streaming_table(self, table_name):
     """Helper method to create a streaming table with the given name."""
     create_sql = f"""

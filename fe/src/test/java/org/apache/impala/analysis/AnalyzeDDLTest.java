@@ -40,6 +40,7 @@ import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.ColumnStats;
 import org.apache.impala.catalog.DataSource;
 import org.apache.impala.catalog.DataSourceTable;
+import org.apache.impala.catalog.FeTable;
 import org.apache.impala.catalog.HdfsTable;
 import org.apache.impala.catalog.PrimitiveType;
 import org.apache.impala.catalog.ScalarType;
@@ -3459,6 +3460,12 @@ public class AnalyzeDDLTest extends FrontendTestBase {
     // Basic streaming table.
     AnalyzesOk("create table new_streaming_table (i int primary key) " +
         "stored as streaming");
+    CreateStreamingTableStmt streamingStmt = (CreateStreamingTableStmt) AnalyzesOk(
+        "create table new_streaming_table (i int primary key) stored as streaming");
+    Assert.assertTrue(streamingStmt.getDelsStmt().getColumnDefs().stream()
+        .anyMatch(col -> col.getColName().equals(FeTable.STREAMING_DELS_ROW_ID)));
+    Assert.assertTrue(streamingStmt.getDelsStmt().getColumnDefs().stream()
+        .anyMatch(col -> col.getColName().equals(FeTable.STREAMING_DELS_PREDICATE)));
     AnalyzesOk("create table new_streaming_table (i int, j int, primary key (i)) " +
         "stored as streaming");
     AnalyzesOk("create table if not exists new_streaming_table (i int primary key) " +

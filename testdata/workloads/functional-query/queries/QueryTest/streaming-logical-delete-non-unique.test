@@ -1,0 +1,50 @@
+====
+---- QUERY
+create table test (i int, comm string, count bigint,
+    non unique primary key(i)) stored as streaming;
+====
+---- QUERY
+insert into test values (1, 'a', 10), (1, 'aa', 11),
+    (2, 'b', 60), (2, 'bb', 61), (3, 'c', 70);
+migrate test;
+insert into test values (1, 'new-a', 12), (1, 'new-aa', 13),
+    (4, 'd', 40), (4, 'dd', 41), (5, 'e', 80), (5, 'ee', 81);
+set streaming_predicate_delete_threshold=0;
+delete from test where count < 50;
+select count(*) from test_dels where _delete_predicate is not null;
+---- RESULTS
+1
+---- TYPES
+BIGINT
+====
+---- QUERY
+select i, comm, count from test_kudu order by i, comm, count;
+---- RESULTS
+5,'e',80
+5,'ee',81
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+select i, comm, count from test order by i, comm, count;
+---- RESULTS
+2,'b',60
+2,'bb',61
+3,'c',70
+5,'e',80
+5,'ee',81
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+migrate test;
+select i, comm, count from test order by i, comm, count;
+---- RESULTS
+2,'b',60
+2,'bb',61
+3,'c',70
+5,'e',80
+5,'ee',81
+---- TYPES
+INT, STRING, BIGINT
+====
