@@ -60,6 +60,10 @@ public class KuduTableSink extends TableSink {
   private final int deleteTableId_;
   // Column index of _row_id in the dels table (-1 when no dels table is used).
   private final int deleteRowIdColIdx_;
+  // Column index of _delete_predicate in the dels table (-1 when not used).
+  private final int deletePredicateColIdx_;
+  // Output expression index carrying a logical delete marker (-1 when not used).
+  private final int deletePredicateExprIdx_;
 
   // Indicate whether Kudu cluster supports IGNORE write operations or not.
   private boolean supportsIgnoreOperations_ = false;
@@ -80,6 +84,14 @@ public class KuduTableSink extends TableSink {
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int maxTableSinks,
       int deleteTableId, int deleteRowIdColIdx) {
+    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, maxTableSinks,
+        deleteTableId, deleteRowIdColIdx, -1, -1);
+  }
+
+  public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
+      List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int maxTableSinks,
+      int deleteTableId, int deleteRowIdColIdx, int deletePredicateColIdx,
+      int deletePredicateExprIdx) {
     super(targetTable, sinkOp, outputExprs);
     targetColIdxs_ = referencedColumns != null
         ? Lists.newArrayList(referencedColumns) : null;
@@ -88,8 +100,12 @@ public class KuduTableSink extends TableSink {
     maxKuduSinks_ = maxTableSinks;
     Preconditions.checkArgument(
         (deleteTableId > DescriptorTable.TABLE_SINK_ID) == (deleteRowIdColIdx >= 0));
+    Preconditions.checkArgument((deletePredicateColIdx >= 0) ==
+      (deletePredicateExprIdx >= 0));
     deleteTableId_ = deleteTableId;
     deleteRowIdColIdx_ = deleteRowIdColIdx;
+    deletePredicateColIdx_ = deletePredicateColIdx;
+    deletePredicateExprIdx_ = deletePredicateExprIdx;
 
     // Check if Kudu cluster supports IGNORE write operations.
     Preconditions.checkState(targetTable instanceof FeKuduTable);
@@ -179,6 +195,10 @@ public class KuduTableSink extends TableSink {
     if (deleteTableId_ > DescriptorTable.TABLE_SINK_ID) {
       tKuduSink.setDelete_table_id(deleteTableId_);
       tKuduSink.setDelete_row_id_col(deleteRowIdColIdx_);
+      if (deletePredicateColIdx_ >= 0) {
+        tKuduSink.setDelete_predicate_col(deletePredicateColIdx_);
+        tKuduSink.setDelete_predicate_expr_idx(deletePredicateExprIdx_);
+      }
     }
     tKuduSink.setIgnore_not_found_or_duplicate(supportsIgnoreOperations_);
     tTableSink.setKudu_table_sink(tKuduSink);
