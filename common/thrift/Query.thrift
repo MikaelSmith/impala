@@ -849,6 +849,9 @@ struct TQueryOptions {
 
   // See comment in ImpalaService.thrift
   211: optional bool direct_kudu_update = false
+
+  // See comment in ImpalaService.thrift
+  212: optional i64 streaming_predicate_delete_threshold = 10
 }
 
 // Impala currently has three types of sessions: Beeswax, HiveServer2 and external
