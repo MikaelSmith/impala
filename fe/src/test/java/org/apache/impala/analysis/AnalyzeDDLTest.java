@@ -3466,6 +3466,8 @@ public class AnalyzeDDLTest extends FrontendTestBase {
         .anyMatch(col -> col.getColName().equals(FeTable.STREAMING_DELS_ROW_ID)));
     Assert.assertTrue(streamingStmt.getDelsStmt().getColumnDefs().stream()
         .anyMatch(col -> col.getColName().equals(FeTable.STREAMING_DELS_PREDICATE)));
+    Assert.assertTrue(streamingStmt.getDelsStmt().getColumnDefs().stream()
+        .anyMatch(col -> col.getColName().equals(FeTable.STREAMING_DELS_ASSIGNMENTS)));
     AnalyzesOk("create table new_streaming_table (i int, j int, primary key (i)) " +
         "stored as streaming");
     AnalyzesOk("create table if not exists new_streaming_table (i int primary key) " +

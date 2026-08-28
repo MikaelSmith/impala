@@ -40,6 +40,8 @@ import org.apache.impala.analysis.Expr;
 import org.apache.impala.analysis.InsertStmt;
 import org.apache.impala.analysis.KuduPartitionExpr;
 import org.apache.impala.analysis.LiteralExpr;
+import org.apache.impala.analysis.SlotRef;
+import org.apache.impala.analysis.ToSqlOptions;
 import org.apache.impala.catalog.ArrayType;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.FeTable;
@@ -637,19 +639,100 @@ public class KuduUtil {
     return new Pair<>(-1L, -1L);
   }
 
-    public static List<String> getStreamingDeletePredicates(String kuduMasters,
-      String tableName, long startTimestamp, long endTimestamp)
+  public static class StreamingUpdateAssignment {
+    public final String columnName;
+    public final String exprSql;
+
+    public StreamingUpdateAssignment(String columnName, String exprSql) {
+      this.columnName = columnName;
+      this.exprSql = exprSql;
+    }
+  }
+
+  public static class StreamingLogicalOperation {
+    public final String predicateSql;
+    public final String assignmentExprs;
+
+    public StreamingLogicalOperation(String predicateSql, String assignmentExprs) {
+      this.predicateSql = predicateSql;
+      this.assignmentExprs = assignmentExprs;
+    }
+
+    public boolean isUpdate() { return assignmentExprs != null; }
+  }
+
+  public static String encodeStreamingUpdateAssignments(
+      List<Pair<SlotRef, Expr>> assignments, List<Expr> assignmentExprs) {
+    List<String> encoded = new ArrayList<>();
+    for (int i = 0; i < assignments.size(); ++i) {
+      String columnName = assignments.get(i).first.getResolvedPath().destColumn().getName();
+      encoded.add(escapeStreamingAssignmentPart(columnName) + "\t"
+          + escapeStreamingAssignmentPart(assignmentExprs.get(i).toSql(ToSqlOptions.FOR_HBO)));
+    }
+    return String.join("\n", encoded);
+  }
+
+  public static List<StreamingUpdateAssignment> decodeStreamingUpdateAssignments(
+      String assignmentExprs) throws TableLoadingException {
+    List<StreamingUpdateAssignment> assignments = new ArrayList<>();
+    if (assignmentExprs == null || assignmentExprs.isEmpty()) return assignments;
+    for (String assignment : assignmentExprs.split("\n", -1)) {
+      List<String> parts = splitEscapedStreamingAssignment(assignment);
+      if (parts.size() != 2) {
+        throw new TableLoadingException("Invalid streaming update assignment: "
+            + assignment);
+      }
+      assignments.add(new StreamingUpdateAssignment(parts.get(0), parts.get(1)));
+    }
+    return assignments;
+  }
+
+  private static String escapeStreamingAssignmentPart(String value) {
+    return value.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n");
+  }
+
+  private static List<String> splitEscapedStreamingAssignment(String value) {
+    List<String> parts = new ArrayList<>();
+    StringBuilder current = new StringBuilder();
+    boolean escaping = false;
+    for (int i = 0; i < value.length(); ++i) {
+      char c = value.charAt(i);
+      if (escaping) {
+        if (c == 't') current.append('\t');
+        else if (c == 'n') current.append('\n');
+        else current.append(c);
+        escaping = false;
+      } else if (c == '\\') {
+        escaping = true;
+      } else if (c == '\t') {
+        parts.add(current.toString());
+        current.setLength(0);
+      } else {
+        current.append(c);
+      }
+    }
+    if (escaping) current.append('\\');
+    parts.add(current.toString());
+    return parts;
+  }
+
+  public static List<StreamingLogicalOperation> getStreamingLogicalOperations(
+      String kuduMasters, String tableName, long startTimestamp, long endTimestamp)
       throws TableLoadingException {
     KuduClient client = getKuduClient(kuduMasters);
     String autoIncrementingCol = Schema.getAutoIncrementingColumnName();
-    List<Pair<Long, String>> predicates = new ArrayList<>();
+    List<Pair<Long, StreamingLogicalOperation>> operations = new ArrayList<>();
     try {
       KuduTable table = client.openTable(tableName);
+      boolean hasAssignmentsCol = table.getSchema().hasColumn(
+          FeTable.STREAMING_DELS_ASSIGNMENTS);
       KuduScannerBuilder scannerBuilder = client.newScannerBuilder(table);
-        scannerBuilder.diffScan(
+      scannerBuilder.diffScan(
           toHybridClockTimestamp(startTimestamp), toHybridClockTimestamp(endTimestamp));
-      scannerBuilder.setProjectedColumnNames(
-          List.of(autoIncrementingCol, FeTable.STREAMING_DELS_PREDICATE));
+      List<String> projectedColumns = new ArrayList<>(List.of(autoIncrementingCol,
+          FeTable.STREAMING_DELS_PREDICATE));
+      if (hasAssignmentsCol) projectedColumns.add(FeTable.STREAMING_DELS_ASSIGNMENTS);
+      scannerBuilder.setProjectedColumnNames(projectedColumns);
       KuduPredicate predicate = KuduPredicate.newIsNotNullPredicate(
           table.getSchema().getColumn(FeTable.STREAMING_DELS_PREDICATE));
       scannerBuilder.addPredicate(predicate);
@@ -658,18 +741,30 @@ public class KuduUtil {
         RowResultIterator results = scanner.nextRows();
         while (results.hasNext()) {
           RowResult row = results.next();
-          predicates.add(new Pair<>(row.getLong(autoIncrementingCol),
-              row.getString(FeTable.STREAMING_DELS_PREDICATE)));
+          String assignmentExprs = hasAssignmentsCol
+              && !row.isNull(FeTable.STREAMING_DELS_ASSIGNMENTS) ?
+              row.getString(FeTable.STREAMING_DELS_ASSIGNMENTS) : null;
+          operations.add(new Pair<>(row.getLong(autoIncrementingCol),
+              new StreamingLogicalOperation(
+                  row.getString(FeTable.STREAMING_DELS_PREDICATE), assignmentExprs)));
         }
       }
     } catch (KuduException e) {
-        throw new TableLoadingException(String.format(
-          "Failed to load logical streaming delete predicates from table %s " +
+      throw new TableLoadingException(String.format(
+          "Failed to load logical streaming operations from table %s " +
             "between timestamps %d and %d",
           tableName, startTimestamp, endTimestamp), e);
     }
-    predicates.sort(Comparator.comparingLong(p -> p.first));
-    return predicates.stream().map(p -> p.second).collect(Collectors.toList());
+    operations.sort(Comparator.comparingLong(p -> p.first));
+    return operations.stream().map(p -> p.second).collect(Collectors.toList());
+  }
+
+  public static List<String> getStreamingDeletePredicates(String kuduMasters,
+      String tableName, long startTimestamp, long endTimestamp)
+      throws TableLoadingException {
+    return getStreamingLogicalOperations(kuduMasters, tableName, startTimestamp,
+        endTimestamp).stream().filter(op -> !op.isUpdate()).map(op -> op.predicateSql)
+        .collect(Collectors.toList());
   }
 
   public static void kuduPITStartMigration(String kuduMasters, String tableName,

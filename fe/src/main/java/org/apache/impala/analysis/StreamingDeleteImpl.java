@@ -21,12 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.ObjectUtils;
-import org.apache.impala.authorization.Privilege;
 import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.FeTable;
 import org.apache.impala.catalog.KuduColumn;
-import org.apache.impala.catalog.Type;
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.planner.DataSink;
 import org.apache.impala.planner.KuduTableSink;
@@ -49,28 +47,6 @@ public class StreamingDeleteImpl extends StreamingModifyImpl {
     super.analyze(analyzer);
   }
 
-  private boolean canUseLogicalPredicateDelete(Analyzer analyzer) throws AnalysisException {
-    if (isKuduOnly_ || deletePredicateColIdx_ < 0) return false;
-    if (modifyStmt_.fromClause_.size() != 1) return false;
-    Expr predicate = modifyStmt_.wherePredicate_;
-    if (predicate == null) return false;
-    if (predicate.contains(Subquery.class) ||
-        predicate.contains(FunctionCallExpr.class)) {
-      return false;
-    }
-    if (getBaseTable().getPIT() == null || getBaseTable().getPIT().first <= 0) {
-      return false;
-    }
-    FeTable icebergTable = analyzer.getTable(new TableName(getBaseTable().getDb().getName(),
-        getBaseTable().getParameter(FeTable.STREAMING_ICEBERG)), Privilege.SELECT);
-    long numRows = icebergTable.getNumRows();
-    if (numRows <= 0) return false;
-    double selectivity = predicate == null ? 1.0 :
-        (predicate.hasSelectivity() ? predicate.getSelectivity() : 1.0);
-    return Math.ceil(numRows * selectivity) >
-        analyzer.getQueryOptions().getStreaming_predicate_delete_threshold();
-  }
-
   private int getKuduColumnIndex(String colName) {
     List<Column> columns = getKuduTable().getColumnsInHiveOrder();
     for (int i = 0; i < columns.size(); ++i) {
@@ -79,15 +55,11 @@ public class StreamingDeleteImpl extends StreamingModifyImpl {
     throw new IllegalStateException("Column not found in Kudu table: " + colName);
   }
 
-  private String sqlStringLiteral(String value) {
-    return new StringLiteral(value, Type.STRING, false).toSql(ToSqlOptions.DEFAULT);
-  }
-
   private String buildLogicalDeleteSourceSql() {
     FeTable baseTable = getBaseTable();
     long kuduMigrationTs = baseTable.getPIT().second;
     String sourceAlias = ObjectUtils.firstNonNull(
-        modifyStmt_.fromClause_.get(0).getExplicitAlias(), "base");
+      modifyStmt_.fromClause_.get(0).getExplicitAlias(), "base");
     String predicateSql = modifyStmt_.wherePredicate_ == null ?
       "true" : modifyStmt_.wherePredicate_.toSql(ToSqlOptions.FOR_HBO);
     String whereSql = modifyStmt_.wherePredicate_ == null ? "" : " where " + predicateSql;
@@ -106,7 +78,8 @@ public class StreamingDeleteImpl extends StreamingModifyImpl {
     }
     kuduDeleteItems.add("cast(null as string) as `%s`".formatted(
         FeTable.STREAMING_DELS_PREDICATE));
-    markerItems.add("%s as `%s`".formatted(sqlStringLiteral(predicateSql),
+    markerItems.add("%s as `%s`".formatted(
+        StreamingLogicalSourceHelper.sqlStringLiteral(predicateSql),
         FeTable.STREAMING_DELS_PREDICATE));
     referencedColumns_.add(-1);
     keyColumnsOffset_ = referencedColumns_.size();
@@ -130,7 +103,7 @@ public class StreamingDeleteImpl extends StreamingModifyImpl {
     }
 
     super.createSourceStmt(analyzer);
-    useLogicalPredicateDelete_ = canUseLogicalPredicateDelete(analyzer);
+    useLogicalPredicateDelete_ = canUseLogicalPredicateModify(analyzer);
     if (!useLogicalPredicateDelete_) return;
 
     StatementBase parsed = Parser.parse(

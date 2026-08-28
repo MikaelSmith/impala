@@ -315,17 +315,10 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
         ignore_conflicts_ ? NewWriteIgnoreOp() : NewWriteOp());
     bool add_row = true;
 
-    for (int j = 0; j < output_expr_evals_.size(); ++j) {
-      // output_expr_evals_ only contains the columns that the op
-      // applies to, i.e. columns explicitly mentioned in the query, and
-      // referenced_columns is then used to map to actual column positions.
-      int col = kudu_table_sink_.referenced_columns.empty() ?
-          j : kudu_table_sink_.referenced_columns[j];
-
-      void* value = output_expr_evals_[j]->GetValue(current_row);
-        if (kudu_table_sink_.__isset.delete_predicate_expr_idx
-          && j == kudu_table_sink_.delete_predicate_expr_idx) {
-        if (value == nullptr) continue;
+    if (kudu_table_sink_.__isset.delete_predicate_expr_idx) {
+      void* predicate_value = output_expr_evals_[
+          kudu_table_sink_.delete_predicate_expr_idx]->GetValue(current_row);
+      if (predicate_value != nullptr) {
         DCHECK(delete_table_desc_ != nullptr)
           << "Delete table must be specified for logical delete predicates.";
         DCHECK(kudu_table_sink_.__isset.delete_row_id_col
@@ -341,16 +334,35 @@ Status KuduTableSink::Send(RuntimeState* state, RowBatch* batch) {
         DCHECK(s.ok()) << "WriteKuduValue (logical del _row_id) failed: "
                  << s.GetDetail();
         RETURN_IF_ERROR(s);
-        const ColumnType& type = output_expr_evals_[j]->root().type();
-        s = WriteKuduValue(kudu_table_sink_.delete_predicate_col, type, value, true,
-          del->mutable_row());
+        const ColumnType& type = output_expr_evals_[
+            kudu_table_sink_.delete_predicate_expr_idx]->root().type();
+        s = WriteKuduValue(kudu_table_sink_.delete_predicate_col, type,
+            predicate_value, true, del->mutable_row());
         DCHECK(s.ok()) << "WriteKuduValue (logical del predicate) failed: "
                  << s.GetDetail();
         RETURN_IF_ERROR(s);
+        RETURN_IF_ERROR(WriteLogicalUpdateAssignments(current_row, del.get()));
         write_ops.push_back(move(del));
-        add_row = false;
-        break;
-        }
+        continue;
+      }
+    }
+
+    for (int j = 0; j < output_expr_evals_.size(); ++j) {
+      // output_expr_evals_ only contains the columns that the op
+      // applies to, i.e. columns explicitly mentioned in the query, and
+      // referenced_columns is then used to map to actual column positions.
+      int col = kudu_table_sink_.referenced_columns.empty() ?
+          j : kudu_table_sink_.referenced_columns[j];
+
+      void* value = output_expr_evals_[j]->GetValue(current_row);
+      if (kudu_table_sink_.__isset.delete_predicate_expr_idx
+          && j == kudu_table_sink_.delete_predicate_expr_idx) {
+        continue;
+      }
+      if (kudu_table_sink_.__isset.assignment_exprs_expr_idx
+          && j == kudu_table_sink_.assignment_exprs_expr_idx) {
+        continue;
+      }
       if (value == nullptr) {
         DCHECK_GE(col, 0) << "Unexpected null for synthetic row-source indicator column.";
         if (kudu_column_nullabilities_[col]) {
@@ -513,6 +525,32 @@ Status KuduTableSink::CheckForErrors(RuntimeState* state) {
 
   COUNTER_ADD(num_row_errors_, errors.size());
   return status;
+}
+
+Status KuduTableSink::WriteLogicalUpdateAssignments(TupleRow* current_row,
+    kudu::client::KuduWriteOperation* del) {
+  if (!kudu_table_sink_.__isset.assignment_exprs_expr_idx) {
+    return Status::OK();
+  }
+
+  void* assignment_value = output_expr_evals_[
+      kudu_table_sink_.assignment_exprs_expr_idx]->GetValue(current_row);
+  if (assignment_value == nullptr) {
+    return Status::OK();
+  }
+
+  DCHECK(kudu_table_sink_.__isset.assignment_exprs_col
+      && kudu_table_sink_.assignment_exprs_col >= 0)
+    << "Delete table assignment expressions column must be specified for "
+    << "logical updates.";
+
+  const ColumnType& assignment_type = output_expr_evals_[
+      kudu_table_sink_.assignment_exprs_expr_idx]->root().type();
+  Status s = WriteKuduValue(kudu_table_sink_.assignment_exprs_col,
+      assignment_type, assignment_value, true, del->mutable_row());
+  DCHECK(s.ok()) << "WriteKuduValue (logical update assignments) failed: "
+           << s.GetDetail();
+  return s;
 }
 
 Status KuduTableSink::FlushFinal(RuntimeState* state) {
