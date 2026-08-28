@@ -29,6 +29,7 @@
 namespace impala {
 
 class KuduTableDescriptor;
+class TupleRow;
 
 class KuduTableSinkConfig : public DataSinkConfig {
  public:
@@ -92,6 +93,13 @@ class KuduTableSink : public DataSink {
   //
   /// Returns a bad Status if there are non-ignorable errors.
   Status CheckForErrors(RuntimeState* state) WARN_UNUSED_RESULT;
+
+  /// Helper method to write assignment expressions for logical update operations
+  /// to the delete row. Only writes if assignment expressions are present and not null.
+  ///
+  /// Returns a bad Status if WriteKuduValue fails.
+  Status WriteLogicalUpdateAssignments(TupleRow* current_row,
+      kudu::client::KuduWriteOperation* del) WARN_UNUSED_RESULT;
 
   /// Used to get the KuduTableDescriptor from the RuntimeState
   TableId table_id_;

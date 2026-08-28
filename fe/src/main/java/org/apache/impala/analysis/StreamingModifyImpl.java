@@ -21,6 +21,7 @@ import org.apache.impala.catalog.Column;
 import org.apache.impala.catalog.FeKuduTable;
 import org.apache.impala.catalog.FeTable;
 import org.apache.impala.catalog.KuduColumn;
+import org.apache.impala.authorization.Privilege;
 import org.apache.impala.common.AnalysisException;
 import org.apache.impala.common.Pair;
 import org.apache.impala.util.ExprUtil;
@@ -63,6 +64,8 @@ abstract class StreamingModifyImpl extends ModifyImpl {
   protected int deleteRowIdColIdx_ = -1;
   // Column index of _delete_predicate in the dels table (-1 when not used).
   protected int deletePredicateColIdx_ = -1;
+  // Column index of _assignment_exprs in the dels table (-1 when not used).
+  protected int assignmentExprsColIdx_ = -1;
 
   // END: Members that are set in buildAndValidateSelectExprs().
   /////////////////////////////////////////
@@ -82,6 +85,8 @@ abstract class StreamingModifyImpl extends ModifyImpl {
     deleteRowIdColIdx_ = deleteTableColIndexMap.get(FeTable.STREAMING_DELS_ROW_ID);
     deletePredicateColIdx_ = deleteTableColIndexMap.getOrDefault(
       FeTable.STREAMING_DELS_PREDICATE, -1);
+    assignmentExprsColIdx_ = deleteTableColIndexMap.getOrDefault(
+      FeTable.STREAMING_DELS_ASSIGNMENTS, -1);
     isKuduOnly_ = analyzer.getQueryOptions().direct_kudu_update;
   }
 
@@ -252,6 +257,33 @@ abstract class StreamingModifyImpl extends ModifyImpl {
   protected FeKuduTable getKuduTable() { return (FeKuduTable)modifyStmt_.table_; }
 
   protected FeTable getBaseTable() { return baseTable_; }
+
+  protected boolean canUseLogicalPredicateModify(Analyzer analyzer)
+      throws AnalysisException {
+    if (isKuduOnly_ || deletePredicateColIdx_ < 0) return false;
+    if (modifyStmt_.fromClause_.size() != 1) return false;
+    Expr predicate = modifyStmt_.wherePredicate_;
+    if (predicate == null) return false;
+    if (predicate.contains(Subquery.class) || predicate.contains(FunctionCallExpr.class)) {
+      return false;
+    }
+    for (Pair<SlotRef, Expr> assignment : modifyStmt_.assignments_) {
+      if (assignment.second.contains(Subquery.class) ||
+          assignment.second.contains(FunctionCallExpr.class)) {
+        return false;
+      }
+    }
+    if (getBaseTable().getPIT() == null || getBaseTable().getPIT().first <= 0) {
+      return false;
+    }
+    FeTable icebergTable = analyzer.getTable(new TableName(getBaseTable().getDb().getName(),
+        getBaseTable().getParameter(FeTable.STREAMING_ICEBERG)), Privilege.SELECT);
+    long numRows = icebergTable.getNumRows();
+    if (numRows <= 0) return false;
+    double selectivity = predicate.hasSelectivity() ? predicate.getSelectivity() : 1.0;
+    return Math.ceil(numRows * selectivity) >
+        analyzer.getQueryOptions().getStreaming_predicate_delete_threshold();
+  }
 
   @Override
   public void addCastsToAssignmentsInSourceStmt(Analyzer analyzer)

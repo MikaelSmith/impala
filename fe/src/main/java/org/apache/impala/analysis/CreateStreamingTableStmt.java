@@ -296,6 +296,10 @@ public class CreateStreamingTableStmt extends CreateTableStmt {
         FeTable.STREAMING_DELS_PREDICATE, new TypeDef(Type.STRING));
     predicateCol.setNullable(true);
     delsDef.getColumnDefs().add(predicateCol);
+    ColumnDef assignmentsCol = new ColumnDef(
+      FeTable.STREAMING_DELS_ASSIGNMENTS, new TypeDef(Type.STRING));
+    assignmentsCol.setNullable(true);
+    delsDef.getColumnDefs().add(assignmentsCol);
     delsDef.getPrimaryKeyColumnNames().add(FeTable.STREAMING_DELS_ROW_ID);
     delsDef.setPrimaryKeyUnique(false); // _dels always uses non-unique PKs
 

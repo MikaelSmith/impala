@@ -1,0 +1,82 @@
+====
+---- QUERY
+create table test (i int primary key, comm string, count bigint) stored as streaming;
+====
+---- QUERY
+upsert into test values (1, 'a', 10), (2, 'b', 20),
+    (3, 'c', 30), (4, 'd', 40), (5, 'e', 50);
+migrate test;
+upsert into test values (6, 'f', 60), (7, 'g', 15);
+set streaming_predicate_delete_threshold=0;
+update test set comm='cc' where i=4;
+select count(*) from test_dels where _assignment_exprs is not null;
+---- RESULTS
+1
+---- TYPES
+BIGINT
+====
+---- QUERY
+select * from test order by i;
+---- RESULTS
+1,'a',10
+2,'b',20
+3,'c',30
+4,'cc',40
+5,'e',50
+6,'f',60
+7,'g',15
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+migrate test;
+select * from test order by i;
+---- RESULTS
+1,'a',10
+2,'b',20
+3,'c',30
+4,'cc',40
+5,'e',50
+6,'f',60
+7,'g',15
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+set streaming_predicate_delete_threshold=0;
+update test set comm='first' where i=4;
+update test set comm=null, count=count+1 where i=4;
+select count(*) from test_dels where _assignment_exprs is not null;
+---- RESULTS
+2
+---- TYPES
+BIGINT
+====
+---- QUERY
+select * from test where i=4;
+---- RESULTS
+4,'NULL',41
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+migrate test;
+select * from test order by i;
+---- RESULTS
+1,'a',10
+2,'b',20
+3,'c',30
+4,'NULL',41
+5,'e',50
+6,'f',60
+7,'g',15
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+select sleep(3000);
+select * from test_kudu;
+---- RESULTS:RETRY=10
+---- TYPES
+INT, STRING, BIGINT
+====

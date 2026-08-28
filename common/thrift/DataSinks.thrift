@@ -149,6 +149,12 @@ struct TKuduTableSink {
 
   // Output expression index that carries a logical delete predicate marker.
   8: optional i32 delete_predicate_expr_idx
+
+  // Column index of logical update assignment expressions in the dels table.
+  9: optional i32 assignment_exprs_col
+
+  // Output expression index that carries logical update assignment expressions.
+  10: optional i32 assignment_exprs_expr_idx
 }
 
 // Sink to create the build side of a JoinNode.

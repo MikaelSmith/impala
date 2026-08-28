@@ -54,6 +54,35 @@ select * from test order by i;
 INT, STRING, BIGINT
 ====
 ---- QUERY
+set streaming_predicate_delete_threshold=0;
+delete from test where i=6;
+delete from test where i=6;
+select count(*) from test_dels where _delete_predicate is not null;
+---- RESULTS
+2
+---- TYPES
+BIGINT
+====
+---- QUERY
+select * from test order by i;
+---- RESULTS
+2,'bb',22
+4,'d',40
+5,'e',50
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
+migrate test;
+select * from test order by i;
+---- RESULTS
+2,'bb',22
+4,'d',40
+5,'e',50
+---- TYPES
+INT, STRING, BIGINT
+====
+---- QUERY
 select sleep(3000);
 select * from test_kudu;
 ---- RESULTS:RETRY=10

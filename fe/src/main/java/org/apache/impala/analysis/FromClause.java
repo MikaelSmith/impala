@@ -132,10 +132,10 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
           db, params.get(FeTable.STREAMING_DELS), kuduTbl.getKuduMasterHosts());
       boolean hasDeletePredicateCol =
           delsTbl.getColumn(FeTable.STREAMING_DELS_PREDICATE) != null;
-      List<String> logicalDeletePredicates = new ArrayList<>();
+      List<KuduUtil.StreamingLogicalOperation> logicalOperations = new ArrayList<>();
       if (hasDeletePredicateCol) {
         try {
-          logicalDeletePredicates = KuduUtil.getStreamingDeletePredicates(
+          logicalOperations = KuduUtil.getStreamingLogicalOperations(
               kuduTbl.getKuduMasterHosts(), physicalDelsPath, kuduMigrationTs,
               analyzer.getQueryCtx().getStart_unix_millis() * 1_000);
         } catch (TableLoadingException e) {
@@ -165,19 +165,16 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
       String withClause = "";
       String icebergSource = "%s for system_version as of %s %s".formatted(
           icebergPath, icebergSnapshot, baseAlias);
-      if (!logicalDeletePredicates.isEmpty()) {
-        List<String> ctes = new ArrayList<>();
-        String input = "%s for system_version as of %s".formatted(
-            icebergPath, icebergSnapshot);
-        for (int i = 0; i < logicalDeletePredicates.size(); ++i) {
-          String cteName = "del" + (i + 1);
-          String cteSelectList = i == 0 ? "*, _row_id" : "*";
-          ctes.add("%s as (select %s from %s where not (%s))".formatted(
-              cteName, cteSelectList, input, logicalDeletePredicates.get(i)));
-          input = cteName;
-        }
-        withClause = "with " + String.join(",\n", ctes) + "\n";
-        icebergSource = "del%s %s".formatted(logicalDeletePredicates.size(), baseAlias);
+      if (!logicalOperations.isEmpty()) {
+        StreamingLogicalSourceHelper.LogicalStreamingSource logicalSource =
+            StreamingLogicalSourceHelper.buildLogicalStreamingSource(
+                baseTable.getColumnNames(),
+                "%s for system_version as of %s".formatted(
+                    icebergPath, icebergSnapshot),
+                logicalOperations,
+                StreamingLogicalSourceHelper.SourceFormat.WITH_CLAUSE);
+        withClause = logicalSource.withClause;
+        icebergSource = "%s %s".formatted(logicalSource.source, baseAlias);
       }
       String rowIdDeleteFilter = hasDeletePredicateCol ?
           "where `%s` is null".formatted(FeTable.STREAMING_DELS_PREDICATE) : "";
@@ -199,6 +196,8 @@ public class FromClause extends StmtNode implements Iterable<TableRef> {
           baseAlias, kuduAuto);
     }
   }
+
+
 
   @Override
   public void analyze(Analyzer analyzer) throws AnalysisException {
