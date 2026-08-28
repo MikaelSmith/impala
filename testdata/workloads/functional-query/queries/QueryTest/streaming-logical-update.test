@@ -8,8 +8,8 @@ upsert into test values (1, 'a', 10), (2, 'b', 20),
 migrate test;
 upsert into test values (6, 'f', 60), (7, 'g', 15);
 set streaming_predicate_delete_threshold=0;
-delete from test where count < 40;
-select count(*) from test_dels where _delete_predicate is not null;
+update test set comm='cc' where i=4;
+select count(*) from test_dels where _assignment_exprs is not null;
 ---- RESULTS
 1
 ---- TYPES
@@ -18,27 +18,13 @@ BIGINT
 ---- QUERY
 select * from test order by i;
 ---- RESULTS
-4,'d',40
+1,'a',10
+2,'b',20
+3,'c',30
+4,'cc',40
 5,'e',50
 6,'f',60
----- TYPES
-INT, STRING, BIGINT
-====
----- QUERY
-select * from test_kudu order by i;
----- RESULTS
-6,'f',60
----- TYPES
-INT, STRING, BIGINT
-====
----- QUERY
-upsert into test values (2, 'bb', 22);
-select * from test order by i;
----- RESULTS
-2,'bb',22
-4,'d',40
-5,'e',50
-6,'f',60
+7,'g',15
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -46,29 +32,30 @@ INT, STRING, BIGINT
 migrate test;
 select * from test order by i;
 ---- RESULTS
-2,'bb',22
-4,'d',40
+1,'a',10
+2,'b',20
+3,'c',30
+4,'cc',40
 5,'e',50
 6,'f',60
+7,'g',15
 ---- TYPES
 INT, STRING, BIGINT
 ====
 ---- QUERY
 set streaming_predicate_delete_threshold=0;
-delete from test where i=6;
-delete from test where i=6;
-select count(*) from test_dels where _delete_predicate is not null;
+update test set comm='first' where i=4;
+update test set comm=null, count=count+1 where i=4;
+select count(*) from test_dels where _assignment_exprs is not null;
 ---- RESULTS
 2
 ---- TYPES
 BIGINT
 ====
 ---- QUERY
-select * from test order by i;
+select * from test where i=4;
 ---- RESULTS
-2,'bb',22
-4,'d',40
-5,'e',50
+4,'NULL',41
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -76,9 +63,13 @@ INT, STRING, BIGINT
 migrate test;
 select * from test order by i;
 ---- RESULTS
-2,'bb',22
-4,'d',40
+1,'a',10
+2,'b',20
+3,'c',30
+4,'NULL',41
 5,'e',50
+6,'f',60
+7,'g',15
 ---- TYPES
 INT, STRING, BIGINT
 ====
