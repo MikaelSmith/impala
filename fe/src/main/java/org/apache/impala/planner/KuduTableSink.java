@@ -64,25 +64,38 @@ public class KuduTableSink extends TableSink {
   private final int deletePredicateColIdx_;
   // Output expression index carrying a logical delete marker (-1 when not used).
   private final int deletePredicateExprIdx_;
+  // Column index of _assignment_exprs in the dels table (-1 when not used).
+  private final int assignmentExprsColIdx_;
+  // Output expression index carrying assignment expressions (-1 when not used).
+  private final int assignmentExprsExprIdx_;
 
   // Indicate whether Kudu cluster supports IGNORE write operations or not.
   private boolean supportsIgnoreOperations_ = false;
 
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken) {
-    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, -1, -1, -1, -1);
+    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, -1, -1, -1, -1,
+        -1, -1);
   }
 
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int deleteTableId,
       int deleteRowIdColIdx) {
     this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, deleteTableId,
-        deleteRowIdColIdx, -1, -1);
+        deleteRowIdColIdx, -1, -1, -1, -1);
   }
 
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int deleteTableId,
       int deleteRowIdColIdx, int deletePredicateColIdx, int deletePredicateExprIdx) {
+    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, deleteTableId,
+        deleteRowIdColIdx, deletePredicateColIdx, deletePredicateExprIdx, -1, -1);
+  }
+
+  public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
+      List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int deleteTableId,
+      int deleteRowIdColIdx, int deletePredicateColIdx, int deletePredicateExprIdx,
+      int assignmentExprsColIdx, int assignmentExprsExprIdx) {
     super(targetTable, sinkOp, outputExprs);
     targetColIdxs_ = referencedColumns != null
         ? Lists.newArrayList(referencedColumns) : null;
@@ -91,11 +104,15 @@ public class KuduTableSink extends TableSink {
     Preconditions.checkArgument(
         (deleteTableId > DescriptorTable.TABLE_SINK_ID) == (deleteRowIdColIdx >= 0));
     Preconditions.checkArgument((deletePredicateColIdx >= 0) ==
-      (deletePredicateExprIdx >= 0));
+        (deletePredicateExprIdx >= 0));
+    Preconditions.checkArgument((assignmentExprsColIdx >= 0) ==
+        (assignmentExprsExprIdx >= 0));
     deleteTableId_ = deleteTableId;
     deleteRowIdColIdx_ = deleteRowIdColIdx;
     deletePredicateColIdx_ = deletePredicateColIdx;
     deletePredicateExprIdx_ = deletePredicateExprIdx;
+    assignmentExprsColIdx_ = assignmentExprsColIdx;
+    assignmentExprsExprIdx_ = assignmentExprsExprIdx;
 
     // Check if Kudu cluster supports IGNORE write operations.
     Preconditions.checkState(targetTable instanceof FeKuduTable);
@@ -157,6 +174,10 @@ public class KuduTableSink extends TableSink {
       if (deletePredicateColIdx_ >= 0) {
         tKuduSink.setDelete_predicate_col(deletePredicateColIdx_);
         tKuduSink.setDelete_predicate_expr_idx(deletePredicateExprIdx_);
+      }
+      if (assignmentExprsColIdx_ >= 0) {
+        tKuduSink.setAssignment_exprs_col(assignmentExprsColIdx_);
+        tKuduSink.setAssignment_exprs_expr_idx(assignmentExprsExprIdx_);
       }
     }
     tKuduSink.setIgnore_not_found_or_duplicate(supportsIgnoreOperations_);

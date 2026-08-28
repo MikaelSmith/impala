@@ -7,30 +7,25 @@ create table test (i int, comm string, count bigint,
 insert into test values (1, 'a', 10), (1, 'aa', 11),
     (2, 'b', 60), (2, 'bb', 61), (3, 'c', 70);
 migrate test;
-insert into test values (1, 'new-a', 12), (1, 'new-aa', 13),
-    (4, 'd', 40), (4, 'dd', 41), (5, 'e', 80), (5, 'ee', 81);
+insert into test values (4, 'd', 40), (4, 'dd', 41), (5, 'e', 80), (5, 'ee', 81);
 set streaming_predicate_delete_threshold=0;
-delete from test where count < 50;
-select count(*) from test_dels where _delete_predicate is not null;
+update test set comm='updated' where count=70;
+select count(*) from test_dels where _assignment_exprs is not null;
 ---- RESULTS
 1
 ---- TYPES
 BIGINT
 ====
 ---- QUERY
-select i, comm, count from test_kudu order by i, comm, count;
----- RESULTS
-5,'e',80
-5,'ee',81
----- TYPES
-INT, STRING, BIGINT
-====
----- QUERY
 select i, comm, count from test order by i, comm, count;
 ---- RESULTS
+1,'a',10
+1,'aa',11
 2,'b',60
 2,'bb',61
-3,'c',70
+3,'updated',70
+4,'d',40
+4,'dd',41
 5,'e',80
 5,'ee',81
 ---- TYPES
@@ -40,9 +35,13 @@ INT, STRING, BIGINT
 migrate test;
 select i, comm, count from test order by i, comm, count;
 ---- RESULTS
+1,'a',10
+1,'aa',11
 2,'b',60
 2,'bb',61
-3,'c',70
+3,'updated',70
+4,'d',40
+4,'dd',41
 5,'e',80
 5,'ee',81
 ---- TYPES
@@ -51,9 +50,9 @@ INT, STRING, BIGINT
 ---- QUERY
 insert into test values (6, 'f', 90), (6, 'ff', 91);
 set streaming_predicate_delete_threshold=0;
-delete from test where i=6;
-delete from test where i=6;
-select count(*) from test_dels where _delete_predicate is not null;
+update test set comm='first' where i=6;
+update test set comm=null, count=count+1 where i=6;
+select count(*) from test_dels where _assignment_exprs is not null;
 ---- RESULTS
 2
 ---- TYPES
@@ -62,6 +61,8 @@ BIGINT
 ---- QUERY
 select i, comm, count from test where i=6 order by comm, count;
 ---- RESULTS
+6,'NULL',91
+6,'NULL',92
 ---- TYPES
 INT, STRING, BIGINT
 ====
@@ -69,6 +70,8 @@ INT, STRING, BIGINT
 migrate test;
 select i, comm, count from test where i=6 order by comm, count;
 ---- RESULTS
+6,'NULL',91
+6,'NULL',92
 ---- TYPES
 INT, STRING, BIGINT
 ====
