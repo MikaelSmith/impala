@@ -844,7 +844,17 @@ public class KuduUtil {
               "Cannot find last migration in table " + hybridMerge.getPit_table());
         }
         long lastMigrationTs = lastRow.getLong(MIGRATION_TS);
+        LOG.info("Updating last migration timestamp to {} and snapshot id to {} for table {}",
+            Instant.ofEpochMilli(lastMigrationTs / 1_000), snapshotId, hybridMerge.getPit_table());
         updateLastMigration(session, table, lastMigrationTs, snapshotId);
+        // Wait a little for queries with the last migration timestamp to finish before
+        // triggering Kudu garbage collection.
+        try {
+          Thread.sleep(2000);
+        } catch (InterruptedException e) {
+          LOG.warn("Interrupted while waiting for queries to finish before triggering Kudu garbage collection");
+          Thread.currentThread().interrupt();
+        }
         // Set kudu.table.migration_timestamp to trigger Kudu garbage collection.
         String hybridTime = String.valueOf(toHybridClockTimestamp(lastMigrationTs));
         LOG.info("Setting {}={} (last propagated timestamp={}) for tables {} and {} to trigger garbage collection",
