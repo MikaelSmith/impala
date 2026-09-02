@@ -81,13 +81,13 @@ export USE_AVRO_CPP=${USE_AVRO_CPP:=false}
 # moving to a different build of the toolchain, e.g. when a version is bumped or a
 # compile option is changed. The build id can be found in the output of the toolchain
 # build jobs, it is constructed from the build number and toolchain git hash prefix.
-export IMPALA_TOOLCHAIN_BUILD_ID_AARCH64=198-ad21dea50d
-export IMPALA_TOOLCHAIN_BUILD_ID_X86_64=671-ad21dea50d
+export IMPALA_TOOLCHAIN_BUILD_ID_AARCH64=201-b349ab71a4
+export IMPALA_TOOLCHAIN_BUILD_ID_X86_64=674-b349ab71a4
 export IMPALA_TOOLCHAIN_REPO=\
 ${IMPALA_TOOLCHAIN_REPO:-https://github.com/cloudera/native-toolchain.git}
 export IMPALA_TOOLCHAIN_BRANCH=${IMPALA_TOOLCHAIN_BRANCH:-master}
 export IMPALA_TOOLCHAIN_COMMIT_HASH=\
-${IMPALA_TOOLCHAIN_COMMIT_HASH-ad21dea50dce925a11e6c4937e4a98012037eb54}
+${IMPALA_TOOLCHAIN_COMMIT_HASH-b349ab71a40cb6484e50f689977decaac759cf23}
 # Compare the build ref in build IDs by removing everything up-to-and-including the
 # first hyphen.
 if [ "${IMPALA_TOOLCHAIN_BUILD_ID_AARCH64#*-}" \
@@ -121,7 +121,7 @@ export IMPALA_BINUTILS_VERSION=2.44
 unset IMPALA_BINUTILS_URL
 export IMPALA_BOOST_VERSION=1.91.0-p1
 unset IMPALA_BOOST_URL
-export IMPALA_BREAKPAD_VERSION=e09741c609dcd5f5274d40182c5e2cc9a002d5ba-p4
+export IMPALA_BREAKPAD_VERSION=2c736308b5a4c7a8371fa3a3e434f551eddd17c9-p2
 unset IMPALA_BREAKPAD_URL
 export IMPALA_BZIP2_VERSION=1.0.8-p2
 unset IMPALA_BZIP2_URL
@@ -155,9 +155,9 @@ export IMPALA_LIBEV_VERSION=4.20-p1
 unset IMPALA_LIBEV_URL
 export IMPALA_LIBUNWIND_VERSION=1.7.2-p1
 unset IMPALA_LIBUNWIND_URL
-export IMPALA_LLVM_VERSION=19.1.1
+export IMPALA_LLVM_VERSION=22.1.8
 unset IMPALA_LLVM_URL
-export IMPALA_LLVM_ASAN_VERSION=19.1.1
+export IMPALA_LLVM_ASAN_VERSION=22.1.8
 unset IMPALA_LLVM_ASAN_URL
 export IMPALA_OPENTELEMETRY_CPP_VERSION=1.20.0-p1
 unset IMPALA_OPENTELEMTRY_CPP_URL
@@ -169,13 +169,13 @@ unset IMPALA_OPENTELEMTRY_CPP_URL
 # LLVM stores some files in subdirectories that are named after what
 # version it thinks it is. We might think it is 5.0.1-p1, based on a
 # patch we have applied, but LLVM thinks its version is 5.0.1.
-export IMPALA_LLVM_UBSAN_BASE_VERSION=19.1.1
+export IMPALA_LLVM_UBSAN_BASE_VERSION=22.1.8
 
 # Debug builds should use the release+asserts build to get additional coverage.
 # Don't use the LLVM debug build because the binaries are too large to distribute.
-export IMPALA_LLVM_DEBUG_VERSION=19.1.1-asserts
+export IMPALA_LLVM_DEBUG_VERSION=22.1.8-asserts
 unset IMPALA_LLVM_DEBUG_URL
-export IMPALA_LLVM_PGO_VERSION=19.1.1-pgo
+export IMPALA_LLVM_PGO_VERSION=22.1.8-pgo
 unset IMPALA_LLVM_PGO_URL
 export IMPALA_LZ4_VERSION=1.9.3
 unset IMPALA_LZ4_URL

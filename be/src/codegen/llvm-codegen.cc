@@ -1742,7 +1742,7 @@ Status LlvmCodeGen::LoadIntrinsics() {
   {
     llvm::Type* types[] = {ptr_type(), ptr_type(), i32_type()};
     llvm::Function* fn =
-        llvm::Intrinsic::getDeclaration(module_, llvm::Intrinsic::memcpy, types);
+        llvm::Intrinsic::getOrInsertDeclaration(module_, llvm::Intrinsic::memcpy, types);
     if (fn == NULL) {
       return Status("Could not find memcpy intrinsic.");
     }
@@ -1771,7 +1771,7 @@ Status LlvmCodeGen::LoadIntrinsics() {
 
   for (int i = 0; i < num_intrinsics; ++i) {
     llvm::Intrinsic::ID id = non_overloaded_intrinsics[i].id;
-    llvm::Function* fn = llvm::Intrinsic::getDeclaration(module_, id);
+    llvm::Function* fn = llvm::Intrinsic::getOrInsertDeclaration(module_, id);
     if (fn == NULL) {
       stringstream ss;
       ss << "Could not find " << non_overloaded_intrinsics[i].error << " intrinsic";
