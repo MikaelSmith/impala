@@ -521,8 +521,10 @@ Status LlvmCodeGen::Init(unique_ptr<llvm::Module> module) {
 
   void_type_ = llvm::Type::getVoidTy(context());
   ptr_type_ = llvm::PointerType::getUnqual(context());
-  true_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, true, true));
-  false_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, false, true));
+  // Must be unsigned: a signed 1-bit APInt only admits 0 and -1, and LLVM >= 20
+  // asserts that the value fits the requested width.
+  true_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, 1));
+  false_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, 0));
 
   symbol_emitter_ = SetupSymbolEmitter(execution_engine_.get());
   engine_cache_ = make_shared<CodeGenObjectCache>();

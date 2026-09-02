@@ -364,8 +364,8 @@ set(CLANG_IR_CXX_FLAGS "-emit-llvm" "-c" "-std=c++17" "-DIR_COMPILE" "-DHAVE_INT
 SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-deprecated-declarations")
 # -Wno-vla-cxx-extension: We use C99-style variable-length arrays in C++ code.
 SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-vla-cxx-extension")
-# Boost needs this to avoid warnings about converting enums to constexpr values.
-SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-enum-constexpr-conversion")
+SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-nontrivial-memcall")
+SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-unqualified-std-cast-call")
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
   set(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-march=armv8-a+crc"
