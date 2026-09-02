@@ -583,14 +583,16 @@ class LlvmCodeGen {
   llvm::PointerType* ptr_ptr_type() { return ptr_type_; }
 
   llvm::Constant* GetBoolConstant(bool val) { return val ? true_value_ : false_value_; }
+  // The explicit narrowing casts keep the value within the requested bit width; LLVM
+  // >= 20 asserts instead of implicitly truncating.
   llvm::Constant* GetI8Constant(uint64_t val) {
-    return llvm::ConstantInt::get(context(), llvm::APInt(8, val));
+    return llvm::ConstantInt::get(context(), llvm::APInt(8, static_cast<uint8_t>(val)));
   }
   llvm::Constant* GetI16Constant(uint64_t val) {
-    return llvm::ConstantInt::get(context(), llvm::APInt(16, val));
+    return llvm::ConstantInt::get(context(), llvm::APInt(16, static_cast<uint16_t>(val)));
   }
   llvm::Constant* GetI32Constant(uint64_t val) {
-    return llvm::ConstantInt::get(context(), llvm::APInt(32, val));
+    return llvm::ConstantInt::get(context(), llvm::APInt(32, static_cast<uint32_t>(val)));
   }
   llvm::Constant* GetI64Constant(uint64_t val) {
     return llvm::ConstantInt::get(context(), llvm::APInt(64, val));

@@ -40,7 +40,6 @@ add_library(CodeGen
   llvm-codegen-cache.cc
   llvm-codegen-object-cache.cc
   instruction-counter.cc
-  ${THIRDPARTY_LLVM_SRC_DIR}/SectionMemoryManager.cpp
   ${IR_O1_C_FILE}
   ${IR_O2_C_FILE}
   ${IR_Os_C_FILE}

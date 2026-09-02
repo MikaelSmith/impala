@@ -159,12 +159,8 @@ const map<int64_t, std::string> LlvmCodeGen::cpu_flag_mappings_{
 
 Status LlvmCodeGen::InitializeLlvm(const char* procname, bool load_backend) {
   DCHECK(!llvm_initialized_);
-  // Treat all functions as having the inline hint.
-  // AArch64 turns GlobalISel on whenever CodeGenOptLevel is None (debug builds), and its
-  // legalizer loops forever lowering the vector bitcasts that IR optimization leaves
-  // behind. Force SelectionDAG instead; -global-isel overrides the target's default.
-  std::array<const char*, 3> argv = {
-      {procname, "-inline-threshold=325", "-global-isel=false"}};
+  // Treat all functions as having the inline hint
+  std::array<const char*, 2> argv = { { procname, "-inline-threshold=325" } };
   CHECK(llvm::cl::ParseCommandLineOptions(argv.size(), argv.data()));
   llvm::remove_fatal_error_handler();
   llvm::install_fatal_error_handler(LlvmCodegenHandleError);
@@ -521,8 +517,10 @@ Status LlvmCodeGen::Init(unique_ptr<llvm::Module> module) {
 
   void_type_ = llvm::Type::getVoidTy(context());
   ptr_type_ = llvm::PointerType::getUnqual(context());
-  true_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, true, true));
-  false_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, false, true));
+  // Must be unsigned: a signed 1-bit APInt only admits 0 and -1, and LLVM >= 20
+  // asserts that the value fits the requested width.
+  true_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, 1));
+  false_value_ = llvm::ConstantInt::get(context(), llvm::APInt(1, 0));
 
   symbol_emitter_ = SetupSymbolEmitter(execution_engine_.get());
   engine_cache_ = make_shared<CodeGenObjectCache>();
@@ -1748,7 +1746,7 @@ Status LlvmCodeGen::LoadIntrinsics() {
   {
     llvm::Type* types[] = {ptr_type(), ptr_type(), i32_type()};
     llvm::Function* fn =
-        llvm::Intrinsic::getDeclaration(module_, llvm::Intrinsic::memcpy, types);
+        llvm::Intrinsic::getOrInsertDeclaration(module_, llvm::Intrinsic::memcpy, types);
     if (fn == NULL) {
       return Status("Could not find memcpy intrinsic.");
     }
@@ -1777,7 +1775,7 @@ Status LlvmCodeGen::LoadIntrinsics() {
 
   for (int i = 0; i < num_intrinsics; ++i) {
     llvm::Intrinsic::ID id = non_overloaded_intrinsics[i].id;
-    llvm::Function* fn = llvm::Intrinsic::getDeclaration(module_, id);
+    llvm::Function* fn = llvm::Intrinsic::getOrInsertDeclaration(module_, id);
     if (fn == NULL) {
       stringstream ss;
       ss << "Could not find " << non_overloaded_intrinsics[i].error << " intrinsic";

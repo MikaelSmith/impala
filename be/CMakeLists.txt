@@ -147,6 +147,7 @@ SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -Wno-return-type-c-linkage")
 SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -DCALLONCEHACK")
 SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -Wno-implicit-const-int-float-conversion")
 SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -Wno-unqualified-std-cast-call")
+SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -Wno-nontrivial-memcall")
 
 # Our Clang (unlike our GCC) defaults to producing position independent executables.
 # Hadoop's libhdfs.a is not compiled with -fPIC, so linking it into a PIE fails with
@@ -373,8 +374,8 @@ set(CLANG_IR_CXX_FLAGS "-emit-llvm" "-c" "-std=c++17" "-DIR_COMPILE" "-DHAVE_INT
 SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-deprecated-declarations")
 # -Wno-vla-cxx-extension: We use C99-style variable-length arrays in C++ code.
 SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-vla-cxx-extension")
-# Boost needs this to avoid warnings about converting enums to constexpr values.
-SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-enum-constexpr-conversion")
+SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-nontrivial-memcall")
+SET(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-Wno-unqualified-std-cast-call")
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
   set(CLANG_IR_CXX_FLAGS "${CLANG_IR_CXX_FLAGS}" "-march=armv8-a+crc"
@@ -408,7 +409,7 @@ set(CMAKE_C_FLAGS "-B $ENV{IMPALA_TOOLCHAIN_PACKAGES_HOME}/binutils-$ENV{IMPALA_
 
 # Flags to pass to LLVM's opt to further optimize cross-compiled IR.
 #  -inline: inline with low threshold to get rid of trivial accessor functions.
-# set(LLVM_OPT_IR_FLAGS "-inline" "-inlinehint-threshold=10" "-inline-threshold=10")
+set(LLVM_OPT_IR_FLAGS "-passes=inline" "-inlinehint-threshold=10" "-inline-threshold=10")
 
 # Additional compile flags that will hide symbols by default, e.g. for building
 # UDFs. We have both a concatenated string version and a list version for convenience,

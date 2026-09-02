@@ -55,6 +55,8 @@ void InstructionCounter::visit(const llvm::Module& M) {
 }
 
 void InstructionCounter::visit(const llvm::Function& F) {
+  // Declarations (e.g. intrinsics left behind by optimization) have no code to count.
+  if (F.isDeclaration()) return;
   IncrementCount(TOTAL_FUNCTIONS);
   visit(F.begin(), F.end());
 }

@@ -81,13 +81,13 @@ export USE_AVRO_CPP=${USE_AVRO_CPP:=false}
 # moving to a different build of the toolchain, e.g. when a version is bumped or a
 # compile option is changed. The build id can be found in the output of the toolchain
 # build jobs, it is constructed from the build number and toolchain git hash prefix.
-export IMPALA_TOOLCHAIN_BUILD_ID_AARCH64=220-c70c5eded2
-export IMPALA_TOOLCHAIN_BUILD_ID_X86_64=697-c70c5eded2
+export IMPALA_TOOLCHAIN_BUILD_ID_AARCH64=223-5e2c985e5e
+export IMPALA_TOOLCHAIN_BUILD_ID_X86_64=700-5e2c985e5e
 export IMPALA_TOOLCHAIN_REPO=\
 ${IMPALA_TOOLCHAIN_REPO:-https://github.com/cloudera/native-toolchain.git}
 export IMPALA_TOOLCHAIN_BRANCH=${IMPALA_TOOLCHAIN_BRANCH:-master}
 export IMPALA_TOOLCHAIN_COMMIT_HASH=\
-${IMPALA_TOOLCHAIN_COMMIT_HASH-c70c5eded2974e2cf20943666ef9545711af4584}
+${IMPALA_TOOLCHAIN_COMMIT_HASH-5e2c985e5e803e6e18227aeebf055da2e9dde9cd}
 # Compare the build ref in build IDs by removing everything up-to-and-including the
 # first hyphen.
 if [ "${IMPALA_TOOLCHAIN_BUILD_ID_AARCH64#*-}" \
@@ -155,12 +155,12 @@ export IMPALA_LIBEV_VERSION=4.20-p1
 unset IMPALA_LIBEV_URL
 export IMPALA_LIBUNWIND_VERSION=1.7.2-p1
 unset IMPALA_LIBUNWIND_URL
-export IMPALA_LLVM_VERSION=19.1.1-pgo
+export IMPALA_LLVM_VERSION=22.1.8-pgo
 unset IMPALA_LLVM_URL
-export IMPALA_LLVM_ASAN_VERSION=19.1.1-pgo
+export IMPALA_LLVM_ASAN_VERSION=22.1.8-pgo
 unset IMPALA_LLVM_ASAN_URL
 export IMPALA_OPENTELEMETRY_CPP_VERSION=1.20.0-p1
-unset IMPALA_OPENTELEMTRY_CPP_URL
+unset IMPALA_OPENTELEMETRY_CPP_URL
 
 # To limit maximum memory available for the mini-cluster and CDH cluster, add the
 # following in $IMPALA_HOME/bin/impala-config-local.sh
@@ -169,11 +169,11 @@ unset IMPALA_OPENTELEMTRY_CPP_URL
 # LLVM stores some files in subdirectories that are named after what
 # version it thinks it is. We might think it is 5.0.1-p1, based on a
 # patch we have applied, but LLVM thinks its version is 5.0.1.
-export IMPALA_LLVM_UBSAN_BASE_VERSION=19
+export IMPALA_LLVM_UBSAN_BASE_VERSION=22
 
 # Debug builds should use the release+asserts build to get additional coverage.
 # Don't use the LLVM debug build because the binaries are too large to distribute.
-export IMPALA_LLVM_DEBUG_VERSION=19.1.1-asserts
+export IMPALA_LLVM_DEBUG_VERSION=22.1.8-asserts
 unset IMPALA_LLVM_DEBUG_URL
 export IMPALA_LZ4_VERSION=1.9.3
 unset IMPALA_LZ4_URL
@@ -220,7 +220,7 @@ if [[ $ARCH_NAME == 'aarch64' ]]; then
   export IMPALA_HADOOP_CLIENT_VERSION=3.3.6-p3
   unset IMPALA_HADOOP_CLIENT_URL
 fi
-export IMPALA_MOLD_VERSION=2.40.4
+export IMPALA_MOLD_VERSION=2.42.1
 unset IMPALA_MOLD_URL
 
 # Impala JDBC driver for testing.
