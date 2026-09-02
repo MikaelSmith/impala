@@ -159,12 +159,8 @@ const map<int64_t, std::string> LlvmCodeGen::cpu_flag_mappings_{
 
 Status LlvmCodeGen::InitializeLlvm(const char* procname, bool load_backend) {
   DCHECK(!llvm_initialized_);
-  // Treat all functions as having the inline hint.
-  // AArch64 turns GlobalISel on whenever CodeGenOptLevel is None (debug builds), and its
-  // legalizer loops forever lowering the vector bitcasts that IR optimization leaves
-  // behind. Force SelectionDAG instead; -global-isel overrides the target's default.
-  std::array<const char*, 3> argv = {
-      {procname, "-inline-threshold=325", "-global-isel=false"}};
+  // Treat all functions as having the inline hint
+  std::array<const char*, 2> argv = { { procname, "-inline-threshold=325" } };
   CHECK(llvm::cl::ParseCommandLineOptions(argv.size(), argv.data()));
   llvm::remove_fatal_error_handler();
   llvm::install_fatal_error_handler(LlvmCodegenHandleError);
