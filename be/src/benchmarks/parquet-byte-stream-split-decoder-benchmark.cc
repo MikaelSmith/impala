@@ -23,6 +23,8 @@
 #include "util/benchmark.h"
 #include "util/cpu-info.h"
 
+#include "common/init.h"
+
 using namespace impala;
 
 constexpr int DATA_BATCH_SIZE = 1000;
@@ -483,7 +485,7 @@ int main(int argc, char** argv) {
   constexpr int read = 82;
   constexpr int skip = 18;
 
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   std::cout << "           " << Benchmark::GetMachineInfo() << std::endl;
   std::cout << "                        Data Batch Size = " << DATA_BATCH_SIZE
       << std::endl;

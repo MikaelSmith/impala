@@ -23,14 +23,14 @@
 #include "util/hash-util.h"
 #include "util/cpu-info.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace impala;
 
 // Test collision problem with multiple mod steps (IMPALA-219)
 int main(int argc, char **argv) {
-  google::InitGoogleLogging(argv[0]);
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
 
   int num_buckets1 = 16;
   int num_buckets2 = 1024;

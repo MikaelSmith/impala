@@ -24,6 +24,7 @@
 #include "util/rle-encoding.h"
 #include "util/cpu-info.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 // Benchmark to measure the speed of Parquet RLE decoding for various bit widths and
@@ -176,7 +177,7 @@ struct RleBenchmarks {
 };
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << endl << Benchmark::GetMachineInfo() << endl;
 
   for (int bit_width = 1; bit_width <= MAX_BIT_WIDTH; ++bit_width) {

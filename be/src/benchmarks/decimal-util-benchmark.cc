@@ -22,6 +22,8 @@
 #include "util/cpu-info.h"
 #include "util/decimal-util.h"
 
+#include "common/init.h"
+
 // Summary result (ran within a Docker container):
 //
 // Machine Info: AMD Ryzen 9 5950X 16-Core Processor
@@ -78,7 +80,7 @@ static void TestSpecializedTemplateCall(int batch_size, void* d) {
 } // namespace int256_scale_multiplier
 
 int main(int argc, char** argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   std::cout << Benchmark::GetMachineInfo() << std::endl;
   vector<int> data;
   int256_scale_multiplier::AddTestData(&data, 1000);

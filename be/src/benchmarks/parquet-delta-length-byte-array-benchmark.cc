@@ -63,6 +63,8 @@
 #include "util/benchmark.h"
 #include "util/cpu-info.h"
 
+#include "common/init.h"
+
 using namespace impala;
 using std::cerr;
 using std::cout;
@@ -406,7 +408,7 @@ void DeltaVsPlain() {
 // ---- Main -----------------------------------------------------------------------
 
 int main(int argc, char** argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << Benchmark::GetMachineInfo() << endl;
   cout << "  DEFAULT_NUM_VALUES  = " << DEFAULT_NUM_VALUES << endl;
   cout << "  SMALL_LIMIT         = " << SMALL_LIMIT << " bytes" << endl;

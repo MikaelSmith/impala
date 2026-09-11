@@ -25,6 +25,7 @@
 #include "util/cpu-info.h"
 #include "util/bitmap.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace std;
@@ -145,7 +146,7 @@ void Benchmark(int batch_size, void* data) {
 }  // namespace bitmapget
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << endl << Benchmark::GetMachineInfo() << endl;
 
   char name[120];
