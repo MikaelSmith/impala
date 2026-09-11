@@ -169,7 +169,7 @@ unset IMPALA_OPENTELEMTRY_CPP_URL
 # LLVM stores some files in subdirectories that are named after what
 # version it thinks it is. We might think it is 5.0.1-p1, based on a
 # patch we have applied, but LLVM thinks its version is 5.0.1.
-export IMPALA_LLVM_UBSAN_BASE_VERSION=19.1.1
+export IMPALA_LLVM_UBSAN_BASE_VERSION=19
 
 # Debug builds should use the release+asserts build to get additional coverage.
 # Don't use the LLVM debug build because the binaries are too large to distribute.
