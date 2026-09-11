@@ -147,6 +147,15 @@ SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -Wno-return-type-c-linkage")
 SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -DCALLONCEHACK")
 SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -Wno-implicit-const-int-float-conversion")
 SET(CXX_CLANG_FLAGS "${CXX_CLANG_FLAGS} -Wno-unqualified-std-cast-call")
+
+# Our Clang (unlike our GCC) defaults to producing position independent executables.
+# Hadoop's libhdfs.a is not compiled with -fPIC, so linking it into a PIE fails with
+# "requires dynamic R_X86_64_32 reloc ... recompile with -fPIC". Disable PIE for all
+# executables built with Clang (ASAN, UBSAN, TSAN and TIDY builds).
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+  SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -no-pie")
+endif()
+
 # For any gcc builds:
 #   -g: Enable symbols for profiler tools
 #   -Wno-unused-local-typedefs: Do not warn for local typedefs that are unused.
