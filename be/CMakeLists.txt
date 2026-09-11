@@ -197,6 +197,22 @@ SET(CXX_FLAGS_DEBUG "${CXX_FLAGS_DEBUG_NOOPT} -Og")
 SET(CXX_FLAGS_RELEASE "${CXX_GCC_FLAGS} -O3 -DNDEBUG")
 SET(CXX_FLAGS_ADDRESS_SANITIZER
   "${CXX_CLANG_FLAGS} -Werror -O1 -g -fsanitize=address -fno-omit-frame-pointer -DADDRESS_SANITIZER")
+# Newer libstdc++ headers (e.g. bits/stl_function.h) can emit calls to __muloti4 for
+# checked 128-bit multiplication, which isn't implemented in the GCC runtime library
+# (see https://bugs.llvm.org/show_bug.cgi?id=16404). Switching the whole build to
+# -rtlib=compiler-rt (as done for UBSAN below) also pulls in compiler-rt's unwinder
+# registration, which crashes at startup for statically-linked binaries built with
+# gold on aarch64. So instead link the compiler-rt builtins archive directly, leaving
+# the rest of the runtime/unwind libraries untouched. --whole-archive is needed
+# because CMake places CXX_FLAGS (and thus this archive) before the object files and
+# libraries that reference __muloti4, so the linker wouldn't otherwise pull in the
+# needed member on its single left-to-right pass.
+execute_process(
+  COMMAND ${CMAKE_CXX_COMPILER} --rtlib=compiler-rt -print-libgcc-file-name
+  OUTPUT_VARIABLE CLANG_RT_BUILTINS_LIB
+  OUTPUT_STRIP_TRAILING_WHITESPACE)
+SET(CXX_FLAGS_ADDRESS_SANITIZER
+  "${CXX_FLAGS_ADDRESS_SANITIZER} -Wl,--whole-archive ${CLANG_RT_BUILTINS_LIB} -Wl,--no-whole-archive")
 
 # Set the flags to the undefined behavior sanitizer, also known as "ubsan"
 # Turn on sanitizer and debug symbols to get stack traces:
