@@ -124,12 +124,17 @@ T IcebergFunctions::TruncatePartitionTransformNumericImpl(FunctionContext* ctx,
     const T& input, const W& width) {
   if (!CheckInputsAndSetError(ctx, input, width)) return T::null();
   if (input.val >= 0) return input.val - (input.val % width.val);
-  T result = input.val - (((input.val % width.val) + width.val) % width.val);
-  if (UNLIKELY(result.val > 0)) {
+  typename T::underlying_type_t remainder =
+      ((input.val % width.val) + width.val) % width.val;
+  // Detect the underflow before it happens: 'input.val - remainder' is undefined
+  // behavior (and can be optimized away by the compiler) if it goes below the min
+  // representable value of the underlying type.
+  if (UNLIKELY(input.val < numeric_limits<typename T::underlying_type_t>::min()
+      + remainder)) {
     ctx->SetError(TRUNCATE_OVERFLOW_ERROR_MSG.c_str());
     return T::null();
   }
-  return result;
+  return input.val - remainder;
 }
 
 IntVal IcebergFunctions::BucketPartitionTransform(FunctionContext* ctx,
