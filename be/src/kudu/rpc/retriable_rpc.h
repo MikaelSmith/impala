@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "kudu/gutil/ref_counted.h"
 #include "kudu/gutil/strings/substitute.h"
@@ -64,7 +65,7 @@ class RetriableRpc : public Rpc {
         sequence_number_(RequestTracker::kNoSeqNo),
         num_attempts_(0) {}
 
-  virtual ~RetriableRpc() {
+  ~RetriableRpc() override {
     DCHECK_EQ(sequence_number_, RequestTracker::kNoSeqNo);
   }
 
