@@ -127,6 +127,8 @@ ADD_EXPORTABLE_LIBRARY(socket_info_proto
   DEPS protobuf
   NONLINK_DEPS ${SOCKET_INFO_PROTO_TGTS})
 
+add_dependencies(kudu-util-proto-deps ${SOCKET_INFO_PROTO_TGTS})
+
 #######################################
 # version_info_proto
 #######################################
@@ -177,7 +179,8 @@ set(UTIL_SRCS
   block_bloom_filter.cc
   bloom_filter.cc
   cache.cc
-  char_util.cc
+  # Skipped in Impala builds.
+  #char_util.cc
   coding.cc
   condition_variable.cc
   crc.cc
@@ -247,7 +250,9 @@ set(UTIL_SRCS
   trace_metrics.cc
   user.cc
   url-coding.cc
-  version_info.cc
+  # Remove from compilation, as it depends on generated method calls. Replaced by
+  # kudu_version.cc in Impala's common library.
+  #version_info.cc
   version_util.cc
   web_callback_registry.cc
 )
@@ -257,18 +262,21 @@ if (NOT KUDU_CLIENT_ONLY)
     async_logger.cc
     block_cache_metrics.cc
     cow_object.cc
-    file_cache.cc
+    # Skipped in Impala builds.
+    #file_cache.cc
     file_cache_metrics.cc
     group_varint.cc
     jsonreader.cc
     maintenance_manager.cc
     maintenance_manager_metrics.cc
-    minidump.cc
+    # Skipped in Impala builds.
+    #minidump.cc
     rolling_log.cc
     slru_cache.cc
     throttler.cc
     website_util.cc
-    yamlreader.cc
+    # Skipped in Impala builds.
+    #yamlreader.cc
     zlib.cc)
 endif()
 
@@ -285,17 +293,9 @@ endif()
 # optimized regardless of the default optimization options.
 set_source_files_properties(memory/overwrite.cc PROPERTIES COMPILE_FLAGS "-O3")
 
-# Detect AVX2 support
-execute_process(
-  COMMAND echo
-  COMMAND ${CMAKE_CXX_COMPILER} -mavx2 -dM -E -
-  COMMAND awk "$2 == \"__AVX2__\" { print $3 }"
-  ERROR_QUIET
-  OUTPUT_VARIABLE AVX2_SUPPORT
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-
 # block_bloom_filter_avx2.cc uses AVX2 operations.
+# NOTE: This is modified from the Kudu source code. As other Impala code needs AVX2
+# detection, it has been centralized in be/CMakeLists.txt
 if (AVX2_SUPPORT)
   list(APPEND UTIL_SRCS block_bloom_filter_avx2.cc)
   set_source_files_properties(block_bloom_filter_avx2.cc PROPERTIES COMPILE_FLAGS "-mavx2")
@@ -337,7 +337,9 @@ endif()
 #######################################
 
 add_executable(protoc-gen-insertions protoc-gen-insertions.cc)
-target_link_libraries(protoc-gen-insertions gutil protobuf protoc ${KUDU_BASE_LIBS})
+# Impala needs some extra dependency libs compared to Kudu.
+# Note that the order is important.
+target_link_libraries(protoc-gen-insertions gutil glog gflags protoc protobuf ${KUDU_BASE_LIBS})
 
 set(UTIL_LIBS
   block_bloom_filter_proto
@@ -358,9 +360,10 @@ set(UTIL_LIBS
   version_info_proto
   zlib)
 
-if(NOT KUDU_CLIENT_ONLY)
-  set(UTIL_LIBS ${UTIL_LIBS} yaml)
-endif()
+# Skipped in Impala builds; Impala's toolchain does not provide a 'yaml' target.
+#if(NOT KUDU_CLIENT_ONLY)
+#  set(UTIL_LIBS ${UTIL_LIBS} yaml)
+#endif()
 
 if(NOT APPLE AND NOT KUDU_CLIENT_ONLY)
   set(UTIL_LIBS
@@ -485,16 +488,17 @@ endif()
 # kudu_test_util
 #######################################
 # The kudu_test_util is used only for tests.
-if (KUDU_CLI_TEST_TOOL_ENABLED)
+# Note: Impala needs this.
+#if (KUDU_CLI_TEST_TOOL_ENABLED)
   add_library(kudu_test_util
     test_util.cc)
   target_link_libraries(kudu_test_util
     gflags
     glog
-    gmock
-    gtest
+    # Impala doesn't have gmock in its toolchain
+    #gmock
     kudu_util)
-endif()
+#endif()
 
 #######################################
 # kudu_test_main
@@ -742,11 +746,12 @@ endif()
 #######################################
 # instance_detector-test
 #######################################
-ADD_KUDU_TEST(cloud/instance_detector-test)
-if(NOT NO_TESTS)
-  target_link_libraries(instance_detector-test
-    kudu_cloud_util)
-endif()
+# Impala doesn't need it.
+#ADD_KUDU_TEST(cloud/instance_detector-test)
+#if(NOT NO_TESTS)
+#  target_link_libraries(instance_detector-test
+#    kudu_cloud_util)
+#endif()
 
 #######################################
 # zlib-test
