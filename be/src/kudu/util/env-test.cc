@@ -39,10 +39,12 @@
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
+#include <map>
 #include <memory>
 #include <ostream>
 #include <string>
 #include <thread>
+#include <type_traits>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -60,6 +62,7 @@
 #include "kudu/gutil/strings/util.h"
 #include "kudu/util/array_view.h" // IWYU pragma: keep
 #include "kudu/util/env_util.h"
+#include "kudu/util/errno.h"
 #include "kudu/util/faststring.h"
 #include "kudu/util/monotime.h"
 #include "kudu/util/path_util.h"
@@ -80,7 +83,6 @@ DECLARE_int32(env_inject_short_read_bytes);
 DECLARE_int32(env_inject_short_write_bytes);
 DECLARE_int32(encryption_key_length);
 DECLARE_string(env_inject_eio_globs);
-DECLARE_string(encryption_server_key);
 
 namespace kudu {
 
@@ -98,7 +100,7 @@ static const uint64_t kTwoMb = 2 * kOneMb;
 
 class TestEnv : public KuduTest {
  public:
-  virtual void SetUp() OVERRIDE {
+  void SetUp() override {
     KuduTest::SetUp();
     CheckFallocateSupport();
   }
@@ -132,7 +134,10 @@ class TestEnv : public KuduTest {
       }
     }
 
-    RETRY_ON_EINTR(err, close(fd));
+    if (PREDICT_FALSE(close(fd) != 0)) {
+      const int err = errno;
+      LOG(WARNING) << Substitute("error closing fd $0: $1", fd, ErrnoToString(err));
+    }
 #endif
 
     checked = true;
@@ -246,8 +251,7 @@ bool TestEnv::fallocate_punch_hole_supported_ = false;
 
 TEST_F(TestEnv, TestPreallocate) {
   if (!fallocate_supported_) {
-    LOG(INFO) << "fallocate not supported, skipping test";
-    return;
+    GTEST_SKIP() << "fallocate not supported, skipping test";
   }
   LOG(INFO) << "Testing PreAllocate()";
   string test_path = GetTestPath("test_env_wf");
@@ -259,11 +263,11 @@ TEST_F(TestEnv, TestPreallocate) {
   ASSERT_OK(file->Sync());
 
   // the writable file size should report 0
-  ASSERT_EQ(file->Size(), 0);
+  ASSERT_EQ(0, file->Size());
   // but the real size of the file on disk should report 1MB
   uint64_t size;
   ASSERT_OK(env_->GetFileSize(test_path, &size));
-  ASSERT_EQ(size, kOneMb);
+  ASSERT_EQ(kOneMb, size);
 
   // write 1 MB
   uint8_t scratch[kOneMb];
@@ -272,7 +276,7 @@ TEST_F(TestEnv, TestPreallocate) {
   ASSERT_OK(file->Sync());
 
   // the writable file size should now report 1 MB
-  ASSERT_EQ(file->Size(), kOneMb);
+  ASSERT_EQ(kOneMb, file->Size());
   ASSERT_OK(file->Close());
   // and the real size for the file on disk should match only the
   // written size
@@ -285,8 +289,7 @@ TEST_F(TestEnv, TestPreallocate) {
 // be smaller than the mmapped regions size).
 TEST_F(TestEnv, TestConsecutivePreallocate) {
   if (!fallocate_supported_) {
-    LOG(INFO) << "fallocate not supported, skipping test";
-    return;
+    GTEST_SKIP() << "fallocate not supported, skipping test";
   }
   LOG(INFO) << "Testing consecutive PreAllocate()";
   string test_path = GetTestPath("test_env_wf");
@@ -298,11 +301,11 @@ TEST_F(TestEnv, TestConsecutivePreallocate) {
   ASSERT_OK(file->Sync());
 
   // the writable file size should report 0
-  ASSERT_EQ(file->Size(), 0);
+  ASSERT_EQ(0, file->Size());
   // but the real size of the file on disk should report 64 MBs
   uint64_t size;
   ASSERT_OK(env_->GetFileSize(test_path, &size));
-  ASSERT_EQ(size, 64 * kOneMb);
+  ASSERT_EQ(64 * kOneMb, size);
 
   // write 1 MB
   uint8_t scratch[kOneMb];
@@ -311,7 +314,7 @@ TEST_F(TestEnv, TestConsecutivePreallocate) {
   ASSERT_OK(file->Sync());
 
   // the writable file size should now report 1 MB
-  ASSERT_EQ(kOneMb, file->Size());
+  ASSERT_EQ(file->Size(), kOneMb);
   ASSERT_OK(env_->GetFileSize(test_path, &size));
   ASSERT_EQ(64 * kOneMb, size);
 
@@ -330,7 +333,7 @@ TEST_F(TestEnv, TestConsecutivePreallocate) {
   ASSERT_OK(file->Sync());
 
   // the writable file size should now report 2 MB
-  ASSERT_EQ(file->Size(), 2 * kOneMb);
+  ASSERT_EQ(2 * kOneMb, file->Size());
   // while the real file size should reamin at 128 MBs
   ASSERT_OK(env_->GetFileSize(test_path, &size));
   ASSERT_EQ(128 * kOneMb, size);
@@ -345,8 +348,7 @@ TEST_F(TestEnv, TestConsecutivePreallocate) {
 
 TEST_F(TestEnv, TestHolePunch) {
   if (!fallocate_punch_hole_supported_) {
-    LOG(INFO) << "hole punching not supported, skipping test";
-    return;
+    GTEST_SKIP() << "hole punching not supported, skipping test";
   }
   string test_path = GetTestPath("test_env_wf");
   unique_ptr<RWFile> file;
@@ -382,8 +384,7 @@ TEST_F(TestEnv, TestHolePunchBenchmark) {
   const int kHoleSize = 10 * kOneMb;
   const int kNumRuns = 1000;
   if (!fallocate_punch_hole_supported_) {
-    LOG(INFO) << "hole punching not supported, skipping test";
-    return;
+    GTEST_SKIP() << "hole punching not supported, skipping test";
   }
   Random r(SeedRandom());
 
@@ -531,8 +532,8 @@ TEST_F(TestEnv, TestReadVFully) {
 
   // Verify that Read fully reads the whole requested data.
   ASSERT_OK(file->ReadV(0, results));
-  ASSERT_EQ(result1, "abcde");
-  ASSERT_EQ(result2, "12345");
+  ASSERT_EQ("abcde", result1);
+  ASSERT_EQ("12345", result2);
 
   // Turn short reads off again
   FLAGS_env_inject_short_read_bytes = 0;
@@ -625,10 +626,9 @@ TEST_F(TestEnv, TestOverwrite) {
 }
 
 TEST_F(TestEnv, TestReopen) {
-  LOG(INFO) << "Testing reopening behavior";
-  string test_path = GetTestPath("test_env_wf");
-  string first = "The quick brown fox";
-  string second = "jumps over the lazy dog";
+  const string test_path = GetTestPath("test_env_wf");
+  const string first = "The quick brown fox";
+  const string second = "jumps over the lazy dog";
 
   // Create the file and write to it.
   shared_ptr<WritableFile> writer;
@@ -889,8 +889,8 @@ TEST_F(TestEnv, TestGetFileModifiedTime) {
   // HFS has 1 second mtime granularity.
   AssertEventually([&] {
     int64_t after_time;
-    writer->Append(" ");
-    writer->Sync();
+    ASSERT_OK(writer->Append(" "));
+    ASSERT_OK(writer->Sync());
     ASSERT_OK(env_->GetFileModifiedTime(writer->filename(), &after_time));
     ASSERT_LT(initial_time, after_time);
   }, MonoDelta::FromSeconds(5));
@@ -910,7 +910,7 @@ TEST_F(TestEnv, TestRWFile) {
   uint8_t scratch[kTestData.length()];
   Slice result(scratch, kTestData.length());
   ASSERT_OK(file->Read(0, result));
-  ASSERT_EQ(result, kTestData);
+  ASSERT_EQ(kTestData, result);
   uint64_t sz;
   ASSERT_OK(file->Size(&sz));
   ASSERT_EQ(kTestData.length(), sz);
@@ -924,8 +924,8 @@ TEST_F(TestEnv, TestRWFile) {
   Slice result2(scratch2, size2);
   vector<Slice> results = { result1, result2 };
   ASSERT_OK(file->ReadV(0, results));
-  ASSERT_EQ(result1, "abc");
-  ASSERT_EQ(result2, "de");
+  ASSERT_EQ("abc", result1);
+  ASSERT_EQ("de", result2);
 
   // Write past the end of the file and rewrite some of the interior.
   ASSERT_OK(file->Write(kTestData.length() * 2, kTestData));
@@ -937,7 +937,7 @@ TEST_F(TestEnv, TestRWFile) {
   ASSERT_OK(file->Read(0, result3));
 
   // Retest.
-  ASSERT_EQ(result3, kNewTestData);
+  ASSERT_EQ(kNewTestData, result3);
   ASSERT_OK(file->Size(&sz));
   ASSERT_EQ(kNewTestData.length(), sz);
 
@@ -952,7 +952,7 @@ TEST_F(TestEnv, TestRWFile) {
   uint8_t scratch4[kNewTestData.length()];
   Slice result4(scratch4, kNewTestData.length());
   ASSERT_OK(file->Read(0, result4));
-  ASSERT_EQ(result4, kNewTestData);
+  ASSERT_EQ(kNewTestData, result4);
 
   // Test CREATE_OR_OPEN semantics on a new file.
   const string bar_path = GetTestPath("bar");
@@ -978,7 +978,7 @@ TEST_F(TestEnv, TestCanonicalize) {
     ASSERT_EQ(test_dir_, result);
   }
 
-  string dir = GetTestPath("some_dir");
+  const string dir = GetTestPath("some_dir");
   ASSERT_OK(env_->CreateDir(dir));
   string result;
   ASSERT_OK(env_->Canonicalize(dir + "/", &result));
@@ -1337,6 +1337,144 @@ TEST_P(TestEncryptedEnv, TestEncryption) {
   Slice result3(scratch3, size + 10);
   ASSERT_OK(seq_file->Read(&result3));
   ASSERT_EQ(kTestData + kTestData2, result3);
+}
+
+// Verifies that for an encrypted RandomAccessFile, the (ReadRaw + Decrypt)
+// pair is byte-equivalent to the plaintext-returning Read() path, including
+// the per-slice all-zero short-circuit inside DoDecryptV (which is what allows
+// KUDU-2260-style trailing-zero recovery to still work when callers cache the
+// ciphertext in memory and re-decrypt small slices on demand).
+TEST_P(TestEncryptedEnv, TestReadRawAndDecrypt) {
+  const string kFile = JoinPathSegments(test_dir_, "encrypted_file_readraw");
+  RWFileOptions rw_opts;
+  rw_opts.is_sensitive = true;
+  unique_ptr<RWFile> rw;
+  ASSERT_OK(env_->NewRWFile(rw_opts, kFile, &rw));
+
+  const size_t header_size = env_->GetEncryptionHeaderSize();
+  // Write a chunk of non-zero plaintext followed by an explicit run of
+  // zeros, mimicking a metadata file whose tail was lost to an interrupted
+  // write (the kernel persists the new file size, the new data is still
+  // all-zero on disk).
+  const string kPlaintext =
+      "metadata-record-0;metadata-record-1;metadata-record-2;trailing-zero-tail";
+  const size_t kZeroTail = 256;
+  ASSERT_OK(rw->Write(header_size, kPlaintext));
+  // Extending via Truncate() leaves a zero-filled tail; on encrypted files
+  // this means the on-disk ciphertext for that region is all zeros, NOT
+  // some random keystream.
+  ASSERT_OK(rw->Truncate(header_size + kPlaintext.size() + kZeroTail));
+  ASSERT_OK(rw->Close());
+
+  RandomAccessFileOptions raf_opts;
+  raf_opts.is_sensitive = true;
+  unique_ptr<RandomAccessFile> raf;
+  ASSERT_OK(env_->NewRandomAccessFile(raf_opts, kFile, &raf));
+  ASSERT_EQ(header_size, raf->GetEncryptionHeaderSize());
+
+  uint64_t file_size = 0;
+  ASSERT_OK(raf->Size(&file_size));
+  ASSERT_EQ(header_size + kPlaintext.size() + kZeroTail, file_size);
+
+  const size_t payload_size = file_size - header_size;
+  faststring ciphertext;
+  ciphertext.resize(payload_size);
+
+  // ReadRaw() at offset == 0 (start of the encryption header) and pulling the
+  // header_size + payload bytes is allowed; the wrapper must not attempt to
+  // decrypt or to apply the GetEncryptionHeaderSize() lower-bound check.
+  faststring full_raw;
+  full_raw.resize(file_size);
+  ASSERT_OK(raf->ReadRaw(/*raw_offset=*/0, Slice(full_raw.data(), file_size)));
+
+  // ReadRaw() of only the payload region (skipping the encryption header) is
+  // the call shape MemoryReadableFile uses; verify it returns the same bytes
+  // as the matching prefix of the full read.
+  ASSERT_OK(raf->ReadRaw(header_size, Slice(ciphertext.data(), payload_size)));
+  ASSERT_EQ(Slice(full_raw.data() + header_size, payload_size),
+            Slice(ciphertext.data(), payload_size));
+
+  // For the zero-filled tail the ciphertext on disk must literally be zeros
+  // (otherwise per-slice IsAllZeros() in DoDecryptV wouldn't be able to
+  // recover the plaintext zeros at startup).
+  ASSERT_TRUE(IsAllZeros(Slice(ciphertext.data() + kPlaintext.size(),
+                               kZeroTail)));
+
+  // Now exercise the "cached ciphertext + per-slice Decrypt()" pattern, which
+  // is exactly how MemoryReadableFile serves reads against encrypted metadata.
+  // 1) A small plaintext-region slice: must round-trip to the original bytes.
+  const size_t kProbeOffset = 8;
+  const size_t kProbeSize = 32;
+  ASSERT_LT(kProbeOffset + kProbeSize, kPlaintext.size());
+  faststring probe;
+  probe.assign_copy(ciphertext.data() + kProbeOffset, kProbeSize);
+  Slice probe_slice(probe.data(), kProbeSize);
+  ASSERT_OK(raf->Decrypt(header_size + kProbeOffset,
+                         ArrayView<Slice>(&probe_slice, 1)));
+  ASSERT_EQ(kPlaintext.substr(kProbeOffset, kProbeSize),
+            probe_slice.ToString());
+
+  // 2) A small slice carved out of the zero tail: per-slice IsAllZeros() must
+  // short-circuit and leave the bytes as zeros, so the buffer stays all-zero
+  // after Decrypt(). This is the invariant KUDU-2260 trailing-zero recovery
+  // depends on.
+  const size_t kTailProbeSize = 64;
+  ASSERT_LT(kTailProbeSize, kZeroTail);
+  faststring tail_probe;
+  tail_probe.assign_copy(ciphertext.data() + kPlaintext.size(), kTailProbeSize);
+  Slice tail_slice(tail_probe.data(), kTailProbeSize);
+  ASSERT_OK(raf->Decrypt(header_size + kPlaintext.size(),
+                         ArrayView<Slice>(&tail_slice, 1)));
+  ASSERT_TRUE(IsAllZeros(tail_slice));
+
+  // 3) A vector Decrypt() over multiple contiguous non-all-zero slices must
+  // behave the same as decrypting each slice individually. (Per the contract
+  // on RandomAccessFile::Decrypt(), this equivalence is *not* guaranteed when
+  // an interior slice is all-zero ciphertext, since the implementation may
+  // short-circuit it and leave the keystream un-advanced; the per-slice
+  // all-zero case is covered by probe (2) above.)
+  const size_t kS1 = 16;
+  const size_t kS2 = 24;
+  ASSERT_LT(kS1 + kS2, kPlaintext.size());
+  faststring v1, v2;
+  v1.assign_copy(ciphertext.data(), kS1);
+  v2.assign_copy(ciphertext.data() + kS1, kS2);
+  Slice s1(v1.data(), kS1);
+  Slice s2(v2.data(), kS2);
+  vector<Slice> vec = { s1, s2 };
+  ASSERT_OK(raf->Decrypt(header_size, ArrayView<Slice>(vec)));
+  ASSERT_EQ(kPlaintext.substr(0, kS1), s1.ToString());
+  ASSERT_EQ(kPlaintext.substr(kS1, kS2), s2.ToString());
+}
+
+// On an unencrypted file, ReadRaw() must behave like Read() and Decrypt() must
+// be a no-op. This is what allows the in-memory replay shim to treat both
+// flavors uniformly.
+TEST_F(TestEnv, TestReadRawAndDecryptUnencrypted) {
+  const string kFile = JoinPathSegments(test_dir_, "plaintext_file_readraw");
+  RWFileOptions rw_opts;
+  rw_opts.is_sensitive = false;
+  unique_ptr<RWFile> rw;
+  ASSERT_OK(env_->NewRWFile(rw_opts, kFile, &rw));
+  const string kPlaintext = "lorem-ipsum-no-encryption-here";
+  ASSERT_OK(rw->Write(0, kPlaintext));
+  ASSERT_OK(rw->Close());
+
+  RandomAccessFileOptions raf_opts;
+  raf_opts.is_sensitive = false;
+  unique_ptr<RandomAccessFile> raf;
+  ASSERT_OK(env_->NewRandomAccessFile(raf_opts, kFile, &raf));
+  ASSERT_EQ(0, raf->GetEncryptionHeaderSize());
+
+  faststring buf;
+  buf.resize(kPlaintext.size());
+  ASSERT_OK(raf->ReadRaw(0, Slice(buf.data(), buf.size())));
+  ASSERT_EQ(kPlaintext, buf.ToString());
+
+  // Decrypt() must be a no-op: the buffer must come out unchanged.
+  Slice s(buf.data(), buf.size());
+  ASSERT_OK(raf->Decrypt(0, ArrayView<Slice>(&s, 1)));
+  ASSERT_EQ(kPlaintext, s.ToString());
 }
 
 TEST_P(TestEncryptedEnv, TestPreallocatedReadEncryptedFile) {
