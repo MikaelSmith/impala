@@ -641,7 +641,9 @@ bool ExecNode::WaitForRuntimeFilters(RuntimeState* state,
 //
 Status ExecNode::CodegenEvalConjuncts(LlvmCodeGen* codegen,
     const vector<ScalarExpr*>& conjuncts, llvm::Function** fn, const char* name) {
-  llvm::Function* conjunct_fns[conjuncts.size()];
+  // Use a vector rather than a VLA: conjuncts.size() can be 0 (e.g. no predicates),
+  // and a VLA with a runtime bound of 0 is undefined behavior (caught by UBSan).
+  vector<llvm::Function*> conjunct_fns(conjuncts.size());
   for (int i = 0; i < conjuncts.size(); ++i) {
     RETURN_IF_ERROR(conjuncts[i]->GetCodegendComputeFn(codegen, false, &conjunct_fns[i]));
     if (i >= LlvmCodeGen::CODEGEN_INLINE_EXPRS_THRESHOLD) {
