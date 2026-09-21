@@ -732,6 +732,10 @@ extern "C" const char* __tsan_default_options() {
 // Default UBSAN_OPTIONS. Override by setting environment variable $UBSAN_OPTIONS.
 #if defined(UNDEFINED_SANITIZER)
 extern "C" const char *__ubsan_default_options() {
-  return "print_stacktrace=1 suppressions=" UNDEFINED_SANITIZER_SUPPRESSIONS;
+  // handle_segv=0: don't hijack SIGSEGV from the JVM, which relies on it for
+  // implicit null-check/safepoint traps in JIT-compiled code (see the analogous
+  // __asan_default_options() above, IMPALA-2746).
+  return "handle_segv=0 print_stacktrace=1 suppressions="
+      UNDEFINED_SANITIZER_SUPPRESSIONS;
 }
 #endif
