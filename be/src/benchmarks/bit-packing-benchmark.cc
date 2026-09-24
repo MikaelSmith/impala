@@ -270,6 +270,7 @@
 #include "util/bit-stream-utils.inline.h"
 #include "util/cpu-info.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace impala;
@@ -448,7 +449,7 @@ void UnpackBenchmark(int batch_size, void* data) {
 }
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << endl << Benchmark::GetMachineInfo() << endl;
 
   for (int bit_width = 0; bit_width <= 32; ++bit_width) {

@@ -1137,7 +1137,13 @@ DecimalVal AggregateFunctions::DecimalAvgGetValue(FunctionContext* ctx,
     const StringVal& src) {
   DecimalAvgState* val_struct = reinterpret_cast<DecimalAvgState*>(src.ptr);
   if (val_struct->count == 0) return DecimalVal::null();
-  Decimal16Value sum(val_struct->sum_val16);
+  // Copy out of the packed struct instead of binding a reference to sum_val16
+  // directly: the compiler may otherwise assume 16-byte alignment for the i128
+  // constructor argument and emit an aligned SIMD load, but tuple memory is only
+  // 8-byte aligned.
+  __int128_t sum_val16;
+  memcpy(&sum_val16, &val_struct->sum_val16, sizeof(sum_val16));
+  Decimal16Value sum(sum_val16);
   Decimal16Value count(val_struct->count);
 
   int output_precision =
@@ -3502,6 +3508,10 @@ struct LastValIgnoreNullsState {
 template <typename T>
 void AggregateFunctions::LastValIgnoreNullsInit(FunctionContext* ctx, StringVal* dst) {
   AllocBuffer(ctx, dst, sizeof(LastValIgnoreNullsState<T>));
+  if (UNLIKELY(dst->is_null)) {
+    DCHECK(!ctx->impl()->state()->GetQueryStatus().ok());
+    return;
+  }
   LastValIgnoreNullsState<T>* state =
       reinterpret_cast<LastValIgnoreNullsState<T>*>(dst->ptr);
   state->last_val = T::null();

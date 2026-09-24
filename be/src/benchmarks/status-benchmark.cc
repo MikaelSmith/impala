@@ -23,6 +23,7 @@
 #include "util/benchmark.h"
 #include "util/cpu-info.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 #define BODY_ONE(body) do { \
@@ -135,7 +136,7 @@ void TestCallOptional(int batch_size, void* d) {
 
 
 int main(int argc, char** argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << Benchmark::GetMachineInfo() << endl;
 
   data d = {true};

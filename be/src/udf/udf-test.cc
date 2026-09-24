@@ -261,20 +261,31 @@ TEST(UdfTest, TestDecimalVal) {
   DecimalVal null2 = DecimalVal::null();
 
   // TODO: replace these manual comparisons with a DecimalVal equality function
+  // Copy val16 (a packed, potentially unaligned __int128_t member) into local
+  // variables before comparing: binding a reference straight to it can make gtest's
+  // templated EXPECT_EQ/EXPECT_NE emit an aligned SIMD load, which faults on odd
+  // alignment.
+  __int128_t d1_val16 = d1.val16;
+  __int128_t d2_val16 = d2.val16;
+  __int128_t d3_val16 = d3.val16;
+  __int128_t d4_val16 = d4.val16;
+  __int128_t d5_val16 = d5.val16;
+  __int128_t d6_val16 = d6.val16;
+
   // 1 != -1
-  EXPECT_NE(d1.val16, d2.val16);
-  EXPECT_NE(d3.val16, d4.val16);
-  EXPECT_NE(d5.val16, d6.val16);
+  EXPECT_NE(d1_val16, d2_val16);
+  EXPECT_NE(d3_val16, d4_val16);
+  EXPECT_NE(d5_val16, d6_val16);
 
   // 1 == 1
-  EXPECT_EQ(d1.val16, d3.val16);
-  EXPECT_EQ(d1.val16, d5.val16);
-  EXPECT_EQ(d3.val16, d5.val16);
+  EXPECT_EQ(d1_val16, d3_val16);
+  EXPECT_EQ(d1_val16, d5_val16);
+  EXPECT_EQ(d3_val16, d5_val16);
 
   // -1 == -1
-  EXPECT_EQ(d2.val16, d4.val16);
-  EXPECT_EQ(d2.val16, d6.val16);
-  EXPECT_EQ(d4.val16, d6.val16);
+  EXPECT_EQ(d2_val16, d4_val16);
+  EXPECT_EQ(d2_val16, d6_val16);
+  EXPECT_EQ(d4_val16, d6_val16);
 
   // nulls
   EXPECT_EQ(null1.is_null, null2.is_null);

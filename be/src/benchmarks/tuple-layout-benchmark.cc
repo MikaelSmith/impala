@@ -23,6 +23,7 @@
 #include "util/cpu-info.h"
 #include "runtime/string-search.h"
 
+#include "common/init.h"
 #include "common/names.h"
 
 using namespace impala;
@@ -212,7 +213,7 @@ void TestRandomUnaligned(int batch_size, void* d) {
 }
 
 int main(int argc, char **argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << Benchmark::GetMachineInfo() << endl;
 
   DCHECK_EQ(sizeof(UnpaddedTupleStruct), 24);

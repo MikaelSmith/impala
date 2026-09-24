@@ -23,6 +23,7 @@
 #include "util/cpu-info.h"
 
 #include "runtime/multi-precision.h"
+#include "common/init.h"
 #include "common/names.h"
 
 // Benchmark to measure operations on different implementation of multi (i.e. > 8)
@@ -269,7 +270,7 @@ TEST_DIVIDE(TestInt64Divide, int64_result, int64_ints);
 TEST_DIVIDE(TestDoubleDivide, double_result, doubles);
 
 int main(int argc, char** argv) {
-  CpuInfo::Init();
+  impala::InitCommonRuntime(argc, argv, false, impala::TestInfo::BE_TEST);
   cout << Benchmark::GetMachineInfo() << endl;
 
   TestData data;

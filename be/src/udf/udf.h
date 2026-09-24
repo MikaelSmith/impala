@@ -732,7 +732,12 @@ inline std::ostream& operator<<(std::ostream& os, const StringVal& val) {
   return os.write(reinterpret_cast<const char*>(val.ptr), val.len);
 }
 
-struct DecimalVal : public impala_udf::AnyVal {
+// val16 is __int128_t, whose natural alignment is 16 bytes, but instances of this
+// struct routinely live in memory that's only 8-byte aligned (tuple slots, UDA
+// intermediate buffers from FunctionContext::Allocate(), etc). "packed" tells the
+// compiler not to assume 16-byte alignment when generating loads/stores/copies for
+// this type, avoiding SIGSEGV from misaligned SSE instructions (e.g. movaps).
+struct __attribute__((packed)) DecimalVal : public impala_udf::AnyVal {
   /// Decimal data is stored as an unscaled integer value. For example, the decimal 1.00
   /// (precision 3, scale 2) is stored as 100. The byte size necessary to store the
   /// decimal depends on the precision, which determines which field of the union should
