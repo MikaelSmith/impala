@@ -18,8 +18,9 @@ select count(*) from test_dels where _delete_predicate is not null;
 BIGINT
 ====
 ---- QUERY
+select sleep(3000);
 select i, comm, count from test_kudu order by i, comm, count;
----- RESULTS
+---- RESULTS:RETRY=10
 5,'e',80
 5,'ee',81
 ---- TYPES
