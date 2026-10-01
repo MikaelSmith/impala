@@ -246,14 +246,13 @@ uint32_t HashTableCtx::Hash(const void* input, int len, uint32_t hash) const {
 uint32_t HashTableCtx::HashRow(
     const uint8_t* expr_values, const uint8_t* expr_values_null) const noexcept {
   DCHECK_LT(level_, seeds_.size());
-  if (expr_values_cache_.var_result_offset() == -1) {
-    /// This handles NULLs implicitly since a constant seed value was put
-    /// into results buffer for nulls.
-    return Hash(
-        expr_values, expr_values_cache_.expr_values_bytes_per_row(), seeds_[level_]);
-  } else {
+  if (level_ == 0 || expr_values_cache_.var_result_offset() != -1) {
     return HashTableCtx::HashVariableLenRow(expr_values, expr_values_null);
   }
+  /// This handles NULLs implicitly since a constant seed value was put
+  /// into results buffer for nulls.
+  return Hash(
+      expr_values, expr_values_cache_.expr_values_bytes_per_row(), seeds_[level_]);
 }
 
 bool HashTableCtx::EvalRow(const TupleRow* row,
@@ -284,8 +283,17 @@ uint32_t HashTableCtx::HashVariableLenRow(const uint8_t* expr_values,
     const uint8_t* expr_values_null) const {
   uint32_t hash = seeds_[level_];
   int var_result_offset = expr_values_cache_.var_result_offset();
-  // Hash the non-var length portions (if there are any)
-  if (var_result_offset != 0) {
+  if (level_ == 0) {
+    // Hash each fixed-length value on its own. Hashing the packed buffer would load
+    // several just-stored values at once, which stalls store forwarding.
+    for (int i = 0; i < build_exprs_.size(); ++i) {
+      const ColumnType& type = build_exprs_[i]->type();
+      if (type.type == TYPE_STRING || type.type == TYPE_VARCHAR) continue;
+      hash = Hash(expr_values_cache_.ExprValuePtr(expr_values, i), type.GetSlotSize(),
+          hash);
+    }
+  } else if (var_result_offset != 0) {
+    // Hash the non-var length portions (if there are any)
     hash = Hash(expr_values, var_result_offset, hash);
   }
 
@@ -1064,24 +1072,42 @@ Status HashTableCtx::CodegenHashRow(LlvmCodeGen* codegen, bool use_murmur,
   llvm::Value* hash_result = seed;
   const int var_result_offset = result_row_layout.var_results_begin_offset;
   const int expr_values_bytes_per_row = result_row_layout.expr_values_bytes_per_row;
+  // Must match HashVariableLenRow(): the CRC hash covers each fixed-length value on its
+  // own, which avoids a store forwarding stall from loading several just-stored values.
+  auto hash_fixed_len_exprs = [&]() {
+    for (int i = 0; i < exprs.size(); ++i) {
+      const ColumnType& type = exprs[i]->type();
+      if (type.type == TYPE_STRING || type.type == TYPE_VARCHAR) continue;
+      llvm::Value* loc = builder.CreateInBoundsGEP(codegen->i8_type(), expr_values,
+          codegen->GetI32Constant(result_row_layout.expr_values_offsets[i]), "loc");
+      llvm::Value* len = codegen->GetI32Constant(type.GetSlotSize());
+      hash_result = builder.CreateCall(codegen->GetHashFunction(type.GetSlotSize()),
+          llvm::ArrayRef<llvm::Value*>({loc, len, hash_result}), "hash");
+    }
+  };
   if (var_result_offset == -1) {
     // No variable length slots, just hash what is in 'expr_expr_values_cache_'
     if (expr_values_bytes_per_row > 0) {
-      llvm::Function* hash_fn = use_murmur ?
-          codegen->GetMurmurHashFunction(expr_values_bytes_per_row) :
-          codegen->GetHashFunction(expr_values_bytes_per_row);
-      llvm::Value* len = codegen->GetI32Constant(expr_values_bytes_per_row);
-      hash_result = builder.CreateCall(
-          hash_fn, llvm::ArrayRef<llvm::Value*>({expr_values, len, hash_result}), "hash");
+      if (use_murmur) {
+        llvm::Function* hash_fn =
+            codegen->GetMurmurHashFunction(expr_values_bytes_per_row);
+        llvm::Value* len = codegen->GetI32Constant(expr_values_bytes_per_row);
+        hash_result = builder.CreateCall(hash_fn,
+            llvm::ArrayRef<llvm::Value*>({expr_values, len, hash_result}), "hash");
+      } else {
+        hash_fixed_len_exprs();
+      }
     }
   } else {
-    if (var_result_offset > 0) {
-      llvm::Function* hash_fn = use_murmur ?
-          codegen->GetMurmurHashFunction(var_result_offset) :
-          codegen->GetHashFunction(var_result_offset);
-      llvm::Value* len = codegen->GetI32Constant(var_result_offset);
-      hash_result = builder.CreateCall(
-          hash_fn, llvm::ArrayRef<llvm::Value*>({expr_values, len, hash_result}), "hash");
+    if (use_murmur) {
+      if (var_result_offset > 0) {
+        llvm::Function* hash_fn = codegen->GetMurmurHashFunction(var_result_offset);
+        llvm::Value* len = codegen->GetI32Constant(var_result_offset);
+        hash_result = builder.CreateCall(hash_fn,
+            llvm::ArrayRef<llvm::Value*>({expr_values, len, hash_result}), "hash");
+      }
+    } else {
+      hash_fixed_len_exprs();
     }
 
     // Hash string slots
