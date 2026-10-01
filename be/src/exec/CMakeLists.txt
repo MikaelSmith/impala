@@ -124,6 +124,7 @@ add_library(Exec
   union-node.cc
   unnest-node.cc
   unpivot-node.cc
+  vectorized-comparison.cc
 )
 
 add_dependencies(Exec gen-deps)
@@ -140,6 +141,7 @@ add_library(ExecTests STATIC
   read-write-util-test.cc
   tuple-file-read-write-test.cc
   tuple-text-file-util-test.cc
+  vectorized-comparison-test.cc
   zigzag-test.cc
 )
 add_dependencies(ExecTests gen-deps)
@@ -151,6 +153,7 @@ ADD_UNIFIED_BE_LSAN_TEST(delimited-text-parser-test DelimitedTextParser.*)
 ADD_UNIFIED_BE_LSAN_TEST(read-write-util-test ReadWriteUtil.*)
 ADD_UNIFIED_BE_LSAN_TEST(tuple-file-read-write-test TupleFileReadWriteTest.*)
 ADD_UNIFIED_BE_LSAN_TEST(tuple-text-file-util-test TupleTextFileUtilTest.*)
+ADD_UNIFIED_BE_LSAN_TEST(vectorized-comparison-test VectorizedComparisonTest.*)
 # Exception to unified be tests: Custom main with global Frontend object
 ADD_BE_LSAN_TEST(row-batch-list-test)
 ADD_BE_LSAN_TEST(scratch-tuple-batch-test)

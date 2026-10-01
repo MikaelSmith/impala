@@ -71,6 +71,8 @@ class ScalarFnCall : public ScalarExpr {
       override WARN_UNUSED_RESULT;
   virtual std::string DebugString() const override;
 
+  bool IsBuiltin() const { return fn_.binary_type == TFunctionBinaryType::BUILTIN; }
+
  protected:
   friend class ScalarExpr;
   friend class ScalarExprEvaluator;

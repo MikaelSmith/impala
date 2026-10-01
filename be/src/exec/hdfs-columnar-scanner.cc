@@ -18,11 +18,13 @@
 #include "exec/hdfs-columnar-scanner.h"
 
 #include <algorithm>
+#include <gflags/gflags.h>
 #include <gutil/strings/substitute.h>
 
 #include "codegen/llvm-codegen.h"
 #include "exec/hdfs-scan-node-base.h"
 #include "exec/scratch-tuple-batch.h"
+#include "exprs/scalar-expr-evaluator.h"
 #include "runtime/collection-value-builder.h"
 #include "runtime/exec-env.h"
 #include "runtime/fragment-state.h"
@@ -33,6 +35,10 @@
 
 using namespace std;
 using namespace strings;
+
+DEFINE_bool(enable_vectorized_scan_conjuncts, true, "If true, simple comparisons "
+    "between a numeric or DATE column and a literal are evaluated over whole scratch "
+    "batches in Parquet and ORC scanners instead of row by row.");
 
 namespace impala {
 
@@ -127,7 +133,32 @@ Status HdfsColumnarScanner::Open(ScannerContext* context) {
     get_collection_mem_timer_ =
         PROFILE_MaterializeCollectionGetMemTime.Instantiate(profile);
   }
+
+  for (ScalarExprEvaluator* eval : *conjunct_evals_) {
+    if (IsVectorizedConjunct(eval->root())) {
+      RETURN_IF_ERROR(VectorizedComparison::Create(state_, eval, &vectorized_conjuncts_));
+    } else {
+      residual_conjunct_evals_.push_back(eval);
+    }
+  }
   return Status::OK();
+}
+
+bool HdfsColumnarScanner::IsVectorizedConjunct(const ScalarExpr& conjunct) {
+  return FLAGS_enable_vectorized_scan_conjuncts
+      && VectorizedComparison::IsSupported(conjunct);
+}
+
+void HdfsColumnarScanner::EvalVectorizedConjuncts() {
+  DCHECK_EQ(scratch_batch_->tuple_idx, 0);
+  bool* selected = scratch_batch_->selected_rows.get();
+  const int num_tuples = scratch_batch_->num_tuples;
+  memset(selected, true, num_tuples);
+  for (const VectorizedComparison& comparison : vectorized_conjuncts_) {
+    comparison.Eval(scratch_batch_->tuple_mem, scratch_batch_->tuple_byte_size,
+        num_tuples, selected);
+  }
+  scratch_batch_->prefiltered = true;
 }
 
 int HdfsColumnarScanner::FilterScratchBatch(RowBatch* dst_batch) {
@@ -153,6 +184,7 @@ int HdfsColumnarScanner::FilterScratchBatch(RowBatch* dst_batch) {
     DCHECK_EQ(0, scratch_batch_->total_allocated_bytes());
     return num_tuples;
   }
+  if (!scratch_batch_->prefiltered) EvalVectorizedConjuncts();
   return ProcessScratchBatchCodegenOrInterpret(dst_batch);
 }
 
@@ -175,8 +207,12 @@ Status HdfsColumnarScanner::Codegen(HdfsScanPlanNode* node, FragmentState* state
   DCHECK(fn != nullptr);
 
   llvm::Function* eval_conjuncts_fn;
-  const vector<ScalarExpr*>& conjuncts = node->conjuncts_;
-  RETURN_IF_ERROR(ExecNode::CodegenEvalConjuncts(codegen, conjuncts, &eval_conjuncts_fn));
+  vector<ScalarExpr*> residual_conjuncts;
+  for (ScalarExpr* conjunct : node->conjuncts_) {
+    if (!IsVectorizedConjunct(*conjunct)) residual_conjuncts.push_back(conjunct);
+  }
+  RETURN_IF_ERROR(ExecNode::CodegenEvalConjuncts(
+      codegen, residual_conjuncts, &eval_conjuncts_fn));
   DCHECK(eval_conjuncts_fn != nullptr);
 
   int replaced = codegen->ReplaceCallSites(fn, eval_conjuncts_fn, "EvalConjuncts");

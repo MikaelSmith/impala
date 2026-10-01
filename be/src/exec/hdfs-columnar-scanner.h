@@ -18,6 +18,7 @@
 #pragma once
 
 #include "exec/hdfs-scanner.h"
+#include "exec/vectorized-comparison.h"
 
 #include <boost/scoped_ptr.hpp>
 
@@ -74,6 +75,13 @@ class HdfsColumnarScanner : public HdfsScanner {
   /// The codegen'd version of ProcessScratchBatch() if available, NULL otherwise.
   /// Function type: ProcessScratchBatchFn
   const CodegenFnPtrBase* codegend_process_scratch_batch_fn_ = nullptr;
+
+  /// Top-level conjuncts evaluated over the whole scratch batch before the
+  /// row-at-a-time loop in ProcessScratchBatch().
+  std::vector<VectorizedComparison> vectorized_conjuncts_;
+
+  /// Evaluators of the top-level conjuncts not in 'vectorized_conjuncts_'.
+  std::vector<ScalarExprEvaluator*> residual_conjunct_evals_;
 
   /// Filters out tuples from 'scratch_batch_' and adds the surviving tuples
   /// to the given batch. Finalizing transfer of batch is not done here.
@@ -174,6 +182,12 @@ class HdfsColumnarScanner : public HdfsScanner {
   /// the tuple buffer
   RuntimeProfile::Counter* get_collection_mem_timer_ = nullptr;
  private:
+  /// Returns true if 'conjunct' is evaluated by a VectorizedComparison.
+  static bool IsVectorizedConjunct(const ScalarExpr& conjunct);
+
+  /// Initializes 'selected_rows' of 'scratch_batch_' from 'vectorized_conjuncts_'.
+  void EvalVectorizedConjuncts();
+
   int ProcessScratchBatchCodegenOrInterpret(RowBatch* dst_batch);
 };
 

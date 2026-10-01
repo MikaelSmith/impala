@@ -82,6 +82,9 @@ struct ScratchTupleBatch {
   // 'selected_rows[i]' would be true else false.
   boost::scoped_array<bool> selected_rows;
 
+  // True once vectorized conjuncts have initialized 'selected_rows' for all tuples.
+  bool prefiltered = false;
+
   ScratchTupleBatch(
       const RowDescriptor& row_desc, int batch_size, MemTracker* mem_tracker)
     : capacity(batch_size),
@@ -96,6 +99,7 @@ struct ScratchTupleBatch {
     tuple_idx = 0;
     num_tuples = 0;
     num_tuples_transferred = 0;
+    prefiltered = false;
     if (tuple_mem == nullptr) {
       int64_t dummy;
       RETURN_IF_ERROR(RowBatch::ResizeAndAllocateTupleBuffer(
