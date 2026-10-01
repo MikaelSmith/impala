@@ -80,34 +80,34 @@ bool IsSupportedType(PrimitiveType type) {
 }
 
 /// Same operators as the builtin comparison functions in operators-ir.cc so that
-/// results, including for NaN, are identical.
+/// results, including for NaN, are identical. The kernels compute with uint8_t rather
+/// than bool because GCC does not vectorize the bool version.
 template <typename T, typename Cmp, bool NULLABLE>
 void EvalKernel(const uint8_t* __restrict__ tuple_mem, int tuple_size, int num_tuples,
     int slot_offset, NullIndicatorOffset null_offset, T constant,
-    bool* __restrict__ selected) {
+    uint8_t* __restrict__ selected) {
   Cmp cmp;
   const uint8_t* slot = tuple_mem + slot_offset;
   const uint8_t* null_byte = tuple_mem + null_offset.byte_offset;
   for (int i = 0; i < num_tuples; ++i) {
     T val;
     memcpy(&val, slot, sizeof(T));
-    bool pass = cmp(val, constant);
-    if (NULLABLE) pass &= (*null_byte & null_offset.bit_mask) == 0;
+    uint8_t pass = static_cast<uint8_t>(cmp(val, constant));
+    if (NULLABLE) pass &= static_cast<uint8_t>((*null_byte & null_offset.bit_mask) == 0);
     selected[i] &= pass;
     slot += tuple_size;
     null_byte += tuple_size;
   }
 }
 
-template <typename T, typename Cmp>
-void EvalKernel(const uint8_t* tuple_mem, int tuple_size, int num_tuples,
-    int slot_offset, NullIndicatorOffset null_offset, T constant, bool* selected) {
-  if (null_offset.bit_mask == 0) {
-    EvalKernel<T, Cmp, false>(
-        tuple_mem, tuple_size, num_tuples, slot_offset, null_offset, constant, selected);
-  } else {
-    EvalKernel<T, Cmp, true>(
-        tuple_mem, tuple_size, num_tuples, slot_offset, null_offset, constant, selected);
+template <typename T, typename Cmp, bool NULLABLE>
+void EvalColumnKernel(const T* __restrict__ values, const uint8_t* __restrict__ is_null,
+    int num_values, T constant, uint8_t* __restrict__ selected) {
+  Cmp cmp;
+  for (int i = 0; i < num_values; ++i) {
+    uint8_t pass = static_cast<uint8_t>(cmp(values[i], constant));
+    if (NULLABLE) pass &= static_cast<uint8_t>(is_null[i] == 0);
+    selected[i] &= pass;
   }
 }
 
@@ -189,62 +189,65 @@ Status VectorizedComparison::Create(RuntimeState* state, ScalarExprEvaluator* ev
   return Status::OK();
 }
 
-template <typename T>
-void VectorizedComparison::EvalForType(const uint8_t* tuple_mem, int tuple_size,
-    int num_tuples, bool* selected, T constant) const {
+template <typename T, typename Fn>
+void VectorizedComparison::DispatchOp(T constant, Fn&& fn) const {
   switch (op_) {
-    case EQ:
-      EvalKernel<T, std::equal_to<T>>(tuple_mem, tuple_size, num_tuples, slot_offset_,
-          null_offset_, constant, selected);
-      break;
-    case NE:
-      EvalKernel<T, std::not_equal_to<T>>(tuple_mem, tuple_size, num_tuples,
-          slot_offset_, null_offset_, constant, selected);
-      break;
-    case LT:
-      EvalKernel<T, std::less<T>>(tuple_mem, tuple_size, num_tuples, slot_offset_,
-          null_offset_, constant, selected);
-      break;
-    case LE:
-      EvalKernel<T, std::less_equal<T>>(tuple_mem, tuple_size, num_tuples, slot_offset_,
-          null_offset_, constant, selected);
-      break;
-    case GT:
-      EvalKernel<T, std::greater<T>>(tuple_mem, tuple_size, num_tuples, slot_offset_,
-          null_offset_, constant, selected);
-      break;
-    case GE:
-      EvalKernel<T, std::greater_equal<T>>(tuple_mem, tuple_size, num_tuples,
-          slot_offset_, null_offset_, constant, selected);
-      break;
+    case EQ: fn(constant, std::equal_to<T>()); break;
+    case NE: fn(constant, std::not_equal_to<T>()); break;
+    case LT: fn(constant, std::less<T>()); break;
+    case LE: fn(constant, std::less_equal<T>()); break;
+    case GT: fn(constant, std::greater<T>()); break;
+    case GE: fn(constant, std::greater_equal<T>()); break;
+  }
+}
+
+template <typename Fn>
+void VectorizedComparison::Dispatch(Fn&& fn) const {
+  switch (type_) {
+    case TYPE_TINYINT: DispatchOp(static_cast<int8_t>(int_constant_), fn); break;
+    case TYPE_SMALLINT: DispatchOp(static_cast<int16_t>(int_constant_), fn); break;
+    case TYPE_INT:
+    case TYPE_DATE: DispatchOp(static_cast<int32_t>(int_constant_), fn); break;
+    case TYPE_BIGINT: DispatchOp(int_constant_, fn); break;
+    case TYPE_FLOAT: DispatchOp(static_cast<float>(float_constant_), fn); break;
+    case TYPE_DOUBLE: DispatchOp(float_constant_, fn); break;
+    default: DCHECK(false) << "Unsupported type " << TypeToString(type_);
   }
 }
 
 void VectorizedComparison::Eval(const uint8_t* tuple_mem, int tuple_size,
     int num_tuples, bool* selected) const {
-  switch (type_) {
-    case TYPE_TINYINT:
-      EvalForType<int8_t>(tuple_mem, tuple_size, num_tuples, selected, int_constant_);
-      break;
-    case TYPE_SMALLINT:
-      EvalForType<int16_t>(tuple_mem, tuple_size, num_tuples, selected, int_constant_);
-      break;
-    case TYPE_INT:
-    case TYPE_DATE:
-      EvalForType<int32_t>(tuple_mem, tuple_size, num_tuples, selected, int_constant_);
-      break;
-    case TYPE_BIGINT:
-      EvalForType<int64_t>(tuple_mem, tuple_size, num_tuples, selected, int_constant_);
-      break;
-    case TYPE_FLOAT:
-      EvalForType<float>(tuple_mem, tuple_size, num_tuples, selected, float_constant_);
-      break;
-    case TYPE_DOUBLE:
-      EvalForType<double>(tuple_mem, tuple_size, num_tuples, selected, float_constant_);
-      break;
-    default:
-      DCHECK(false) << "Unsupported type " << TypeToString(type_);
-  }
+  static_assert(sizeof(bool) == sizeof(uint8_t));
+  uint8_t* selected_bytes = reinterpret_cast<uint8_t*>(selected);
+  Dispatch([&](auto constant, auto cmp) {
+    using T = decltype(constant);
+    using Cmp = decltype(cmp);
+    if (null_offset_.bit_mask == 0) {
+      EvalKernel<T, Cmp, false>(tuple_mem, tuple_size, num_tuples, slot_offset_,
+          null_offset_, constant, selected_bytes);
+    } else {
+      EvalKernel<T, Cmp, true>(tuple_mem, tuple_size, num_tuples, slot_offset_,
+          null_offset_, constant, selected_bytes);
+    }
+  });
+}
+
+void VectorizedComparison::EvalColumn(const uint8_t* values, const uint8_t* is_null,
+    int num_values, bool* selected) const {
+  uint8_t* selected_bytes = reinterpret_cast<uint8_t*>(selected);
+  Dispatch([&](auto constant, auto cmp) {
+    using T = decltype(constant);
+    using Cmp = decltype(cmp);
+    const T* typed_values = reinterpret_cast<const T*>(values);
+    DCHECK_EQ(reinterpret_cast<uintptr_t>(values) % alignof(T), 0);
+    if (is_null == nullptr) {
+      EvalColumnKernel<T, Cmp, false>(
+          typed_values, is_null, num_values, constant, selected_bytes);
+    } else {
+      EvalColumnKernel<T, Cmp, true>(
+          typed_values, is_null, num_values, constant, selected_bytes);
+    }
+  });
 }
 
 }

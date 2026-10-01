@@ -48,10 +48,14 @@ template <typename T>
 void TestType(PrimitiveType type, const vector<T>& values, T constant) {
   const int n = values.size();
   vector<uint8_t> tuples(n * TUPLE_SIZE, 0);
+  vector<uint8_t> is_null(n, 0);
   for (int i = 0; i < n; ++i) {
     memcpy(&tuples[i * TUPLE_SIZE + SLOT_OFFSET], &values[i], sizeof(T));
     // Every third tuple is NULL.
-    if (i % 3 == 2) tuples[i * TUPLE_SIZE] = 1 << NULL_BIT;
+    if (i % 3 == 2) {
+      tuples[i * TUPLE_SIZE] = 1 << NULL_BIT;
+      is_null[i] = 1;
+    }
   }
   int64_t int_constant = std::is_integral<T>::value ? static_cast<int64_t>(constant) : 0;
   double float_constant = std::is_integral<T>::value ? 0 : static_cast<double>(constant);
@@ -63,15 +67,23 @@ void TestType(PrimitiveType type, const vector<T>& values, T constant) {
                                                  : NullIndicatorOffset();
       VectorizedComparison cmp(
           type, op, SLOT_OFFSET, null_offset, int_constant, float_constant);
-      // Start with some rows deselected to verify results are ANDed.
-      std::unique_ptr<bool[]> selected(new bool[n]);
-      for (int i = 0; i < n; ++i) selected[i] = i % 5 != 4;
-      cmp.Eval(tuples.data(), TUPLE_SIZE, n, selected.get());
-      for (int i = 0; i < n; ++i) {
-        bool expected = i % 5 != 4 && Reference(op, values[i], constant)
-            && !(nullable && i % 3 == 2);
-        EXPECT_EQ(expected, selected[i]) << "type=" << TypeToString(type)
-            << " op=" << op_idx << " nullable=" << nullable << " row=" << i;
+      for (bool columnar : {false, true}) {
+        // Start with some rows deselected to verify results are ANDed.
+        std::unique_ptr<bool[]> selected(new bool[n]);
+        for (int i = 0; i < n; ++i) selected[i] = i % 5 != 4;
+        if (columnar) {
+          cmp.EvalColumn(reinterpret_cast<const uint8_t*>(values.data()),
+              nullable ? is_null.data() : nullptr, n, selected.get());
+        } else {
+          cmp.Eval(tuples.data(), TUPLE_SIZE, n, selected.get());
+        }
+        for (int i = 0; i < n; ++i) {
+          bool expected = i % 5 != 4 && Reference(op, values[i], constant)
+              && !(nullable && i % 3 == 2);
+          EXPECT_EQ(expected, selected[i]) << "type=" << TypeToString(type)
+              << " op=" << op_idx << " nullable=" << nullable
+              << " columnar=" << columnar << " row=" << i;
+        }
       }
     }
   }

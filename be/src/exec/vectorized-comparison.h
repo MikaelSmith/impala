@@ -54,10 +54,19 @@ class VectorizedComparison {
   void Eval(const uint8_t* tuple_mem, int tuple_size, int num_tuples,
       bool* selected) const;
 
+  /// Same as Eval() for 'num_values' contiguous values of the slot type at 'values',
+  /// which must be aligned to the type. 'is_null' has one byte per value, or is
+  /// nullptr if no value is NULL.
+  void EvalColumn(const uint8_t* values, const uint8_t* is_null, int num_values,
+      bool* selected) const;
+
  private:
-  template <typename T>
-  void EvalForType(const uint8_t* tuple_mem, int tuple_size, int num_tuples,
-      bool* selected, T constant) const;
+  /// Calls 'fn(constant, cmp)' with the constant converted to the slot's C++ type and
+  /// the std comparison functor for 'op_'.
+  template <typename Fn>
+  void Dispatch(Fn&& fn) const;
+  template <typename T, typename Fn>
+  void DispatchOp(T constant, Fn&& fn) const;
 
   PrimitiveType type_;
   Op op_;
