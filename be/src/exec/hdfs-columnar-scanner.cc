@@ -36,9 +36,9 @@
 using namespace std;
 using namespace strings;
 
-DEFINE_bool(enable_vectorized_scan_conjuncts, true, "If true, simple comparisons "
-    "between a numeric or DATE column and a literal are evaluated over whole scratch "
-    "batches in Parquet and ORC scanners instead of row by row.");
+DEFINE_bool(enable_vectorized_scan_conjuncts, false, "(Experimental) If true, simple "
+    "comparisons between a numeric or DATE column and a literal are evaluated over whole "
+    "scratch batches in Parquet and ORC scanners instead of row by row.");
 
 namespace impala {
 
