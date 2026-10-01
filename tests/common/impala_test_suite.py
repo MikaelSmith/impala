@@ -1083,12 +1083,13 @@ class ImpalaTestSuite(BaseTestSuite):
                 result_section=results_section_name,
                 update_section=self.pytest_config().option.update_results)
           else:
-            remaining=test_section['RETRY'] if 'RETRY' in test_section else 1
+            remaining = test_section['RETRY'] if 'RETRY' in test_section else 1
             while remaining > 0:
               try:
                 remaining -= 1
-                self.__verify_results_and_errors(vector, test_section, results_section_name,
-                    result, use_db)
+                self.__verify_results_and_errors(vector, test_section,
+                    results_section_name, result, use_db)
+                break
               except Exception as e:
                 if remaining == 0:
                   raise
