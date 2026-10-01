@@ -89,6 +89,22 @@ class ScalarColumnReader : public BaseScalarColumnReader {
   virtual bool NeedsConversion() override { return NeedsConversionInline(); }
   virtual bool NeedsValidation() override { return NeedsValidationInline(); }
 
+  virtual bool CanStage() const override {
+    if constexpr (MATERIALIZED && std::is_arithmetic_v<InternalType>
+        && !std::is_same_v<InternalType, bool>) {
+      return max_rep_level() == 0 && !AnyPosSlotToBeFilled();
+    }
+    return false;
+  }
+
+  virtual void SetStaging(void* values, uint8_t* is_null) override {
+    DCHECK(CanStage());
+    stage_values_ = reinterpret_cast<InternalType*>(values);
+    stage_nulls_ = is_null;
+  }
+
+  virtual bool IsStaged() const override { return stage_values_ != nullptr; }
+
   template <bool IN_COLLECTION>
   inline bool ReadValue(Tuple* tuple);
 
@@ -129,11 +145,23 @@ class ScalarColumnReader : public BaseScalarColumnReader {
   bool MaterializeValueBatch(int max_values, int tuple_size, uint8_t* RESTRICT tuple_mem,
       int* RESTRICT num_values) RESTRICT;
 
+  /// Same as MaterializeValueBatch() for a staged reader: writes values to 'values' and
+  /// NULL flags to 'is_null'. Only for columns that are not in a collection.
+  bool MaterializeValueBatchStaged(int max_values, InternalType* RESTRICT values,
+      uint8_t* RESTRICT is_null, int* RESTRICT num_values) RESTRICT;
+
+  template <Encoding::type ENCODING>
+  bool MaterializeValueBatchStaged(int max_values, InternalType* RESTRICT values,
+      uint8_t* RESTRICT is_null, int* RESTRICT num_values) RESTRICT;
+
   /// Fast path for MaterializeValueBatch() that materializes values for a run of
   /// repeated definition levels. Read up to 'max_values' values into 'tuple_mem',
-  /// returning the number of values materialised in 'num_values'.
+  /// returning the number of values materialised in 'num_values'. If 'null_mem' is not
+  /// nullptr, the reader is staged: 'tuple_mem' points to the values and 'null_mem' to
+  /// the NULL flags.
   bool MaterializeValueBatchRepeatedDefLevel(int max_values, int tuple_size,
-      uint8_t* RESTRICT tuple_mem, int* RESTRICT num_values) RESTRICT;
+      uint8_t* RESTRICT tuple_mem, uint8_t* RESTRICT null_mem,
+      int* RESTRICT num_values) RESTRICT;
 
   /// Read 'num_to_read' values into a batch of tuples starting at 'tuple_mem'.
   bool ReadSlots(
@@ -287,6 +315,10 @@ class ScalarColumnReader : public BaseScalarColumnReader {
 
   /// Allocated from parent_->perm_pool_ if NeedsConversion() is true and null otherwise.
   uint8_t* conversion_buffer_ = nullptr;
+
+  /// Destination of a staged reader, see SetStaging(). Null if not staged.
+  InternalType* stage_values_ = nullptr;
+  uint8_t* stage_nulls_ = nullptr;
 };
 
 template <typename InternalType, parquet::Type::type PARQUET_TYPE, bool MATERIALIZED>
@@ -525,12 +557,18 @@ bool ScalarColumnReader<InternalType, PARQUET_TYPE, MATERIALIZED>::ReadValueBatc
 
     const int remaining_val_capacity = max_values - val_count;
     uint8_t* next_tuple = tuple_mem + val_count * tuple_size;
+    uint8_t* next_nulls = nullptr;
+    if (stage_values_ != nullptr) {
+      DCHECK(!IN_COLLECTION);
+      next_tuple = reinterpret_cast<uint8_t*>(stage_values_ + val_count);
+      next_nulls = stage_nulls_ + val_count;
+    }
     if (def_levels_.NextRepeatedRunLength() > 0) {
       // Fast path to materialize a run of values with the same definition level. This
       // avoids checking for NULL/not-NULL for every value.
       int ret_val_count = 0;
       continue_execution = MaterializeValueBatchRepeatedDefLevel(
-          remaining_val_capacity, tuple_size, next_tuple, &ret_val_count);
+          remaining_val_capacity, tuple_size, next_tuple, next_nulls, &ret_val_count);
       val_count += ret_val_count;
     } else {
       // We don't have a repeated run - cache def levels and process value-by-value.
@@ -542,8 +580,14 @@ bool ScalarColumnReader<InternalType, PARQUET_TYPE, MATERIALIZED>::ReadValueBatc
 
       // Read data page and cached levels to materialize values.
       int ret_val_count = 0;
-      continue_execution = MaterializeValueBatch<IN_COLLECTION>(
-          remaining_val_capacity, tuple_size, next_tuple, &ret_val_count);
+      if (stage_values_ != nullptr) {
+        continue_execution = MaterializeValueBatchStaged(
+            remaining_val_capacity, stage_values_ + val_count, next_nulls,
+            &ret_val_count);
+      } else {
+        continue_execution = MaterializeValueBatch<IN_COLLECTION>(
+            remaining_val_capacity, tuple_size, next_tuple, &ret_val_count);
+      }
       val_count += ret_val_count;
     }
     // Now that we have read some values, let's check whether we should skip some
@@ -633,7 +677,8 @@ bool ScalarColumnReader<InternalType, PARQUET_TYPE, MATERIALIZED>::MaterializeVa
 template <typename InternalType, parquet::Type::type PARQUET_TYPE, bool MATERIALIZED>
 bool ScalarColumnReader<InternalType, PARQUET_TYPE,
     MATERIALIZED>::MaterializeValueBatchRepeatedDefLevel(int max_values, int tuple_size,
-    uint8_t* RESTRICT tuple_mem, int* RESTRICT num_values) RESTRICT {
+    uint8_t* RESTRICT tuple_mem, uint8_t* RESTRICT null_mem,
+    int* RESTRICT num_values) RESTRICT {
   DCHECK_GT(num_buffered_values_, 0);
   if (max_rep_level_ > 0 &&
       (AnyPosSlotToBeFilled() || DoesPageFiltering())) {
@@ -695,7 +740,17 @@ bool ScalarColumnReader<InternalType, PARQUET_TYPE,
       ReadPositions(num_def_levels_to_consume, tuple_size, tuple_mem);
     }
     if (MATERIALIZED) {
-      if (def_level >= max_def_level()) {
+      if (null_mem != nullptr) {
+        if (def_level >= max_def_level()) {
+          if (!DecodeValues(sizeof(InternalType), num_def_levels_to_consume,
+              reinterpret_cast<InternalType*>(tuple_mem))) {
+            return false;
+          }
+          memset(null_mem, 0, num_def_levels_to_consume);
+        } else {
+          memset(null_mem, 1, num_def_levels_to_consume);
+        }
+      } else if (def_level >= max_def_level()) {
         if (!ReadSlots(num_def_levels_to_consume, tuple_size, tuple_mem)) {
           return false;
         }
@@ -711,6 +766,51 @@ bool ScalarColumnReader<InternalType, PARQUET_TYPE,
   num_buffered_values_ -= num_def_levels_to_consume;
   DCHECK_GE(num_buffered_values_, 0);
   return true;
+}
+
+template <typename InternalType, parquet::Type::type PARQUET_TYPE, bool MATERIALIZED>
+template <Encoding::type ENCODING>
+bool ScalarColumnReader<InternalType, PARQUET_TYPE, MATERIALIZED>::
+    MaterializeValueBatchStaged(int max_values, InternalType* RESTRICT values,
+    uint8_t* RESTRICT is_null, int* RESTRICT num_values) RESTRICT {
+  DCHECK(MATERIALIZED);
+  DCHECK_EQ(max_rep_level(), 0);
+  DCHECK_GT(num_buffered_values_, 0);
+  DCHECK(def_levels_.CacheHasNext());
+  int cache_start_idx = def_levels_.CacheCurrIdx();
+  int val_count = 0;
+  DCHECK_LE(def_levels_.CacheRemaining(), num_buffered_values_);
+  max_values = min(max_values, num_buffered_values_);
+  while (def_levels_.CacheHasNext() && val_count < max_values) {
+    if (DoesPageFiltering() && RowsRemainingInCandidateRange() == 0) break;
+    ++current_row_;
+    if (def_levels_.CacheGetNext() >= max_def_level()) {
+      if (UNLIKELY(!DecodeValue<ENCODING>(&data_, data_end_, values + val_count))) {
+        return false;
+      }
+      is_null[val_count] = 0;
+    } else {
+      is_null[val_count] = 1;
+    }
+    ++val_count;
+  }
+  num_buffered_values_ -= (def_levels_.CacheCurrIdx() - cache_start_idx);
+  DCHECK_GE(num_buffered_values_, 0);
+  *num_values = val_count;
+  return true;
+}
+
+template <typename InternalType, parquet::Type::type PARQUET_TYPE, bool MATERIALIZED>
+bool ScalarColumnReader<InternalType, PARQUET_TYPE, MATERIALIZED>::
+    MaterializeValueBatchStaged(int max_values, InternalType* RESTRICT values,
+    uint8_t* RESTRICT is_null, int* RESTRICT num_values) RESTRICT {
+  if (IsDictionaryEncoding(page_encoding_)) {
+    return MaterializeValueBatchStaged<Encoding::PLAIN_DICTIONARY>(
+        max_values, values, is_null, num_values);
+  }
+  DCHECK_EQ(page_encoding_, Encoding::PLAIN);
+  return MaterializeValueBatchStaged<Encoding::PLAIN>(
+      max_values, values, is_null, num_values);
 }
 
 template <typename InternalType, parquet::Type::type PARQUET_TYPE, bool MATERIALIZED>

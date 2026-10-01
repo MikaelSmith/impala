@@ -34,6 +34,13 @@ namespace impala {
 
 namespace {
 
+// The baseline x86-64 target has no 64-bit vector compare and only 128-bit vectors.
+#if defined(__x86_64__)
+#define VECTORIZED_KERNEL __attribute__((target_clones("avx2", "default")))
+#else
+#define VECTORIZED_KERNEL
+#endif
+
 bool OpFromName(const string& name, VectorizedComparison::Op* op) {
   if (name == "eq") {
     *op = VectorizedComparison::EQ;
@@ -83,7 +90,7 @@ bool IsSupportedType(PrimitiveType type) {
 /// results, including for NaN, are identical. The kernels compute with uint8_t rather
 /// than bool because GCC does not vectorize the bool version.
 template <typename T, typename Cmp, bool NULLABLE>
-void EvalKernel(const uint8_t* __restrict__ tuple_mem, int tuple_size, int num_tuples,
+VECTORIZED_KERNEL void EvalKernel(const uint8_t* __restrict__ tuple_mem, int tuple_size, int num_tuples,
     int slot_offset, NullIndicatorOffset null_offset, T constant,
     uint8_t* __restrict__ selected) {
   Cmp cmp;
@@ -101,7 +108,7 @@ void EvalKernel(const uint8_t* __restrict__ tuple_mem, int tuple_size, int num_t
 }
 
 template <typename T, typename Cmp, bool NULLABLE>
-void EvalColumnKernel(const T* __restrict__ values, const uint8_t* __restrict__ is_null,
+VECTORIZED_KERNEL void EvalColumnKernel(const T* __restrict__ values, const uint8_t* __restrict__ is_null,
     int num_values, T constant, uint8_t* __restrict__ selected) {
   Cmp cmp;
   for (int i = 0; i < num_values; ++i) {

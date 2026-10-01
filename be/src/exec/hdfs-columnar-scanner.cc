@@ -40,6 +40,11 @@ DEFINE_bool(enable_vectorized_scan_conjuncts, false, "(Experimental) If true, si
     "comparisons between a numeric or DATE column and a literal are evaluated over whole "
     "scratch batches in Parquet and ORC scanners instead of row by row.");
 
+DEFINE_bool(enable_staged_scan_columns, false, "(Experimental) If true and "
+    "enable_vectorized_scan_conjuncts is true, the Parquet scanner decodes numeric "
+    "columns evaluated by vectorized conjuncts into contiguous buffers and only copies "
+    "the values of rows that pass the conjuncts into the tuples.");
+
 namespace impala {
 
 PROFILE_DEFINE_COUNTER(
@@ -141,7 +146,32 @@ Status HdfsColumnarScanner::Open(ScannerContext* context) {
       residual_conjunct_evals_.push_back(eval);
     }
   }
+  staged_column_of_conjunct_.assign(vectorized_conjuncts_.size(), -1);
   return Status::OK();
+}
+
+const HdfsColumnarScanner::StagedColumn* HdfsColumnarScanner::AddStagedColumn(
+    const SlotDescriptor* slot_desc) {
+  if (!FLAGS_enable_staged_scan_columns) return nullptr;
+  const int column_idx = staged_columns_.size();
+  bool is_evaluated = false;
+  for (int i = 0; i < vectorized_conjuncts_.size(); ++i) {
+    if (vectorized_conjuncts_[i].slot_offset() != slot_desc->tuple_offset()) continue;
+    DCHECK_EQ(staged_column_of_conjunct_[i], -1);
+    staged_column_of_conjunct_[i] = column_idx;
+    is_evaluated = true;
+  }
+  if (!is_evaluated) return nullptr;
+  const int capacity = state_->batch_size();
+  StagedColumn column;
+  column.slot_offset = slot_desc->tuple_offset();
+  column.value_size = slot_desc->type().GetSlotSize();
+  DCHECK_LE(column.value_size, sizeof(int64_t));
+  column.values.reset(new int64_t[capacity]);
+  column.is_null.reset(new uint8_t[capacity]);
+  if (selection_vector_ == nullptr) selection_vector_.reset(new int[capacity]);
+  staged_columns_.push_back(std::move(column));
+  return &staged_columns_.back();
 }
 
 bool HdfsColumnarScanner::IsVectorizedConjunct(const ScalarExpr& conjunct) {
@@ -149,15 +179,88 @@ bool HdfsColumnarScanner::IsVectorizedConjunct(const ScalarExpr& conjunct) {
       && VectorizedComparison::IsSupported(conjunct);
 }
 
+namespace {
+
+/// Copies 'values[i]' to the slot of tuple i for every selected row.
+template <typename T>
+void CopySelectedValues(const T* values, int slot_offset, uint8_t* tuple_mem,
+    int tuple_size, const uint8_t* selected, int num_tuples) {
+  uint8_t* slot = tuple_mem + slot_offset;
+  for (int i = 0; i < num_tuples; ++i, slot += tuple_size) {
+    if (selected[i]) memcpy(slot, &values[i], sizeof(T));
+  }
+}
+
+template <typename T>
+void CopyIndexedValues(const T* values, int slot_offset, uint8_t* tuple_mem,
+    int tuple_size, const int* selection_vector, int num_selected) {
+  uint8_t* slots = tuple_mem + slot_offset;
+  for (int k = 0; k < num_selected; ++k) {
+    const int i = selection_vector[k];
+    memcpy(slots + static_cast<int64_t>(i) * tuple_size, &values[i], sizeof(T));
+  }
+}
+
+}
+
+void HdfsColumnarScanner::CopyStagedColumns(int num_tuples) {
+  const uint8_t* selected =
+      reinterpret_cast<const uint8_t*>(scratch_batch_->selected_rows.get());
+  uint8_t* tuple_mem = scratch_batch_->tuple_mem;
+  const int tuple_size = scratch_batch_->tuple_byte_size;
+  // The selection vector is built without branches so it wins when rows are
+  // unpredictably selected, but checking every row is cheaper when most are selected.
+  int num_selected = 0;
+  for (int i = 0; i < num_tuples; ++i) num_selected += selected[i];
+  const bool use_selection_vector = num_selected * 4 < num_tuples * 3;
+  if (use_selection_vector) {
+    int* selection_vector = selection_vector_.get();
+    int k = 0;
+    for (int i = 0; i < num_tuples; ++i) {
+      selection_vector[k] = i;
+      k += selected[i];
+    }
+  }
+  for (const StagedColumn& column : staged_columns_) {
+    auto copy = [&](auto type_tag) {
+      using T = decltype(type_tag);
+      const T* values = reinterpret_cast<const T*>(column.values.get());
+      if (use_selection_vector) {
+        CopyIndexedValues(values, column.slot_offset, tuple_mem, tuple_size,
+            selection_vector_.get(), num_selected);
+      } else {
+        CopySelectedValues(
+            values, column.slot_offset, tuple_mem, tuple_size, selected, num_tuples);
+      }
+    };
+    switch (column.value_size) {
+      case 1: copy(int8_t()); break;
+      case 2: copy(int16_t()); break;
+      case 4: copy(int32_t()); break;
+      case 8: copy(int64_t()); break;
+      default: DCHECK(false) << column.value_size;
+    }
+  }
+}
+
 void HdfsColumnarScanner::EvalVectorizedConjuncts() {
   DCHECK_EQ(scratch_batch_->tuple_idx, 0);
   bool* selected = scratch_batch_->selected_rows.get();
   const int num_tuples = scratch_batch_->num_tuples;
   memset(selected, true, num_tuples);
-  for (const VectorizedComparison& comparison : vectorized_conjuncts_) {
-    comparison.Eval(scratch_batch_->tuple_mem, scratch_batch_->tuple_byte_size,
-        num_tuples, selected);
+  for (int i = 0; i < vectorized_conjuncts_.size(); ++i) {
+    const VectorizedComparison& comparison = vectorized_conjuncts_[i];
+    const int column_idx = staged_column_of_conjunct_[i];
+    if (column_idx < 0) {
+      comparison.Eval(scratch_batch_->tuple_mem, scratch_batch_->tuple_byte_size,
+          num_tuples, selected);
+    } else {
+      const StagedColumn& column = staged_columns_[column_idx];
+      comparison.EvalColumn(reinterpret_cast<const uint8_t*>(column.values.get()),
+          column.is_null.get(), num_tuples, selected);
+    }
   }
+  if (!staged_columns_.empty()) CopyStagedColumns(num_tuples);
   scratch_batch_->prefiltered = true;
 }
 

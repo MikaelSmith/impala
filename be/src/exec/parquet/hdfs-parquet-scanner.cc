@@ -259,6 +259,12 @@ Status HdfsParquetScanner::Open(ScannerContext* context) {
   }
   DivideFilterAndNonFilterColumnReaders(column_readers_, &filter_readers_,
       &non_filter_readers_);
+  for (ParquetColumnReader* reader : filter_readers_) {
+    if (!reader->CanStage()) continue;
+    const StagedColumn* column = AddStagedColumn(reader->slot_desc());
+    if (column == nullptr) continue;
+    reader->SetStaging(column->values.get(), column->is_null.get());
+  }
   // Set the late materialization threshold to 1 if
   // - late materialization is enabled, and
   // - there is any collection that can be skipped.
@@ -2566,6 +2572,8 @@ Status HdfsParquetScanner::FillScratchMicroBatches(
       // Ensure that the length of the micro_batch is less than
       // or equal to the capacity of scratch_batch_.
       DCHECK_LE(micro_batches[r].length, scratch_batch_->capacity);
+      // A staged reader writes from the start of the scratch batch.
+      DCHECK(!col_reader->IsStaged() || micro_batches[r].start == 0);
       uint8_t* next_tuple_mem = scratch_batch_->tuple_mem
           + (scratch_batch_->tuple_byte_size * micro_batches[r].start);
       if (col_reader->max_rep_level() > 0) {

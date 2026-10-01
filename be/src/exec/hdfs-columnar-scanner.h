@@ -20,6 +20,8 @@
 #include "exec/hdfs-scanner.h"
 #include "exec/vectorized-comparison.h"
 
+#include <memory>
+
 #include <boost/scoped_ptr.hpp>
 
 namespace impala {
@@ -82,6 +84,25 @@ class HdfsColumnarScanner : public HdfsScanner {
 
   /// Evaluators of the top-level conjuncts not in 'vectorized_conjuncts_'.
   std::vector<ScalarExprEvaluator*> residual_conjunct_evals_;
+
+  /// A column that the scanner decodes into 'values' and 'is_null' instead of the scratch
+  /// tuples, because vectorized conjuncts evaluate it. EvalVectorizedConjuncts() copies
+  /// the values of the rows that pass these conjuncts into their tuples. The slots of
+  /// other rows are left unset.
+  struct StagedColumn {
+    int slot_offset;
+    int value_size;
+    /// One value per scratch batch row, aligned for any slot type.
+    std::unique_ptr<int64_t[]> values;
+    /// One byte per scratch batch row, 1 if the value is NULL.
+    std::unique_ptr<uint8_t[]> is_null;
+  };
+
+  /// Registers 'slot_desc', a slot of the scratch tuple, as a staged column if a
+  /// vectorized conjunct evaluates it and returns it, otherwise returns nullptr. The
+  /// caller must decode the slot into the returned buffers, which stay valid for the
+  /// lifetime of the scanner. The returned pointer is only valid until the next call.
+  const StagedColumn* AddStagedColumn(const SlotDescriptor* slot_desc);
 
   /// Filters out tuples from 'scratch_batch_' and adds the surviving tuples
   /// to the given batch. Finalizing transfer of batch is not done here.
@@ -187,6 +208,18 @@ class HdfsColumnarScanner : public HdfsScanner {
 
   /// Initializes 'selected_rows' of 'scratch_batch_' from 'vectorized_conjuncts_'.
   void EvalVectorizedConjuncts();
+
+  /// Copies the staged values of the selected rows of 'scratch_batch_' into the tuples.
+  void CopyStagedColumns(int num_tuples);
+
+  std::vector<StagedColumn> staged_columns_;
+
+  /// For each element of 'vectorized_conjuncts_', the index in 'staged_columns_' of the
+  /// column it evaluates, or -1 if it evaluates the tuples.
+  std::vector<int> staged_column_of_conjunct_;
+
+  /// Indexes of the selected rows, used by CopyStagedColumns().
+  std::unique_ptr<int[]> selection_vector_;
 
   int ProcessScratchBatchCodegenOrInterpret(RowBatch* dst_batch);
 };

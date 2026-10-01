@@ -209,6 +209,20 @@ class ParquetColumnReader {
     tuple->SetNull(DCHECK_NOTNULL(slot_desc_)->null_indicator_offset());
   }
 
+  /// Returns true if this reader can decode into a contiguous column buffer instead of
+  /// the tuples, see SetStaging().
+  virtual bool CanStage() const { return false; }
+
+  /// Makes the batched read functions write the values to 'values', an array of the
+  /// slot's C++ type, and one NULL flag per value (1 if NULL) to 'is_null', instead of
+  /// the slot and null indicator in the tuples. The slot value of a NULL is not written.
+  /// Both are indexed from the start of the scratch batch, so a staged reader must be
+  /// read in whole batches. Must only be called if CanStage().
+  virtual void SetStaging(void* values, uint8_t* is_null) { DCHECK(false); }
+
+  /// Returns true if SetStaging() was called.
+  virtual bool IsStaged() const { return false; }
+
   /// Returns 'true' if there is a file position slot or position slot to be filled.
   bool AnyPosSlotToBeFilled() const {
     return pos_slot_desc_ != nullptr || file_pos_slot_desc_ != nullptr;

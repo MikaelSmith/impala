@@ -60,6 +60,8 @@ class VectorizedComparison {
   void EvalColumn(const uint8_t* values, const uint8_t* is_null, int num_values,
       bool* selected) const;
 
+  int slot_offset() const { return slot_offset_; }
+
  private:
   /// Calls 'fn(constant, cmp)' with the constant converted to the slot's C++ type and
   /// the std comparison functor for 'op_'.
