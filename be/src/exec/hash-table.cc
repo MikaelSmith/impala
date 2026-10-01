@@ -471,6 +471,12 @@ void HashTableCtx::ExprValuesCache::ResetForRead() {
   ResetIterators();
 }
 
+void HashTableCtx::ExprValuesCache::ResetForReadAfterWrite(int num_rows) {
+  DCHECK_LE(num_rows, capacity_);
+  cur_expr_values_hash_end_ = expr_values_hash_array_.get() + num_rows;
+  ResetIterators();
+}
+
 constexpr double HashTable::MAX_FILL_FACTOR;
 constexpr int64_t HashTable::DATA_PAGE_SIZE;
 

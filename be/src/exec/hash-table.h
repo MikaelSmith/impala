@@ -213,6 +213,15 @@ class HashTableCtx {
   bool IR_ALWAYS_INLINE EvalAndHashBuild(const TupleRow* row);
   bool IR_ALWAYS_INLINE EvalAndHashProbe(const TupleRow* row);
 
+  /// Same as above, but writes the results to 'expr_values', 'expr_values_null' and
+  /// '*hash' instead of the current row of the ExprValuesCache, so that a loop over a
+  /// prefetch group can keep its cursors in registers. '*hash' is 0 if the row is
+  /// rejected. The caller must call ExprValuesCache::ResetForReadAfterWrite().
+  bool IR_ALWAYS_INLINE EvalAndHashBuild(const TupleRow* row, uint8_t* expr_values,
+      uint8_t* expr_values_null, uint32_t* hash);
+  bool IR_ALWAYS_INLINE EvalAndHashProbe(const TupleRow* row, uint8_t* expr_values,
+      uint8_t* expr_values_null, uint32_t* hash);
+
   /// Codegen for evaluating a tuple row. Codegen'd function matches the signature
   /// for EvalBuildRow and EvalTupleRow.
   /// If build_row is true, the codegen uses the build_exprs, otherwise the probe_exprs.
@@ -308,6 +317,24 @@ class HashTableCtx {
     /// Advances the iterators to the next row by moving to the next entries in the
     /// arrays of cached values.
     void ALWAYS_INLINE NextRow();
+
+    /// Start of the arrays written by a loop that tracks its own cursors, see
+    /// HashTableCtx::EvalAndHashBuild(). Valid after Reset().
+    uint8_t* ALWAYS_INLINE expr_values_start() const { return cur_expr_values_; }
+    uint8_t* ALWAYS_INLINE expr_values_null_start() const {
+      return cur_expr_values_null_;
+    }
+    uint32_t* ALWAYS_INLINE expr_values_hash_start() const {
+      return cur_expr_values_hash_;
+    }
+    int ALWAYS_INLINE num_exprs() const { return num_exprs_; }
+
+    /// Sets row 'idx' as null, like SetRowNull() does for the current row.
+    void ALWAYS_INLINE SetRowNullAt(int idx) { null_bitmap_.Set(idx, true); }
+
+    /// Like ResetForRead() after a write pass of 'num_rows' rows that did not advance
+    /// the iterators.
+    void ResetForReadAfterWrite(int num_rows);
 
     /// Compute the total memory usage of this ExprValuesCache.
     static int MemUsage(int capacity, int results_buffer_size, int num_build_exprs);

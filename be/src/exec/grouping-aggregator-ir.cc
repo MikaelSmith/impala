@@ -66,27 +66,38 @@ void IR_ALWAYS_INLINE GroupingAggregator::EvalAndHashPrefetchGroup(RowBatch* bat
   const int cache_size = expr_vals_cache->capacity();
 
   expr_vals_cache->Reset();
+  // Keep the cursors in locals: stores through the byte pointers below would otherwise
+  // force the compiler to reload and store the cache's cursor fields every row.
+  uint8_t* expr_values = expr_vals_cache->expr_values_start();
+  uint8_t* expr_values_null = expr_vals_cache->expr_values_null_start();
+  uint32_t* hash_out = expr_vals_cache->expr_values_hash_start();
+  const int values_stride = expr_vals_cache->expr_values_bytes_per_row();
+  const int null_stride = expr_vals_cache->num_exprs();
+  int idx = 0;
   FOREACH_ROW_LIMIT(batch, start_row_idx, cache_size, batch_iter) {
     TupleRow* row = batch_iter.Get();
+    uint32_t hash;
     bool is_null;
     if (AGGREGATED_ROWS) {
-      is_null = !ht_ctx->EvalAndHashBuild(row);
+      is_null = !ht_ctx->EvalAndHashBuild(row, expr_values, expr_values_null, &hash);
     } else {
-      is_null = !ht_ctx->EvalAndHashProbe(row);
+      is_null = !ht_ctx->EvalAndHashProbe(row, expr_values, expr_values_null, &hash);
     }
+    *hash_out++ = hash;
     // Hoist lookups out of non-null branch to speed up non-null case.
-    const uint32_t hash = expr_vals_cache->CurExprValuesHash();
     const uint32_t partition_idx = hash >> (32 - NUM_PARTITIONING_BITS);
     HashTable* hash_tbl = GetHashTable(partition_idx);
     if (is_null) {
-      expr_vals_cache->SetRowNull();
+      expr_vals_cache->SetRowNullAt(idx);
     } else if (prefetch_mode != TPrefetchMode::NONE) {
       if (LIKELY(hash_tbl != nullptr)) hash_tbl->PrefetchBucket<false>(hash);
     }
-    expr_vals_cache->NextRow();
+    expr_values += values_stride;
+    expr_values_null += null_stride;
+    ++idx;
   }
 
-  expr_vals_cache->ResetForRead();
+  expr_vals_cache->ResetForReadAfterWrite(idx);
 }
 
 template <bool AGGREGATED_ROWS>

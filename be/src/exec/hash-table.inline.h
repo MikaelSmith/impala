@@ -40,6 +40,28 @@ inline bool HashTableCtx::EvalAndHashProbe(const TupleRow* row) {
   return true;
 }
 
+inline bool HashTableCtx::EvalAndHashBuild(const TupleRow* row, uint8_t* expr_values,
+    uint8_t* expr_values_null, uint32_t* hash) {
+  bool has_null = EvalBuildRow(row, expr_values, expr_values_null);
+  if (!stores_nulls() && has_null) {
+    *hash = 0;
+    return false;
+  }
+  *hash = HashRow(expr_values, expr_values_null);
+  return true;
+}
+
+inline bool HashTableCtx::EvalAndHashProbe(const TupleRow* row, uint8_t* expr_values,
+    uint8_t* expr_values_null, uint32_t* hash) {
+  bool has_null = EvalProbeRow(row, expr_values, expr_values_null);
+  if (has_null && !(stores_nulls() && finds_some_nulls())) {
+    *hash = 0;
+    return false;
+  }
+  *hash = HashRow(expr_values, expr_values_null);
+  return true;
+}
+
 inline void HashTableCtx::ExprValuesCache::NextRow() {
   cur_expr_values_ += expr_values_bytes_per_row_;
   cur_expr_values_null_ += num_exprs_;

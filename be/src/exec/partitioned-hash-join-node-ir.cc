@@ -356,21 +356,32 @@ void IR_ALWAYS_INLINE PartitionedHashJoinNode::EvalAndHashProbePrefetchGroup(
   DCHECK(expr_vals_cache->AtEnd());
 
   expr_vals_cache->Reset();
+  // Keep the cursors in locals so that stores to the cached values don't force reloads
+  // of the cache's cursor fields.
+  uint8_t* expr_values = expr_vals_cache->expr_values_start();
+  uint8_t* expr_values_null = expr_vals_cache->expr_values_null_start();
+  uint32_t* hash_out = expr_vals_cache->expr_values_hash_start();
+  const int values_stride = expr_vals_cache->expr_values_bytes_per_row();
+  const int null_stride = expr_vals_cache->num_exprs();
+  int idx = 0;
   FOREACH_ROW_LIMIT(probe_batch, probe_batch_pos_, prefetch_size, batch_iter) {
     TupleRow* row = batch_iter.Get();
-    if (ht_ctx->EvalAndHashProbe(row)) {
+    uint32_t hash;
+    if (ht_ctx->EvalAndHashProbe(row, expr_values, expr_values_null, &hash)) {
       if (prefetch_mode != TPrefetchMode::NONE) {
-        uint32_t hash = expr_vals_cache->CurExprValuesHash();
         const uint32_t partition_idx = hash >> (32 - NUM_PARTITIONING_BITS);
         HashTable* hash_tbl = hash_tbls_[partition_idx];
         if (LIKELY(hash_tbl != NULL)) hash_tbl->PrefetchBucket<true>(hash);
       }
     } else {
-      expr_vals_cache->SetRowNull();
+      expr_vals_cache->SetRowNullAt(idx);
     }
-    expr_vals_cache->NextRow();
+    *hash_out++ = hash;
+    expr_values += values_stride;
+    expr_values_null += null_stride;
+    ++idx;
   }
-  expr_vals_cache->ResetForRead();
+  expr_vals_cache->ResetForReadAfterWrite(idx);
 }
 
 // CreateOutputRow, EvalOtherJoinConjuncts, and EvalConjuncts are replaced by codegen.
