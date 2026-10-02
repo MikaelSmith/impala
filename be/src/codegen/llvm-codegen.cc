@@ -159,15 +159,8 @@ const map<int64_t, std::string> LlvmCodeGen::cpu_flag_mappings_{
 
 Status LlvmCodeGen::InitializeLlvm(const char* procname, bool load_backend) {
   DCHECK(!llvm_initialized_);
-  std::vector<const char*> argv = {procname,
-      // Treat all functions as having the inline hint
-      "-inline-threshold=325",
-#ifdef __aarch64__
-      // GlobalISel, used at -O0 (debug builds), hangs legalizing <128 x i1> from
-      // string aggregate null bits.
-      "-aarch64-enable-global-isel-at-O=-1",
-#endif
-  };
+  // Treat all functions as having the inline hint
+  std::array<const char*, 2> argv = { { procname, "-inline-threshold=325" } };
   CHECK(llvm::cl::ParseCommandLineOptions(argv.size(), argv.data()));
   llvm::remove_fatal_error_handler();
   llvm::install_fatal_error_handler(LlvmCodegenHandleError);

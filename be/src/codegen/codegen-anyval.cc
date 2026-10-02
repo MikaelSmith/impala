@@ -204,6 +204,14 @@ CodegenAnyVal::CodegenAnyVal(LlvmCodeGen* codegen, LlvmBuilder* builder,
   DCHECK_EQ(value_->getType(), value_type);
 }
 
+// Returns the low bit of integer 'v' as an i1. Avoids 'trunc to i1', which InstCombine
+// rewrites to an extractelement on a <128 x i1> bitcast of the SROA'd *Val vector, and
+// that hangs GlobalISel on aarch64 at -O0.
+static llvm::Value* LowBitToBool(LlvmBuilder* builder, llvm::Value* v, const char* name) {
+  llvm::Value* low_bit = builder->CreateAnd(v, llvm::ConstantInt::get(v->getType(), 1));
+  return builder->CreateICmpNE(low_bit, llvm::ConstantInt::get(v->getType(), 0), name);
+}
+
 llvm::Value* CodegenAnyVal::GetIsNull(const char* name) const {
   switch (type_.type) {
     case TYPE_BIGINT:
@@ -216,14 +224,14 @@ llvm::Value* CodegenAnyVal::GetIsNull(const char* name) const {
 #else
       DCHECK(is_null->getType() == codegen_->i64_type());
 #endif
-      return builder_->CreateTrunc(is_null, codegen_->bool_type(), name);
+      return LowBitToBool(builder_, is_null, name);
     }
     case TYPE_DECIMAL: {
       // Lowered type is of the form { {i8}, ... }
       uint32_t idxs[] = {0, 0};
       llvm::Value* is_null_i8 = builder_->CreateExtractValue(value_, idxs);
       DCHECK(is_null_i8->getType() == codegen_->i8_type());
-      return builder_->CreateTrunc(is_null_i8, codegen_->bool_type(), name);
+      return LowBitToBool(builder_, is_null_i8, name);
     }
     case TYPE_STRING:
     case TYPE_VARCHAR:
@@ -237,7 +245,7 @@ llvm::Value* CodegenAnyVal::GetIsNull(const char* name) const {
       // Lowered type is of form { i64, *}. Get the first byte of the i64 value.
       llvm::Value* v = builder_->CreateExtractValue(value_, 0);
       DCHECK(v->getType() == codegen_->i64_type());
-      return builder_->CreateTrunc(v, codegen_->bool_type(), name);
+      return LowBitToBool(builder_, v, name);
     }
     case TYPE_BOOLEAN:
     case TYPE_TINYINT:
@@ -246,7 +254,7 @@ llvm::Value* CodegenAnyVal::GetIsNull(const char* name) const {
     case TYPE_DATE:
     case TYPE_FLOAT:
       // Lowered type is an integer. Get the first byte.
-      return builder_->CreateTrunc(value_, codegen_->bool_type(), name);
+      return LowBitToBool(builder_, value_, name);
     default:
       DCHECK(false);
       return NULL;
