@@ -462,6 +462,7 @@ void HashTableCtx::ExprValuesCache::Reset() noexcept {
   // the same location.
   cur_expr_values_hash_end_ = cur_expr_values_hash_;
   null_bitmap_.SetAllBits(false);
+  has_null_rows_ = false;
 }
 
 void HashTableCtx::ExprValuesCache::ResetForRead() {

@@ -82,18 +82,29 @@ bool PhjBuilderPartition::InsertBatch(TPrefetchMode::type prefetch_mode,
        prefetch_group_row += prefetch_size) {
     int cur_row = prefetch_group_row;
     expr_vals_cache->Reset();
+    // Keep the cursors in locals so that stores to the cached values don't force reloads
+    // of the cache's cursor fields.
+    uint8_t* expr_values = expr_vals_cache->expr_values_start();
+    uint8_t* expr_values_null = expr_vals_cache->expr_values_null_start();
+    uint32_t* hash_out = expr_vals_cache->expr_values_hash_start();
+    const int values_stride = expr_vals_cache->expr_values_bytes_per_row();
+    const int null_stride = expr_vals_cache->num_exprs();
+    int idx = 0;
     FOREACH_ROW_LIMIT(batch, cur_row, prefetch_size, batch_iter) {
-      if (ht_ctx->EvalAndHashBuild(batch_iter.Get())) {
-        if (prefetch_mode != TPrefetchMode::NONE) {
-          hash_tbl_->PrefetchBucket<false>(expr_vals_cache->CurExprValuesHash());
-        }
+      uint32_t hash;
+      if (ht_ctx->EvalAndHashBuild(
+              batch_iter.Get(), expr_values, expr_values_null, &hash)) {
+        if (prefetch_mode != TPrefetchMode::NONE) hash_tbl_->PrefetchBucket<false>(hash);
       } else {
-        expr_vals_cache->SetRowNull();
+        expr_vals_cache->SetRowNullAt(idx);
       }
-      expr_vals_cache->NextRow();
+      *hash_out++ = hash;
+      expr_values += values_stride;
+      expr_values_null += null_stride;
+      ++idx;
     }
     // Do the insertion.
-    expr_vals_cache->ResetForRead();
+    expr_vals_cache->ResetForReadAfterWrite(idx);
     FOREACH_ROW_LIMIT(batch, cur_row, prefetch_size, batch_iter) {
       TupleRow* row = batch_iter.Get();
       BufferedTupleStream::FlatRowPtr flat_row = flat_rows_data[cur_row];

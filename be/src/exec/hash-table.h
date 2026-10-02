@@ -330,7 +330,10 @@ class HashTableCtx {
     int ALWAYS_INLINE num_exprs() const { return num_exprs_; }
 
     /// Sets row 'idx' as null, like SetRowNull() does for the current row.
-    void ALWAYS_INLINE SetRowNullAt(int idx) { null_bitmap_.Set(idx, true); }
+    void ALWAYS_INLINE SetRowNullAt(int idx) {
+      has_null_rows_ = true;
+      null_bitmap_.Set(idx, true);
+    }
 
     /// Like ResetForRead() after a write pass of 'num_rows' rows that did not advance
     /// the iterators.
@@ -359,11 +362,16 @@ class HashTableCtx {
 
     /// Returns true if the current row is null but nulls are not considered in the
     /// current phase (build or probe).
-    bool ALWAYS_INLINE IsRowNull() const { return null_bitmap_.Get(CurIdx()); }
+    bool ALWAYS_INLINE IsRowNull() const {
+      return UNLIKELY(has_null_rows_) && null_bitmap_.Get(CurIdx());
+    }
 
     /// Record in a bitmap that the current row is null but nulls are not considered in
     /// the current phase (build or probe).
-    void ALWAYS_INLINE SetRowNull() { null_bitmap_.Set(CurIdx(), true); }
+    void ALWAYS_INLINE SetRowNull() {
+      has_null_rows_ = true;
+      null_bitmap_.Set(CurIdx(), true);
+    }
 
     /// Returns the hash values of the current row.
     uint32_t ALWAYS_INLINE CurExprValuesHash() const { return *cur_expr_values_hash_; }
@@ -450,6 +458,9 @@ class HashTableCtx {
     /// to NULL but the hash table doesn't support NULL. Such rows may still be included
     /// in outputs for certain join types (e.g. left anti joins).
     Bitmap null_bitmap_;
+
+    /// False if no bit in 'null_bitmap_' is set, so IsRowNull() can skip the lookup.
+    bool has_null_rows_ = false;
 
     /// Maps from expression index to the byte offset into a row of expression values.
     /// One entry per build/probe expression.
