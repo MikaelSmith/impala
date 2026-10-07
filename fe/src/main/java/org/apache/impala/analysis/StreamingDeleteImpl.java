@@ -127,11 +127,13 @@ public class StreamingDeleteImpl extends StreamingModifyImpl {
     if (useLogicalPredicateDelete_) {
       return new KuduTableSink(modifyStmt_.table_, TableSink.Op.DELETE,
           referencedColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken(),
-          modifyStmt_.maxTableSinks_, deleteTableId_, deleteRowIdColIdx_,
-          deletePredicateColIdx_, deletePredicateExprIdx_);
+          modifyStmt_.maxTableSinks_)
+          .withDeleteTable(deleteTableId_, deleteRowIdColIdx_)
+          .withDeletePredicate(deletePredicateColIdx_, deletePredicateExprIdx_);
     }
     return new KuduTableSink(modifyStmt_.table_, TableSink.Op.DELETE,
         referencedColumns_, resultExprs_, modifyStmt_.getKuduTransactionToken(),
-        modifyStmt_.maxTableSinks_, deleteTableId_, deleteRowIdColIdx_);
+        modifyStmt_.maxTableSinks_)
+        .withDeleteTable(deleteTableId_, deleteRowIdColIdx_);
   }
 }

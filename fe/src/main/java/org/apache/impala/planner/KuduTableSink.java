@@ -57,17 +57,17 @@ public class KuduTableSink extends TableSink {
   private java.nio.ByteBuffer txnToken_;
 
   // Table which is to be populated by this sink.
-  private final int deleteTableId_;
+  private int deleteTableId_ = DescriptorTable.TABLE_SINK_ID;
   // Column index of _row_id in the dels table (-1 when no dels table is used).
-  private final int deleteRowIdColIdx_;
+  private int deleteRowIdColIdx_ = -1;
   // Column index of _delete_predicate in the dels table (-1 when not used).
-  private final int deletePredicateColIdx_;
+  private int deletePredicateColIdx_ = -1;
   // Output expression index carrying a logical delete marker (-1 when not used).
-  private final int deletePredicateExprIdx_;
+  private int deletePredicateExprIdx_ = -1;
   // Column index of _assignment_exprs in the dels table (-1 when not used).
-  private final int assignmentExprsColIdx_;
+  private int assignmentExprsColIdx_ = -1;
   // Output expression index carrying assignment expressions (-1 when not used).
-  private final int assignmentExprsExprIdx_;
+  private int assignmentExprsExprIdx_ = -1;
 
   // Indicate whether Kudu cluster supports IGNORE write operations or not.
   private boolean supportsIgnoreOperations_ = false;
@@ -81,48 +81,12 @@ public class KuduTableSink extends TableSink {
 
   public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
       List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int maxTableSinks) {
-    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, maxTableSinks, -1,
-        -1);
-  }
-
-  public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
-      List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int maxTableSinks,
-      int deleteTableId, int deleteRowIdColIdx) {
-    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, maxTableSinks,
-        deleteTableId, deleteRowIdColIdx, -1, -1);
-  }
-
-  public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
-      List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int maxTableSinks,
-      int deleteTableId, int deleteRowIdColIdx, int deletePredicateColIdx,
-      int deletePredicateExprIdx) {
-    this(targetTable, sinkOp, referencedColumns, outputExprs, txnToken, maxTableSinks,
-        deleteTableId, deleteRowIdColIdx, deletePredicateColIdx, deletePredicateExprIdx,
-        -1, -1);
-  }
-
-  public KuduTableSink(FeTable targetTable, Op sinkOp, List<Integer> referencedColumns,
-      List<Expr> outputExprs, java.nio.ByteBuffer txnToken, int maxTableSinks,
-      int deleteTableId, int deleteRowIdColIdx, int deletePredicateColIdx,
-      int deletePredicateExprIdx, int assignmentExprsColIdx, int assignmentExprsExprIdx) {
     super(targetTable, sinkOp, outputExprs);
     targetColIdxs_ = referencedColumns != null
         ? Lists.newArrayList(referencedColumns) : null;
     txnToken_ =
         txnToken != null ? org.apache.thrift.TBaseHelper.copyBinary(txnToken) : null;
     maxKuduSinks_ = maxTableSinks;
-    Preconditions.checkArgument(
-        (deleteTableId > DescriptorTable.TABLE_SINK_ID) == (deleteRowIdColIdx >= 0));
-    Preconditions.checkArgument((deletePredicateColIdx >= 0) ==
-        (deletePredicateExprIdx >= 0));
-    Preconditions.checkArgument((assignmentExprsColIdx >= 0) ==
-        (assignmentExprsExprIdx >= 0));
-    deleteTableId_ = deleteTableId;
-    deleteRowIdColIdx_ = deleteRowIdColIdx;
-    deletePredicateColIdx_ = deletePredicateColIdx;
-    deletePredicateExprIdx_ = deletePredicateExprIdx;
-    assignmentExprsColIdx_ = assignmentExprsColIdx;
-    assignmentExprsExprIdx_ = assignmentExprsExprIdx;
 
     // Check if Kudu cluster supports IGNORE write operations.
     Preconditions.checkState(targetTable instanceof FeKuduTable);
@@ -133,6 +97,31 @@ public class KuduTableSink extends TableSink {
     } catch (Exception e) {
       LOG.error("Unable to check Kudu ignore operation support", e);
     }
+  }
+
+  /** Routes deletes of the original rows to the dels table. */
+  public KuduTableSink withDeleteTable(int deleteTableId, int deleteRowIdColIdx) {
+    Preconditions.checkArgument(deleteTableId > DescriptorTable.TABLE_SINK_ID);
+    Preconditions.checkArgument(deleteRowIdColIdx >= 0);
+    deleteTableId_ = deleteTableId;
+    deleteRowIdColIdx_ = deleteRowIdColIdx;
+    return this;
+  }
+
+  /** Requires withDeleteTable(). Both indices -1 means unused. */
+  public KuduTableSink withDeletePredicate(int colIdx, int exprIdx) {
+    Preconditions.checkArgument((colIdx >= 0) == (exprIdx >= 0));
+    deletePredicateColIdx_ = colIdx;
+    deletePredicateExprIdx_ = exprIdx;
+    return this;
+  }
+
+  /** Requires withDeleteTable(). Both indices -1 means unused. */
+  public KuduTableSink withAssignmentExprs(int colIdx, int exprIdx) {
+    Preconditions.checkArgument((colIdx >= 0) == (exprIdx >= 0));
+    assignmentExprsColIdx_ = colIdx;
+    assignmentExprsExprIdx_ = exprIdx;
+    return this;
   }
 
   @Override
