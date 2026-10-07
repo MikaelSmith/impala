@@ -128,9 +128,10 @@ public class StreamingUpdateImpl extends StreamingModifyImpl {
     if (useLogicalPredicateUpdate_) {
       return new KuduTableSink(modifyStmt_.table_, op, referencedColumns_,
           sourceStmt_.getResultExprs(), modifyStmt_.getKuduTransactionToken(),
-          modifyStmt_.maxTableSinks_, deleteTableId_, deleteRowIdColIdx_,
-          deletePredicateColIdx_, deletePredicateExprIdx_, assignmentExprsColIdx_,
-          assignmentExprsExprIdx_);
+          modifyStmt_.maxTableSinks_)
+          .withDeleteTable(deleteTableId_, deleteRowIdColIdx_)
+          .withDeletePredicate(deletePredicateColIdx_, deletePredicateExprIdx_)
+          .withAssignmentExprs(assignmentExprsColIdx_, assignmentExprsExprIdx_);
     }
     if (getKuduTable().isPrimaryKeyUnique() || isKuduOnly_) {
       // For tables with unique primary keys we can directly upsert the modified rows
@@ -145,6 +146,7 @@ public class StreamingUpdateImpl extends StreamingModifyImpl {
     // it won't match any in Iceberg.
     return new KuduTableSink(modifyStmt_.table_, op, referencedColumns_,
         sourceStmt_.getResultExprs(), modifyStmt_.getKuduTransactionToken(),
-        modifyStmt_.maxTableSinks_, deleteTableId_, deleteRowIdColIdx_);
+        modifyStmt_.maxTableSinks_)
+        .withDeleteTable(deleteTableId_, deleteRowIdColIdx_);
   }
 }
