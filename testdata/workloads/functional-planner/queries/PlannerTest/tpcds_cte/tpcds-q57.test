@@ -65,8 +65,8 @@ ORDER BY sum_sales - avg_monthly_sales
 LIMIT 100;
 
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=199.02MB Threads=1
-Per-Host Resource Estimates: Memory=6.54GB
+Max Per-Host Resource Reservation: Memory=189.02MB Threads=1
+Per-Host Resource Estimates: Memory=6.53GB
 ImpalaSequence
   ImpalaProjectRel(I_CATEGORY=[$0], I_BRAND=[$1], CC_NAME=[$2], D_YEAR=[$3], D_MOY=[$4], AVG_MONTHLY_SALES=[$5], SUM_SALES=[$6], PSUM=[$7], NSUM=[$8])
     ImpalaSortRel(sort0=[$9], dir0=[ASC], fetch=[100:TINYINT])
@@ -101,7 +101,7 @@ ImpalaSequence
             ImpalaProjectRel(cc_call_center_sk=[$0], cc_name=[$6])
               ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, call_center]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=6.54GB mem-reservation=199.02MB thread-reservation=1 runtime-filters-memory=3.00MB
+|  Per-Instance Resources: mem-estimate=6.53GB mem-reservation=189.02MB thread-reservation=1 runtime-filters-memory=3.00MB
 |  max-parallelism=1 segment-costs=[714250730, 26175892, 26175892, 26175892, 33888447, 117415868307, 900]
 PLAN-ROOT SINK
 |  output exprs: I_CATEGORY, I_BRAND, CC_NAME, D_YEAR, D_MOY, avg(SUM_SALES), SUM_SALES, SUM_SALES, SUM_SALES
@@ -113,7 +113,7 @@ PLAN-ROOT SINK
 |  in pipelines: 26(GETNEXT), 09(OPEN)
 |
 |--01:CTE PRODUCER [cte_suggestion_0]
-|  |  mem-estimate=522.80MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=522.80MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  |  in pipelines: 09(GETNEXT)
 |  |
@@ -256,7 +256,7 @@ PLAN-ROOT SINK
 |  |  |  in pipelines: 19(GETNEXT), 18(OPEN)
 |  |  |
 |  |  18:CTE CONSUMER [cte_suggestion_0]
-|  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |     mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
 |  |     tuple-ids=23 row-size=96B cardinality=5.72M cost=0
 |  |     in pipelines: 18(GETNEXT)
 |  |
@@ -282,7 +282,7 @@ PLAN-ROOT SINK
 |  |  in pipelines: 15(GETNEXT), 14(OPEN)
 |  |
 |  14:CTE CONSUMER [cte_suggestion_0]
-|     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|     mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
 |     tuple-ids=16 row-size=96B cardinality=5.72M cost=0
 |     in pipelines: 14(GETNEXT)
 |
@@ -308,12 +308,12 @@ PLAN-ROOT SINK
 |  in pipelines: 11(GETNEXT), 10(OPEN)
 |
 10:CTE CONSUMER [cte_suggestion_0]
-   mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+   mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
    tuple-ids=9 row-size=96B cardinality=5.72M cost=0
    in pipelines: 10(GETNEXT)
 ---- DISTRIBUTEDPLAN
-Max Per-Host Resource Reservation: Memory=1.81GB Threads=94
-Per-Host Resource Estimates: Memory=6.50GB
+Max Per-Host Resource Reservation: Memory=1.69GB Threads=94
+Per-Host Resource Estimates: Memory=6.38GB
 ImpalaSequence
   ImpalaProjectRel(I_CATEGORY=[$0], I_BRAND=[$1], CC_NAME=[$2], D_YEAR=[$3], D_MOY=[$4], AVG_MONTHLY_SALES=[$5], SUM_SALES=[$6], PSUM=[$7], NSUM=[$8])
     ImpalaSortRel(sort0=[$9], dir0=[ASC], fetch=[100:TINYINT])
@@ -459,18 +459,18 @@ max-parallelism=11740 segment-costs=[117321219739, 408] cpu-comparison-result=38
 |  |  |  in pipelines: 38(GETNEXT)
 |  |  |
 |  |  F04:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
-|  |  Per-Instance Resources: mem-estimate=6.50MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=2.69MB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=120 segment-costs=[25055505]
 |  |  18:CTE CONSUMER [cte_suggestion_0]
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=23 row-size=96B cardinality=5.72M cost=0
 |  |  |  in pipelines: 38(GETNEXT)
 |  |  |
 |  |  F12:PLAN FRAGMENT [HASH(tpcds_partitioned_parquet_snap.item.i_category,tpcds_partitioned_parquet_snap.item.i_brand,tpcds_partitioned_parquet_snap.call_center.cc_name,tpcds_partitioned_parquet_snap.date_dim.d_year,tpcds_partitioned_parquet_snap.date_dim.d_moy)] hosts=10 instances=120
-|  |  Per-Instance Resources: mem-estimate=193.81MB mem-reservation=40.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=195.81MB mem-reservation=42.00MB thread-reservation=1
 |  |  max-parallelism=120 segment-costs=[403887269, 548199] cpu-comparison-result=120 [max(120 (self) vs 99 (sum children))]
 |  |  01:CTE PRODUCER [cte_suggestion_0]
-|  |  |  mem-estimate=6.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=8.00MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  |  |  in pipelines: 38(GETNEXT)
 |  |  |
@@ -651,18 +651,18 @@ max-parallelism=11740 segment-costs=[117321219739, 408] cpu-comparison-result=38
 |  |  in pipelines: 38(GETNEXT)
 |  |
 |  F02:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
-|  Per-Instance Resources: mem-estimate=9.00MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=5.19MB mem-reservation=0B thread-reservation=1
 |  max-parallelism=120 segment-costs=[25055505]
 |  14:CTE CONSUMER [cte_suggestion_0]
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=16 row-size=96B cardinality=5.72M cost=0
 |  |  in pipelines: 38(GETNEXT)
 |  |
 |  F12:PLAN FRAGMENT [HASH(tpcds_partitioned_parquet_snap.item.i_category,tpcds_partitioned_parquet_snap.item.i_brand,tpcds_partitioned_parquet_snap.call_center.cc_name,tpcds_partitioned_parquet_snap.date_dim.d_year,tpcds_partitioned_parquet_snap.date_dim.d_moy)] hosts=10 instances=120
-|  Per-Instance Resources: mem-estimate=193.81MB mem-reservation=40.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=195.81MB mem-reservation=42.00MB thread-reservation=1
 |  max-parallelism=120 segment-costs=[403887269, 548199] cpu-comparison-result=120 [max(120 (self) vs 99 (sum children))]
 |  01:CTE PRODUCER [cte_suggestion_0]
-|  |  mem-estimate=6.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=8.00MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  |  in pipelines: 38(GETNEXT)
 |  |
@@ -851,18 +851,18 @@ max-parallelism=10 segment-costs=[28390676, 27300636] cpu-comparison-result=130 
 |  in pipelines: 38(GETNEXT)
 |
 F00:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
-Per-Instance Resources: mem-estimate=6.50MB mem-reservation=4.00MB thread-reservation=1
+Per-Instance Resources: mem-estimate=2.69MB mem-reservation=0B thread-reservation=1
 max-parallelism=120 segment-costs=[25055505]
 10:CTE CONSUMER [cte_suggestion_0]
-|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
 |  tuple-ids=9 row-size=96B cardinality=5.72M cost=0
 |  in pipelines: 38(GETNEXT)
 |
 F12:PLAN FRAGMENT [HASH(tpcds_partitioned_parquet_snap.item.i_category,tpcds_partitioned_parquet_snap.item.i_brand,tpcds_partitioned_parquet_snap.call_center.cc_name,tpcds_partitioned_parquet_snap.date_dim.d_year,tpcds_partitioned_parquet_snap.date_dim.d_moy)] hosts=10 instances=120
-Per-Instance Resources: mem-estimate=193.81MB mem-reservation=40.00MB thread-reservation=1
+Per-Instance Resources: mem-estimate=195.81MB mem-reservation=42.00MB thread-reservation=1
 max-parallelism=120 segment-costs=[403887269, 548199] cpu-comparison-result=120 [max(120 (self) vs 99 (sum children))]
 01:CTE PRODUCER [cte_suggestion_0]
-|  mem-estimate=6.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=8.00MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  in pipelines: 38(GETNEXT)
 |
@@ -1017,13 +1017,13 @@ max-parallelism=99 segment-costs=[1576556032, 1312093920] cpu-comparison-result=
    in pipelines: 02(GETNEXT)
 
 F12:PLAN FRAGMENT [HASH(tpcds_partitioned_parquet_snap.item.i_category,tpcds_partitioned_parquet_snap.item.i_brand,tpcds_partitioned_parquet_snap.call_center.cc_name,tpcds_partitioned_parquet_snap.date_dim.d_year,tpcds_partitioned_parquet_snap.date_dim.d_moy)] hosts=10 instances=120
-|  Per-Instance Resources: mem-estimate=193.81MB mem-reservation=40.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=195.81MB mem-reservation=42.00MB thread-reservation=1
 |  max-parallelism=120 segment-costs=[403887269, 548199] cpu-comparison-result=120 [max(120 (self) vs 99 (sum children))]
 LOCAL MULTI SINK [FRAGMENT=F12, EXCHANGE=01, cte_suggestion_0]
 |  mem-estimate=1.00KB mem-reservation=0B thread-reservation=0 cost=548199
 |
 01:CTE PRODUCER [cte_suggestion_0]
-|  mem-estimate=6.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=8.00MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  in pipelines: 38(GETNEXT)
 |
@@ -1177,8 +1177,8 @@ max-parallelism=99 segment-costs=[1576556032, 1312093920] cpu-comparison-result=
    tuple-ids=0 row-size=16B cardinality=231.26M(filtered from 4.28G) cost=66611022
    in pipelines: 02(GETNEXT)
 ---- PARALLELPLANS
-Max Per-Host Resource Reservation: Memory=1.81GB Threads=94
-Per-Host Resource Estimates: Memory=6.50GB
+Max Per-Host Resource Reservation: Memory=1.69GB Threads=94
+Per-Host Resource Estimates: Memory=6.38GB
 ImpalaSequence
   ImpalaProjectRel(I_CATEGORY=[$0], I_BRAND=[$1], CC_NAME=[$2], D_YEAR=[$3], D_MOY=[$4], AVG_MONTHLY_SALES=[$5], SUM_SALES=[$6], PSUM=[$7], NSUM=[$8])
     ImpalaSortRel(sort0=[$9], dir0=[ASC], fetch=[100:TINYINT])
@@ -1324,18 +1324,18 @@ max-parallelism=11740 segment-costs=[117321219739, 408] cpu-comparison-result=38
 |  |  |  in pipelines: 38(GETNEXT)
 |  |  |
 |  |  F04:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
-|  |  Per-Instance Resources: mem-estimate=6.50MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=2.69MB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=120 segment-costs=[25055505]
 |  |  18:CTE CONSUMER [cte_suggestion_0]
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=23 row-size=96B cardinality=5.72M cost=0
 |  |  |  in pipelines: 38(GETNEXT)
 |  |  |
 |  |  F12:PLAN FRAGMENT [HASH(tpcds_partitioned_parquet_snap.item.i_category,tpcds_partitioned_parquet_snap.item.i_brand,tpcds_partitioned_parquet_snap.call_center.cc_name,tpcds_partitioned_parquet_snap.date_dim.d_year,tpcds_partitioned_parquet_snap.date_dim.d_moy)] hosts=10 instances=120
-|  |  Per-Instance Resources: mem-estimate=193.81MB mem-reservation=40.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=195.81MB mem-reservation=42.00MB thread-reservation=1
 |  |  max-parallelism=120 segment-costs=[403887269, 548199] cpu-comparison-result=120 [max(120 (self) vs 99 (sum children))]
 |  |  01:CTE PRODUCER [cte_suggestion_0]
-|  |  |  mem-estimate=6.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=8.00MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  |  |  in pipelines: 38(GETNEXT)
 |  |  |
@@ -1516,18 +1516,18 @@ max-parallelism=11740 segment-costs=[117321219739, 408] cpu-comparison-result=38
 |  |  in pipelines: 38(GETNEXT)
 |  |
 |  F02:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
-|  Per-Instance Resources: mem-estimate=9.00MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=5.19MB mem-reservation=0B thread-reservation=1
 |  max-parallelism=120 segment-costs=[25055505]
 |  14:CTE CONSUMER [cte_suggestion_0]
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=16 row-size=96B cardinality=5.72M cost=0
 |  |  in pipelines: 38(GETNEXT)
 |  |
 |  F12:PLAN FRAGMENT [HASH(tpcds_partitioned_parquet_snap.item.i_category,tpcds_partitioned_parquet_snap.item.i_brand,tpcds_partitioned_parquet_snap.call_center.cc_name,tpcds_partitioned_parquet_snap.date_dim.d_year,tpcds_partitioned_parquet_snap.date_dim.d_moy)] hosts=10 instances=120
-|  Per-Instance Resources: mem-estimate=193.81MB mem-reservation=40.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=195.81MB mem-reservation=42.00MB thread-reservation=1
 |  max-parallelism=120 segment-costs=[403887269, 548199] cpu-comparison-result=120 [max(120 (self) vs 99 (sum children))]
 |  01:CTE PRODUCER [cte_suggestion_0]
-|  |  mem-estimate=6.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=8.00MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  |  in pipelines: 38(GETNEXT)
 |  |
@@ -1716,18 +1716,18 @@ max-parallelism=10 segment-costs=[28390676, 27300636] cpu-comparison-result=130 
 |  in pipelines: 38(GETNEXT)
 |
 F00:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
-Per-Instance Resources: mem-estimate=6.50MB mem-reservation=4.00MB thread-reservation=1
+Per-Instance Resources: mem-estimate=2.69MB mem-reservation=0B thread-reservation=1
 max-parallelism=120 segment-costs=[25055505]
 10:CTE CONSUMER [cte_suggestion_0]
-|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=191.63KB mem-reservation=0B thread-reservation=0
 |  tuple-ids=9 row-size=96B cardinality=5.72M cost=0
 |  in pipelines: 38(GETNEXT)
 |
 F12:PLAN FRAGMENT [HASH(tpcds_partitioned_parquet_snap.item.i_category,tpcds_partitioned_parquet_snap.item.i_brand,tpcds_partitioned_parquet_snap.call_center.cc_name,tpcds_partitioned_parquet_snap.date_dim.d_year,tpcds_partitioned_parquet_snap.date_dim.d_moy)] hosts=10 instances=120
-Per-Instance Resources: mem-estimate=193.81MB mem-reservation=40.00MB thread-reservation=1
+Per-Instance Resources: mem-estimate=195.81MB mem-reservation=42.00MB thread-reservation=1
 max-parallelism=120 segment-costs=[403887269, 548199] cpu-comparison-result=120 [max(120 (self) vs 99 (sum children))]
 01:CTE PRODUCER [cte_suggestion_0]
-|  mem-estimate=6.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=8.00MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  in pipelines: 38(GETNEXT)
 |
@@ -1882,13 +1882,13 @@ max-parallelism=99 segment-costs=[1576556032, 1312093920] cpu-comparison-result=
    in pipelines: 02(GETNEXT)
 
 F12:PLAN FRAGMENT [HASH(tpcds_partitioned_parquet_snap.item.i_category,tpcds_partitioned_parquet_snap.item.i_brand,tpcds_partitioned_parquet_snap.call_center.cc_name,tpcds_partitioned_parquet_snap.date_dim.d_year,tpcds_partitioned_parquet_snap.date_dim.d_moy)] hosts=10 instances=120
-|  Per-Instance Resources: mem-estimate=193.81MB mem-reservation=40.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=195.81MB mem-reservation=42.00MB thread-reservation=1
 |  max-parallelism=120 segment-costs=[403887269, 548199] cpu-comparison-result=120 [max(120 (self) vs 99 (sum children))]
 LOCAL MULTI SINK [FRAGMENT=F12, EXCHANGE=01, cte_suggestion_0]
 |  mem-estimate=1.00KB mem-reservation=0B thread-reservation=0 cost=548199
 |
 01:CTE PRODUCER [cte_suggestion_0]
-|  mem-estimate=6.00MB mem-reservation=6.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=8.00MB mem-reservation=8.00MB spill-buffer=2.00MB thread-reservation=0
 |  tuple-ids=8 row-size=96B cardinality=5.72M cost=0
 |  in pipelines: 38(GETNEXT)
 |

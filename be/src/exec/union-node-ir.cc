@@ -23,7 +23,9 @@ using namespace impala;
 void IR_ALWAYS_INLINE UnionNode::MaterializeExprs(
     const vector<ScalarExprEvaluator*>& evals, TupleRow* row, uint8_t* tuple_buf,
     RowBatch* dst_batch) {
-  DCHECK(!dst_batch->AtCapacity());
+  // MaterializeBatch() only limits the number of rows: the memory used by 'dst_batch'
+  // may exceed the soft limit checked by AtCapacity() while materializing a child batch.
+  DCHECK_LT(dst_batch->num_rows(), dst_batch->capacity());
   Tuple* dst_tuple = reinterpret_cast<Tuple*>(tuple_buf);
   TupleRow* dst_row = dst_batch->GetRow(dst_batch->AddRow());
   dst_tuple->MaterializeExprs<false, false>(row, *tuple_desc_, evals,

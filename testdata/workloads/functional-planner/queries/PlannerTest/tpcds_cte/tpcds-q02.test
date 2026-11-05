@@ -79,8 +79,8 @@ FROM
 WHERE d_week_seq1 = d_week_seq2-53
 ORDER BY d_week_seq1;
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=79.44MB Threads=1
-Per-Host Resource Estimates: Memory=48.27GB
+Max Per-Host Resource Reservation: Memory=55.44MB Threads=1
+Per-Host Resource Estimates: Memory=48.25GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC])
     ImpalaProjectRel(D_WEEK_SEQ1=[$8], EXPR$1=[ROUND(/($9, $0), 2:TINYINT)], EXPR$2=[ROUND(/($10, $1), 2:TINYINT)], EXPR$3=[ROUND(/($11, $2), 2:TINYINT)], EXPR$4=[ROUND(/($12, $3), 2:TINYINT)], EXPR$5=[ROUND(/($13, $4), 2:TINYINT)], EXPR$6=[ROUND(/($14, $5), 2:TINYINT)], EXPR$7=[ROUND(/($15, $6), 2:TINYINT)])
@@ -126,7 +126,7 @@ ImpalaSequence
         ImpalaProjectRel(cs_ext_sales_price=[$22], cs_sold_date_sk=[$33])
           ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, catalog_sales]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=48.27GB mem-reservation=79.44MB thread-reservation=1 runtime-filters-memory=5.00MB
+|  Per-Instance Resources: mem-estimate=48.25GB mem-reservation=55.44MB thread-reservation=1 runtime-filters-memory=5.00MB
 |  max-parallelism=1 segment-costs=[7428047774, 7428047774, 62284, 743997644]
 PLAN-ROOT SINK
 |  output exprs: d_week_seq, round(divide(sum(CASE WHEN d_day_name = 'Sunday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Sunday' THEN SALES_PRICE ELSE NULL END)), CAST(2 AS TINYINT)), round(divide(sum(CASE WHEN d_day_name = 'Monday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Monday' THEN SALES_PRICE ELSE NULL END)), CAST(2 AS TINYINT)), round(divide(sum(CASE WHEN d_day_name = 'Tuesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Tuesday' THEN SALES_PRICE ELSE NULL END)), CAST(2 AS TINYINT)), round(divide(sum(CASE WHEN d_day_name = 'Wednesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Wednesday' THEN SALES_PRICE ELSE NULL END)), CAST(2 AS TINYINT)), round(divide(sum(CASE WHEN d_day_name = 'Thursday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Thursday' THEN SALES_PRICE ELSE NULL END)), CAST(2 AS TINYINT)), round(divide(sum(CASE WHEN d_day_name = 'Friday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Friday' THEN SALES_PRICE ELSE NULL END)), CAST(2 AS TINYINT)), round(divide(sum(CASE WHEN d_day_name = 'Saturday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Saturday' THEN SALES_PRICE ELSE NULL END)), CAST(2 AS TINYINT))
@@ -240,7 +240,7 @@ PLAN-ROOT SINK
 |  |
 |  |--18:CTE CONSUMER [cte_suggestion_0]
 |  |     runtime filters: RF007[min_max] -> d_week_seq, RF006[bloom] -> d_week_seq
-|  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |     mem-estimate=54.29KB mem-reservation=0B thread-reservation=0
 |  |     tuple-ids=16 row-size=27B cardinality=73.05K cost=0
 |  |     in pipelines: 18(GETNEXT)
 |  |
@@ -252,13 +252,13 @@ PLAN-ROOT SINK
 |  |
 |  |--17:CTE CONSUMER [cte_suggestion_1]
 |  |     runtime filters: RF009[min_max] -> SOLD_DATE_SK, RF008[bloom] -> SOLD_DATE_SK
-|  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |     tuple-ids=14 row-size=8B cardinality=4.30G cost=0
 |  |     in pipelines: 17(GETNEXT)
 |  |
 |  16:CTE CONSUMER [cte_suggestion_2]
 |     runtime filters: RF009[min_max] -> SOLD_DATE_SK, RF008[bloom] -> SOLD_DATE_SK
-|     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |     tuple-ids=13 row-size=8B cardinality=2.16G cost=0
 |     in pipelines: 16(GETNEXT)
 |
@@ -301,7 +301,7 @@ PLAN-ROOT SINK
 |
 |--10:CTE CONSUMER [cte_suggestion_0]
 |     runtime filters: RF001[min_max] -> subtract(d_week_seq, 53), RF003[min_max] -> d_week_seq, RF000[bloom] -> subtract(d_week_seq, 53), RF002[bloom] -> d_week_seq
-|     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|     mem-estimate=54.29KB mem-reservation=0B thread-reservation=0
 |     tuple-ids=9 row-size=27B cardinality=73.05K cost=0
 |     in pipelines: 10(GETNEXT)
 |
@@ -313,18 +313,18 @@ PLAN-ROOT SINK
 |
 |--09:CTE CONSUMER [cte_suggestion_1]
 |     runtime filters: RF005[min_max] -> SOLD_DATE_SK, RF004[bloom] -> SOLD_DATE_SK
-|     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |     tuple-ids=7 row-size=8B cardinality=4.30G cost=0
 |     in pipelines: 09(GETNEXT)
 |
 08:CTE CONSUMER [cte_suggestion_2]
    runtime filters: RF005[min_max] -> SOLD_DATE_SK, RF004[bloom] -> SOLD_DATE_SK
-   mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+   mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
    tuple-ids=6 row-size=8B cardinality=2.16G cost=0
    in pipelines: 08(GETNEXT)
 ---- DISTRIBUTEDPLAN
-Max Per-Host Resource Reservation: Memory=476.19MB Threads=61
-Per-Host Resource Estimates: Memory=5.89GB
+Max Per-Host Resource Reservation: Memory=372.19MB Threads=61
+Per-Host Resource Estimates: Memory=5.79GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC])
     ImpalaProjectRel(D_WEEK_SEQ1=[$8], EXPR$1=[ROUND(/($9, $0), 2:TINYINT)], EXPR$2=[ROUND(/($10, $1), 2:TINYINT)], EXPR$3=[ROUND(/($11, $2), 2:TINYINT)], EXPR$4=[ROUND(/($12, $3), 2:TINYINT)], EXPR$5=[ROUND(/($13, $4), 2:TINYINT)], EXPR$6=[ROUND(/($14, $5), 2:TINYINT)], EXPR$7=[ROUND(/($15, $6), 2:TINYINT)])
@@ -460,7 +460,7 @@ max-parallelism=10 segment-costs=[29390, 16097] cpu-comparison-result=742 [max(1
 |  |
 |  F08:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
 |  Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
-|  Per-Instance Resources: mem-estimate=18.69MB mem-reservation=7.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=14.70MB mem-reservation=3.00MB thread-reservation=1
 |  max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=360 [max(360 (self) vs 12 (sum children))]
 |  20:AGGREGATE [STREAMING]
 |  |  output: sum(CASE WHEN d_day_name = 'Sunday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Monday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Tuesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Wednesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Thursday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Friday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Saturday' THEN SALES_PRICE ELSE NULL END)
@@ -493,11 +493,11 @@ max-parallelism=10 segment-costs=[29390, 16097] cpu-comparison-result=742 [max(1
 |  |  |
 |  |  F09:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
 |  |  Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
-|  |  Per-Instance Resources: mem-estimate=4.09MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=150.29KB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=1 segment-costs=[5522]
 |  |  18:CTE CONSUMER [cte_suggestion_0]
 |  |  |  runtime filters: RF007[min_max] -> d_week_seq, RF006[bloom] -> d_week_seq
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=54.29KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=16 row-size=27B cardinality=73.05K cost=0
 |  |  |  in pipelines: 04(GETNEXT)
 |  |  |
@@ -529,7 +529,7 @@ max-parallelism=10 segment-costs=[29390, 16097] cpu-comparison-result=742 [max(1
 |  |
 |  |--17:CTE CONSUMER [cte_suggestion_1]
 |  |  |  runtime filters: RF009[min_max] -> SOLD_DATE_SK, RF008[bloom] -> SOLD_DATE_SK
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=14 row-size=8B cardinality=4.30G cost=0
 |  |  |  in pipelines: 06(GETNEXT)
 |  |  |
@@ -555,7 +555,7 @@ max-parallelism=10 segment-costs=[29390, 16097] cpu-comparison-result=742 [max(1
 |  |
 |  16:CTE CONSUMER [cte_suggestion_2]
 |  |  runtime filters: RF009[min_max] -> SOLD_DATE_SK, RF008[bloom] -> SOLD_DATE_SK
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=13 row-size=8B cardinality=2.16G cost=0
 |  |  in pipelines: 02(GETNEXT)
 |  |
@@ -641,7 +641,7 @@ max-parallelism=10 segment-costs=[1760943, 26273] cpu-comparison-result=371 [max
 |
 F02:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
 Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
-Per-Instance Resources: mem-estimate=18.69MB mem-reservation=7.00MB thread-reservation=1
+Per-Instance Resources: mem-estimate=14.70MB mem-reservation=3.00MB thread-reservation=1
 max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=360 [max(360 (self) vs 12 (sum children))]
 12:AGGREGATE [STREAMING]
 |  output: sum(CASE WHEN d_day_name = 'Sunday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Monday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Tuesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Wednesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Thursday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Friday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Saturday' THEN SALES_PRICE ELSE NULL END)
@@ -674,11 +674,11 @@ max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=3
 |  |
 |  F03:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
 |  Per-Host Shared Resources: mem-estimate=2.00MB mem-reservation=2.00MB thread-reservation=0 runtime-filters-memory=2.00MB
-|  Per-Instance Resources: mem-estimate=4.09MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=150.29KB mem-reservation=0B thread-reservation=1
 |  max-parallelism=1 segment-costs=[5522]
 |  10:CTE CONSUMER [cte_suggestion_0]
 |  |  runtime filters: RF001[min_max] -> subtract(d_week_seq, 53), RF003[min_max] -> d_week_seq, RF000[bloom] -> subtract(d_week_seq, 53), RF002[bloom] -> d_week_seq
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=54.29KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=9 row-size=27B cardinality=73.05K cost=0
 |  |  in pipelines: 04(GETNEXT)
 |  |
@@ -710,7 +710,7 @@ max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=3
 |
 |--09:CTE CONSUMER [cte_suggestion_1]
 |  |  runtime filters: RF005[min_max] -> SOLD_DATE_SK, RF004[bloom] -> SOLD_DATE_SK
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=7 row-size=8B cardinality=4.30G cost=0
 |  |  in pipelines: 06(GETNEXT)
 |  |
@@ -736,7 +736,7 @@ max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=3
 |
 08:CTE CONSUMER [cte_suggestion_2]
 |  runtime filters: RF005[min_max] -> SOLD_DATE_SK, RF004[bloom] -> SOLD_DATE_SK
-|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  tuple-ids=6 row-size=8B cardinality=2.16G cost=0
 |  in pipelines: 02(GETNEXT)
 |
@@ -829,8 +829,8 @@ LOCAL MULTI SINK [FRAGMENT=F14, EXCHANGE=03, cte_suggestion_0]
    tuple-ids=2 row-size=27B cardinality=73.05K cost=20034
    in pipelines: 04(GETNEXT)
 ---- PARALLELPLANS
-Max Per-Host Resource Reservation: Memory=476.19MB Threads=61
-Per-Host Resource Estimates: Memory=5.89GB
+Max Per-Host Resource Reservation: Memory=372.19MB Threads=61
+Per-Host Resource Estimates: Memory=5.79GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC])
     ImpalaProjectRel(D_WEEK_SEQ1=[$8], EXPR$1=[ROUND(/($9, $0), 2:TINYINT)], EXPR$2=[ROUND(/($10, $1), 2:TINYINT)], EXPR$3=[ROUND(/($11, $2), 2:TINYINT)], EXPR$4=[ROUND(/($12, $3), 2:TINYINT)], EXPR$5=[ROUND(/($13, $4), 2:TINYINT)], EXPR$6=[ROUND(/($14, $5), 2:TINYINT)], EXPR$7=[ROUND(/($15, $6), 2:TINYINT)])
@@ -966,7 +966,7 @@ max-parallelism=10 segment-costs=[29390, 16097] cpu-comparison-result=742 [max(1
 |  |
 |  F08:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
 |  Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
-|  Per-Instance Resources: mem-estimate=18.69MB mem-reservation=7.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=14.70MB mem-reservation=3.00MB thread-reservation=1
 |  max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=360 [max(360 (self) vs 12 (sum children))]
 |  20:AGGREGATE [STREAMING]
 |  |  output: sum(CASE WHEN d_day_name = 'Sunday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Monday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Tuesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Wednesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Thursday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Friday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Saturday' THEN SALES_PRICE ELSE NULL END)
@@ -999,11 +999,11 @@ max-parallelism=10 segment-costs=[29390, 16097] cpu-comparison-result=742 [max(1
 |  |  |
 |  |  F09:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
 |  |  Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
-|  |  Per-Instance Resources: mem-estimate=4.09MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=150.29KB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=1 segment-costs=[5522]
 |  |  18:CTE CONSUMER [cte_suggestion_0]
 |  |  |  runtime filters: RF007[min_max] -> d_week_seq, RF006[bloom] -> d_week_seq
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=54.29KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=16 row-size=27B cardinality=73.05K cost=0
 |  |  |  in pipelines: 04(GETNEXT)
 |  |  |
@@ -1035,7 +1035,7 @@ max-parallelism=10 segment-costs=[29390, 16097] cpu-comparison-result=742 [max(1
 |  |
 |  |--17:CTE CONSUMER [cte_suggestion_1]
 |  |  |  runtime filters: RF009[min_max] -> SOLD_DATE_SK, RF008[bloom] -> SOLD_DATE_SK
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=14 row-size=8B cardinality=4.30G cost=0
 |  |  |  in pipelines: 06(GETNEXT)
 |  |  |
@@ -1061,7 +1061,7 @@ max-parallelism=10 segment-costs=[29390, 16097] cpu-comparison-result=742 [max(1
 |  |
 |  16:CTE CONSUMER [cte_suggestion_2]
 |  |  runtime filters: RF009[min_max] -> SOLD_DATE_SK, RF008[bloom] -> SOLD_DATE_SK
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=13 row-size=8B cardinality=2.16G cost=0
 |  |  in pipelines: 02(GETNEXT)
 |  |
@@ -1147,7 +1147,7 @@ max-parallelism=10 segment-costs=[1760943, 26273] cpu-comparison-result=371 [max
 |
 F02:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
 Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
-Per-Instance Resources: mem-estimate=18.69MB mem-reservation=7.00MB thread-reservation=1
+Per-Instance Resources: mem-estimate=14.70MB mem-reservation=3.00MB thread-reservation=1
 max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=360 [max(360 (self) vs 12 (sum children))]
 12:AGGREGATE [STREAMING]
 |  output: sum(CASE WHEN d_day_name = 'Sunday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Monday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Tuesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Wednesday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Thursday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Friday' THEN SALES_PRICE ELSE NULL END), sum(CASE WHEN d_day_name = 'Saturday' THEN SALES_PRICE ELSE NULL END)
@@ -1180,11 +1180,11 @@ max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=3
 |  |
 |  F03:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
 |  Per-Host Shared Resources: mem-estimate=2.00MB mem-reservation=2.00MB thread-reservation=0 runtime-filters-memory=2.00MB
-|  Per-Instance Resources: mem-estimate=4.09MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=150.29KB mem-reservation=0B thread-reservation=1
 |  max-parallelism=1 segment-costs=[5522]
 |  10:CTE CONSUMER [cte_suggestion_0]
 |  |  runtime filters: RF001[min_max] -> subtract(d_week_seq, 53), RF003[min_max] -> d_week_seq, RF000[bloom] -> subtract(d_week_seq, 53), RF002[bloom] -> d_week_seq
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=54.29KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=9 row-size=27B cardinality=73.05K cost=0
 |  |  in pipelines: 04(GETNEXT)
 |  |
@@ -1216,7 +1216,7 @@ max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=3
 |
 |--09:CTE CONSUMER [cte_suggestion_1]
 |  |  runtime filters: RF005[min_max] -> SOLD_DATE_SK, RF004[bloom] -> SOLD_DATE_SK
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=7 row-size=8B cardinality=4.30G cost=0
 |  |  in pipelines: 06(GETNEXT)
 |  |
@@ -1242,7 +1242,7 @@ max-parallelism=120 segment-costs=[7431276478, 10197930] cpu-comparison-result=3
 |
 08:CTE CONSUMER [cte_suggestion_2]
 |  runtime filters: RF005[min_max] -> SOLD_DATE_SK, RF004[bloom] -> SOLD_DATE_SK
-|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  tuple-ids=6 row-size=8B cardinality=2.16G cost=0
 |  in pipelines: 02(GETNEXT)
 |

@@ -26,8 +26,8 @@ ORDER BY count(DISTINCT ws_order_number)
 LIMIT 100;
 
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=359.52MB Threads=1
-Per-Host Resource Estimates: Memory=7.21GB
+Max Per-Host Resource Reservation: Memory=335.52MB Threads=1
+Per-Host Resource Estimates: Memory=7.19GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC], fetch=[100:TINYINT])
     ImpalaAggRel(group=[{}], order count=[COUNT(DISTINCT $0)], total shipping cost=[SUM($1)], total net profit=[SUM($2)])
@@ -82,7 +82,7 @@ ImpalaSequence
         ImpalaProjectRel(d_date_sk=[$0], d_date=[$2])
           ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, date_dim]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=7.21GB mem-reservation=359.52MB thread-reservation=1 runtime-filters-memory=32.00MB
+|  Per-Instance Resources: mem-estimate=7.19GB mem-reservation=335.52MB thread-reservation=1 runtime-filters-memory=32.00MB
 |  max-parallelism=1 segment-costs=[1120379015, 1007762516, 420518270, 1448379984, 87434, 0, 2153587]
 PLAN-ROOT SINK
 |  output exprs: count(tpcds_partitioned_parquet_snap.web_sales.ws_order_number), sum(tpcds_partitioned_parquet_snap.web_sales.ws_ext_ship_cost), sum(tpcds_partitioned_parquet_snap.web_sales.ws_net_profit)
@@ -175,7 +175,7 @@ PLAN-ROOT SINK
 |  in pipelines: 08(GETNEXT), 27(OPEN)
 |
 |--27:CTE CONSUMER [cte_suggestion_1]
-|     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |     tuple-ids=22 row-size=8B cardinality=7.30K cost=0
 |     in pipelines: 27(GETNEXT)
 |
@@ -197,7 +197,7 @@ PLAN-ROOT SINK
 |  |  in pipelines: 09(GETNEXT), 24(OPEN)
 |  |
 |  |--24:CTE CONSUMER [cte_suggestion_2]
-|  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |     mem-estimate=440B mem-reservation=0B thread-reservation=0
 |  |     tuple-ids=21 row-size=20B cardinality=11 cost=0
 |  |     in pipelines: 24(GETNEXT)
 |  |
@@ -210,7 +210,7 @@ PLAN-ROOT SINK
 |  |  in pipelines: 09(GETNEXT), 22(OPEN)
 |  |
 |  |--22:CTE CONSUMER [cte_suggestion_0]
-|  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |     mem-estimate=36.00KB mem-reservation=0B thread-reservation=0
 |  |     tuple-ids=20 row-size=18B cardinality=285.31K cost=0
 |  |     in pipelines: 22(GETNEXT)
 |  |
@@ -252,7 +252,7 @@ PLAN-ROOT SINK
 |  |  |  |  in pipelines: 11(GETNEXT), 16(OPEN)
 |  |  |  |
 |  |  |  |--16:CTE CONSUMER [cte_suggestion_1]
-|  |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  |     tuple-ids=17 row-size=8B cardinality=7.30K cost=0
 |  |  |  |     in pipelines: 16(GETNEXT)
 |  |  |  |
@@ -265,7 +265,7 @@ PLAN-ROOT SINK
 |  |  |  |  in pipelines: 11(GETNEXT), 14(OPEN)
 |  |  |  |
 |  |  |  |--14:CTE CONSUMER [cte_suggestion_2]
-|  |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |     mem-estimate=440B mem-reservation=0B thread-reservation=0
 |  |  |  |     tuple-ids=16 row-size=20B cardinality=11 cost=0
 |  |  |  |     in pipelines: 14(GETNEXT)
 |  |  |  |
@@ -278,7 +278,7 @@ PLAN-ROOT SINK
 |  |  |  |  in pipelines: 11(GETNEXT), 12(OPEN)
 |  |  |  |
 |  |  |  |--12:CTE CONSUMER [cte_suggestion_0]
-|  |  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |     mem-estimate=36.00KB mem-reservation=0B thread-reservation=0
 |  |  |  |     tuple-ids=15 row-size=18B cardinality=285.31K cost=0
 |  |  |  |     in pipelines: 12(GETNEXT)
 |  |  |  |
@@ -344,8 +344,8 @@ PLAN-ROOT SINK
    tuple-ids=6 row-size=8B cardinality=216.00M cost=30953184
    in pipelines: 07(GETNEXT)
 ---- DISTRIBUTEDPLAN
-Max Per-Host Resource Reservation: Memory=2.01GB Threads=77
-Per-Host Resource Estimates: Memory=5.36GB
+Max Per-Host Resource Reservation: Memory=1.99GB Threads=77
+Per-Host Resource Estimates: Memory=5.33GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC], fetch=[100:TINYINT])
     ImpalaAggRel(group=[{}], order count=[COUNT(DISTINCT $0)], total shipping cost=[SUM($1)], total net profit=[SUM($2)])
@@ -462,10 +462,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  in pipelines: 06(GETNEXT)
 |  |
 |  F12:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  max-parallelism=1 segment-costs=[236]
 |  27:CTE CONSUMER [cte_suggestion_1]
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=22 row-size=8B cardinality=7.30K cost=0
 |  |  in pipelines: 06(GETNEXT)
 |  |
@@ -540,10 +540,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  in pipelines: 02(GETNEXT)
 |  |  |
 |  |  F11:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=32.43KB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=1 segment-costs=[0]
 |  |  24:CTE CONSUMER [cte_suggestion_2]
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=440B mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=21 row-size=20B cardinality=11 cost=0
 |  |  |  in pipelines: 02(GETNEXT)
 |  |  |
@@ -591,10 +591,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  in pipelines: 04(GETNEXT)
 |  |  |
 |  |  F10:PLAN FRAGMENT [RANDOM] hosts=10 instances=10
-|  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=68.00KB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=10 segment-costs=[9244]
 |  |  22:CTE CONSUMER [cte_suggestion_0]
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=36.00KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=20 row-size=18B cardinality=285.31K cost=0
 |  |  |  in pipelines: 04(GETNEXT)
 |  |  |
@@ -735,10 +735,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  |  |  in pipelines: 06(GETNEXT)
 |  |  |  |  |
 |  |  |  |  F07:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  |  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  |  |  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  |  |  |  max-parallelism=1 segment-costs=[236]
 |  |  |  |  16:CTE CONSUMER [cte_suggestion_1]
-|  |  |  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  |  |  tuple-ids=17 row-size=8B cardinality=7.30K cost=0
 |  |  |  |  |  in pipelines: 06(GETNEXT)
 |  |  |  |  |
@@ -786,10 +786,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  |  |  in pipelines: 02(GETNEXT)
 |  |  |  |  |
 |  |  |  |  F06:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  |  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  |  |  Per-Instance Resources: mem-estimate=32.43KB mem-reservation=0B thread-reservation=1
 |  |  |  |  max-parallelism=1 segment-costs=[0]
 |  |  |  |  14:CTE CONSUMER [cte_suggestion_2]
-|  |  |  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |  |  mem-estimate=440B mem-reservation=0B thread-reservation=0
 |  |  |  |  |  tuple-ids=16 row-size=20B cardinality=11 cost=0
 |  |  |  |  |  in pipelines: 02(GETNEXT)
 |  |  |  |  |
@@ -837,10 +837,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  |  |  in pipelines: 04(GETNEXT)
 |  |  |  |  |
 |  |  |  |  F05:PLAN FRAGMENT [RANDOM] hosts=10 instances=10
-|  |  |  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  |  |  Per-Instance Resources: mem-estimate=68.00KB mem-reservation=0B thread-reservation=1
 |  |  |  |  max-parallelism=10 segment-costs=[9244]
 |  |  |  |  12:CTE CONSUMER [cte_suggestion_0]
-|  |  |  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |  |  mem-estimate=36.00KB mem-reservation=0B thread-reservation=0
 |  |  |  |  |  tuple-ids=15 row-size=18B cardinality=285.31K cost=0
 |  |  |  |  |  in pipelines: 04(GETNEXT)
 |  |  |  |  |
@@ -1014,8 +1014,8 @@ LOCAL MULTI SINK [FRAGMENT=F15, EXCHANGE=03, cte_suggestion_0]
    tuple-ids=2 row-size=18B cardinality=285.31K cost=2139000
    in pipelines: 04(GETNEXT)
 ---- PARALLELPLANS
-Max Per-Host Resource Reservation: Memory=2.01GB Threads=77
-Per-Host Resource Estimates: Memory=5.36GB
+Max Per-Host Resource Reservation: Memory=1.99GB Threads=77
+Per-Host Resource Estimates: Memory=5.33GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], dir0=[ASC], fetch=[100:TINYINT])
     ImpalaAggRel(group=[{}], order count=[COUNT(DISTINCT $0)], total shipping cost=[SUM($1)], total net profit=[SUM($2)])
@@ -1132,10 +1132,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  in pipelines: 06(GETNEXT)
 |  |
 |  F12:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  max-parallelism=1 segment-costs=[236]
 |  27:CTE CONSUMER [cte_suggestion_1]
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=22 row-size=8B cardinality=7.30K cost=0
 |  |  in pipelines: 06(GETNEXT)
 |  |
@@ -1210,10 +1210,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  in pipelines: 02(GETNEXT)
 |  |  |
 |  |  F11:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=32.43KB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=1 segment-costs=[0]
 |  |  24:CTE CONSUMER [cte_suggestion_2]
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=440B mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=21 row-size=20B cardinality=11 cost=0
 |  |  |  in pipelines: 02(GETNEXT)
 |  |  |
@@ -1261,10 +1261,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  in pipelines: 04(GETNEXT)
 |  |  |
 |  |  F10:PLAN FRAGMENT [RANDOM] hosts=10 instances=10
-|  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=68.00KB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=10 segment-costs=[9244]
 |  |  22:CTE CONSUMER [cte_suggestion_0]
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=36.00KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=20 row-size=18B cardinality=285.31K cost=0
 |  |  |  in pipelines: 04(GETNEXT)
 |  |  |
@@ -1405,10 +1405,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  |  |  in pipelines: 06(GETNEXT)
 |  |  |  |  |
 |  |  |  |  F07:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  |  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  |  |  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  |  |  |  max-parallelism=1 segment-costs=[236]
 |  |  |  |  16:CTE CONSUMER [cte_suggestion_1]
-|  |  |  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  |  |  tuple-ids=17 row-size=8B cardinality=7.30K cost=0
 |  |  |  |  |  in pipelines: 06(GETNEXT)
 |  |  |  |  |
@@ -1456,10 +1456,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  |  |  in pipelines: 02(GETNEXT)
 |  |  |  |  |
 |  |  |  |  F06:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  |  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  |  |  Per-Instance Resources: mem-estimate=32.43KB mem-reservation=0B thread-reservation=1
 |  |  |  |  max-parallelism=1 segment-costs=[0]
 |  |  |  |  14:CTE CONSUMER [cte_suggestion_2]
-|  |  |  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |  |  mem-estimate=440B mem-reservation=0B thread-reservation=0
 |  |  |  |  |  tuple-ids=16 row-size=20B cardinality=11 cost=0
 |  |  |  |  |  in pipelines: 02(GETNEXT)
 |  |  |  |  |
@@ -1507,10 +1507,10 @@ max-parallelism=50 segment-costs=[420831285, 33604284, 87434, 3] cpu-comparison-
 |  |  |  |  |  in pipelines: 04(GETNEXT)
 |  |  |  |  |
 |  |  |  |  F05:PLAN FRAGMENT [RANDOM] hosts=10 instances=10
-|  |  |  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  |  |  Per-Instance Resources: mem-estimate=68.00KB mem-reservation=0B thread-reservation=1
 |  |  |  |  max-parallelism=10 segment-costs=[9244]
 |  |  |  |  12:CTE CONSUMER [cte_suggestion_0]
-|  |  |  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |  |  mem-estimate=36.00KB mem-reservation=0B thread-reservation=0
 |  |  |  |  |  tuple-ids=15 row-size=18B cardinality=285.31K cost=0
 |  |  |  |  |  in pipelines: 04(GETNEXT)
 |  |  |  |  |

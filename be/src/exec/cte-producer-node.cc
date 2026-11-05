@@ -25,7 +25,6 @@
 #include "runtime/runtime-state.h"
 #include "util/runtime-profile-counters.h"
 #include "util/runtime-profile.h"
-#include "util/scope-exit-trigger.h"
 
 #include "common/names.h"
 
@@ -45,7 +44,6 @@ Status CTEProducerPlanNode::Init(const TPlanNode& tnode, FragmentState* state) {
     state->query_state()->RegisterExchanger(exchange_instance, exchanger.get());
     exchangers_.emplace(instance_ctx->per_fragment_instance_idx, std::move(exchanger));
   }
-  needs_batch_deep_copy_ = WillNeedDeepCopy(state->query_options());
   return Status::OK();
 }
 
@@ -57,8 +55,7 @@ Status CTEProducerPlanNode::CreateExecNode(RuntimeState* state, ExecNode** node)
 
 CTEProducerNode::CTEProducerNode(
     ObjectPool* pool, const CTEProducerPlanNode& pnode, RuntimeState* state)
-  : ExecNode(pool, pnode, state->desc_tbl()),
-    needs_batch_deep_copy_(pnode.needs_batch_deep_copy_) {
+  : ExecNode(pool, pnode, state->desc_tbl()) {
   int32_t idx = state->instance_ctx().per_fragment_instance_idx;
   exchanger_ = pnode.exchangers_.at(idx).get();
   name_ = pnode.GetCTEName(idx);
@@ -66,46 +63,46 @@ CTEProducerNode::CTEProducerNode(
 
 Status CTEProducerNode::Prepare(RuntimeState* state) {
   RETURN_IF_ERROR(ExecNode::Prepare(state));
-  RETURN_IF_ERROR(exchanger_->Init(runtime_profile(), mem_tracker(), name_));
+  DCHECK(resource_profile_.__isset.spillable_buffer_size);
+  DCHECK(resource_profile_.__isset.max_row_buffer_size);
+  RETURN_IF_ERROR(exchanger_->Init(state, runtime_profile(), mem_tracker(),
+      buffer_pool_client(), row_desc(), resource_profile_.spillable_buffer_size,
+      resource_profile_.max_row_buffer_size, name_));
   return Status::OK();
 }
 
 Status CTEProducerNode::Open(RuntimeState* state) {
   SCOPED_TIMER(runtime_profile()->total_time_counter());
-  auto close_on_exit = MakeScopeExitTrigger([&]() {
-    VLOG_QUERY << "Closing producer of CTE exchange " << name_;
-    exchanger_->CloseProducer();
-  });
   ScopedOpenEventAdder ea(this);
+  Status status = OpenInternal(state);
+  VLOG_QUERY << "Closing producer of CTE exchange " << name_;
+  // On error, consumers return 'status' instead of eos after draining pushed rows.
+  exchanger_->CloseProducer(status);
+  return status;
+}
+
+Status CTEProducerNode::OpenInternal(RuntimeState* state) {
   RETURN_IF_ERROR(ExecNode::Open(state));
   RETURN_IF_ERROR(child(0)->Open(state));
   // Claim reservation after the child has been opened to reduce the peak reservation
-  // requirement.
+  // requirement. The exchanger uses it to buffer rows.
   if (!buffer_pool_client()->is_registered()) {
     RETURN_IF_ERROR(ClaimBufferReservation(state));
   }
 
   DCHECK(row_desc()->Equals(*child(0)->row_desc()));
+  RowBatch child_batch(child(0)->row_desc(), state->batch_size(), mem_tracker());
   bool eos = false;
   do {
     RETURN_IF_CANCELLED(state);
-    unique_ptr<RowBatch> child_batch(new RowBatch(
-        child(0)->row_desc(), state->batch_size(), mem_tracker()));
-    RETURN_IF_ERROR(children_[0]->GetNext(state, child_batch.get(), &eos));
-    VLOG_PROGRESS << "Adding " << child_batch->num_rows()
+    RETURN_IF_ERROR(QueryMaintenance(state));
+    RETURN_IF_ERROR(children_[0]->GetNext(state, &child_batch, &eos));
+    VLOG_PROGRESS << "Adding " << child_batch.num_rows()
                   << " rows to CTE exchange " << name_ << " in " << label();
-    // Add all row batches, even if empty, to avoid freeing the tuple data pool.
-    int num_rows = child_batch->num_rows();
-    if (needs_batch_deep_copy_ && num_rows > 0) {
-      unique_ptr<RowBatch> copy(
-          new RowBatch(child(0)->row_desc(), num_rows, mem_tracker()));
-      child_batch->DeepCopyTo(copy.get());
-      RETURN_IF_ERROR(exchanger_->Push(std::move(copy)));
-    } else {
-      DCHECK(!child_batch->needs_deep_copy() || num_rows == 0);
-      RETURN_IF_ERROR(exchanger_->Push(std::move(child_batch)));
-    }
-    IncrementNumRowsReturned(num_rows);
+    // The exchanger copies the rows, so the batch can be reused.
+    RETURN_IF_ERROR(exchanger_->Push(&child_batch));
+    IncrementNumRowsReturned(child_batch.num_rows());
+    child_batch.Reset();
   } while (!eos);
   return Status::OK();
 }

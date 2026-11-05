@@ -16,8 +16,8 @@ WHERE i_manufact_id = 977
        AND d_date_sk = cs_sold_date_sk )
 LIMIT 100;
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=48.75MB Threads=1
-Per-Host Resource Estimates: Memory=111MB
+Max Per-Host Resource Reservation: Memory=40.75MB Threads=1
+Per-Host Resource Estimates: Memory=103MB
 ImpalaSequence
   ImpalaSortRel(fetch=[100:TINYINT])
     ImpalaAggRel(group=[{}], excess discount amount=[SUM($0)])
@@ -46,7 +46,7 @@ ImpalaSequence
         ImpalaProjectRel(d_date_sk=[$0], d_date=[$2])
           ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, date_dim]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=110.77MB mem-reservation=48.75MB thread-reservation=1 runtime-filters-memory=4.00MB
+|  Per-Instance Resources: mem-estimate=102.80MB mem-reservation=40.75MB thread-reservation=1 runtime-filters-memory=4.00MB
 |  max-parallelism=1 segment-costs=[4003336249, 988748273, 14574]
 PLAN-ROOT SINK
 |  output exprs: sum(tpcds_partitioned_parquet_snap.catalog_sales.cs_ext_discount_amt)
@@ -91,7 +91,7 @@ PLAN-ROOT SINK
 |  in pipelines: 03(GETNEXT), 11(OPEN)
 |
 |--11:CTE CONSUMER [cte_suggestion_0]
-|     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |     tuple-ids=11 row-size=8B cardinality=7.30K cost=0
 |     in pipelines: 11(GETNEXT)
 |
@@ -141,7 +141,7 @@ PLAN-ROOT SINK
 |  |  in pipelines: 04(GETNEXT), 05(OPEN)
 |  |
 |  |--05:CTE CONSUMER [cte_suggestion_0]
-|  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |     tuple-ids=6 row-size=8B cardinality=7.30K cost=0
 |  |     in pipelines: 05(GETNEXT)
 |  |
@@ -175,8 +175,8 @@ PLAN-ROOT SINK
    tuple-ids=2 row-size=12B cardinality=4.48M(filtered from 4.28G) cost=984370404
    in pipelines: 03(GETNEXT)
 ---- DISTRIBUTEDPLAN
-Max Per-Host Resource Reservation: Memory=311.12MB Threads=34
-Per-Host Resource Estimates: Memory=748MB
+Max Per-Host Resource Reservation: Memory=303.12MB Threads=34
+Per-Host Resource Estimates: Memory=740MB
 ImpalaSequence
   ImpalaSortRel(fetch=[100:TINYINT])
     ImpalaAggRel(group=[{}], excess discount amount=[SUM($0)])
@@ -256,10 +256,10 @@ max-parallelism=210 segment-costs=[2084506772, 185] cpu-comparison-result=145 [m
 |  |  in pipelines: 02(GETNEXT)
 |  |
 |  F05:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  max-parallelism=1 segment-costs=[236]
 |  11:CTE CONSUMER [cte_suggestion_0]
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=11 row-size=8B cardinality=7.30K cost=0
 |  |  in pipelines: 02(GETNEXT)
 |  |
@@ -394,10 +394,10 @@ max-parallelism=210 segment-costs=[2084506772, 185] cpu-comparison-result=145 [m
 |  |  |  in pipelines: 02(GETNEXT)
 |  |  |
 |  |  F02:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=1 segment-costs=[236]
 |  |  05:CTE CONSUMER [cte_suggestion_0]
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=6 row-size=8B cardinality=7.30K cost=0
 |  |  |  in pipelines: 02(GETNEXT)
 |  |  |
@@ -476,8 +476,8 @@ LOCAL MULTI SINK [FRAGMENT=F07, EXCHANGE=01, cte_suggestion_0]
    tuple-ids=0 row-size=8B cardinality=7.30K cost=14573
    in pipelines: 02(GETNEXT)
 ---- PARALLELPLANS
-Max Per-Host Resource Reservation: Memory=311.12MB Threads=34
-Per-Host Resource Estimates: Memory=748MB
+Max Per-Host Resource Reservation: Memory=303.12MB Threads=34
+Per-Host Resource Estimates: Memory=740MB
 ImpalaSequence
   ImpalaSortRel(fetch=[100:TINYINT])
     ImpalaAggRel(group=[{}], excess discount amount=[SUM($0)])
@@ -557,10 +557,10 @@ max-parallelism=210 segment-costs=[2084506772, 185] cpu-comparison-result=145 [m
 |  |  in pipelines: 02(GETNEXT)
 |  |
 |  F05:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  max-parallelism=1 segment-costs=[236]
 |  11:CTE CONSUMER [cte_suggestion_0]
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=11 row-size=8B cardinality=7.30K cost=0
 |  |  in pipelines: 02(GETNEXT)
 |  |
@@ -695,10 +695,10 @@ max-parallelism=210 segment-costs=[2084506772, 185] cpu-comparison-result=145 [m
 |  |  |  in pipelines: 02(GETNEXT)
 |  |  |
 |  |  F02:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  |  max-parallelism=1 segment-costs=[236]
 |  |  05:CTE CONSUMER [cte_suggestion_0]
-|  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  tuple-ids=6 row-size=8B cardinality=7.30K cost=0
 |  |  |  in pipelines: 02(GETNEXT)
 |  |  |

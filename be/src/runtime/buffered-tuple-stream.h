@@ -410,6 +410,12 @@ class BufferedTupleStream {
     return bytes_unpinned_;
   }
 
+  /// Returns true if a row of 'row_size' bytes (see ComputeRowSize()) can be appended
+  /// to the current write page without allocating a new page.
+  bool WritePageHasSpace(int64_t row_size) const {
+    return write_page_ != nullptr && write_ptr_ + row_size <= write_end_ptr_;
+  }
+
   bool is_closed() const { return closed_; }
   bool is_pinned() const { return pinned_; }
   // Returns true if there is an active embedded read iterator.

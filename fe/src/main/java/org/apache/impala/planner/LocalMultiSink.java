@@ -43,6 +43,8 @@ public class LocalMultiSink extends DataSink {
     consumers_ = consumers;
   }
 
+  public int getNumConsumers() { return consumers_.size(); }
+
   @Override
   public void computeProcessingCost(TQueryOptions queryOptions) {
     long outputCardinality = Math.max(0, buffer_.getFilteredCardinality());

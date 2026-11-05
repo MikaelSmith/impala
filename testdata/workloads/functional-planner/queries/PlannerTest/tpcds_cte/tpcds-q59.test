@@ -81,8 +81,8 @@ order by
   d_week_seq1
 limit 100
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=107.54MB Threads=1
-Per-Host Resource Estimates: Memory=2.24GB
+Max Per-Host Resource Reservation: Memory=99.54MB Threads=1
+Per-Host Resource Estimates: Memory=2.23GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], sort2=[$2], dir0=[ASC], dir1=[ASC], dir2=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(S_STORE_NAME1=[$9], S_STORE_ID1=[$8], D_WEEK_SEQ1=[$0], EXPR$3=[/($1, $13)], EXPR$4=[/($2, $14)], EXPR$5=[/($3, $15)], EXPR$6=[/($4, $16)], EXPR$7=[/($5, $17)], EXPR$8=[/($6, $18)], EXPR$9=[/($7, $19)])
@@ -120,7 +120,7 @@ ImpalaSequence
             ImpalaProjectRel(d_date_sk=[$0], d_week_seq=[$4], d_day_name=[$14])
               ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, date_dim]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=2.24GB mem-reservation=107.54MB thread-reservation=1 runtime-filters-memory=7.00MB
+|  Per-Instance Resources: mem-estimate=2.23GB mem-reservation=99.54MB thread-reservation=1 runtime-filters-memory=7.00MB
 |  max-parallelism=1 segment-costs=[19272221811, 684061338054, 1000]
 PLAN-ROOT SINK
 |  output exprs: s_store_name, s_store_id, D_WEEK_SEQ, divide(SUN_SALES, SUN_SALES), divide(MON_SALES, MON_SALES), divide(TUE_SALES, TUE_SALES), divide(WED_SALES, WED_SALES), divide(THU_SALES, THU_SALES), divide(FRI_SALES, FRI_SALES), divide(SAT_SALES, SAT_SALES)
@@ -215,7 +215,7 @@ PLAN-ROOT SINK
 |  |
 |  13:CTE CONSUMER [cte_suggestion_0]
 |     runtime filters: RF011[min_max] -> D_WEEK_SEQ, RF010[bloom] -> D_WEEK_SEQ
-|     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|     mem-estimate=240.00KB mem-reservation=0B thread-reservation=0
 |     tuple-ids=12 row-size=120B cardinality=6.95M cost=0
 |     in pipelines: 13(GETNEXT)
 |
@@ -285,12 +285,12 @@ PLAN-ROOT SINK
 |
 06:CTE CONSUMER [cte_suggestion_0]
    runtime filters: RF009[min_max] -> D_WEEK_SEQ, RF007[min_max] -> SS_STORE_SK, RF003[min_max] -> D_WEEK_SEQ, RF008[bloom] -> D_WEEK_SEQ, RF006[bloom] -> SS_STORE_SK, RF001[bloom] -> D_WEEK_SEQ
-   mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+   mem-estimate=240.00KB mem-reservation=0B thread-reservation=0
    tuple-ids=5 row-size=120B cardinality=6.95M cost=0
    in pipelines: 06(GETNEXT)
 ---- DISTRIBUTEDPLAN
-Max Per-Host Resource Reservation: Memory=978.54MB Threads=83
-Per-Host Resource Estimates: Memory=12.65GB
+Max Per-Host Resource Reservation: Memory=882.54MB Threads=83
+Per-Host Resource Estimates: Memory=12.56GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], sort2=[$2], dir0=[ASC], dir1=[ASC], dir2=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(S_STORE_NAME1=[$9], S_STORE_ID1=[$8], D_WEEK_SEQ1=[$0], EXPR$3=[/($1, $13)], EXPR$4=[/($2, $14)], EXPR$5=[/($3, $15)], EXPR$6=[/($4, $16)], EXPR$7=[/($5, $17)], EXPR$8=[/($6, $18)], EXPR$9=[/($7, $19)])
@@ -374,7 +374,7 @@ max-parallelism=68410 segment-costs=[684057383222, 743] cpu-comparison-result=39
 |  |
 |  F04:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
 |  Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
-|  Per-Instance Resources: mem-estimate=67.75MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=63.98MB mem-reservation=0B thread-reservation=1
 |  max-parallelism=120 segment-costs=[46883432]
 |  15:HASH JOIN [INNER JOIN, BROADCAST]
 |  |  hash-table-id=01
@@ -416,7 +416,7 @@ max-parallelism=68410 segment-costs=[684057383222, 743] cpu-comparison-result=39
 |  |
 |  13:CTE CONSUMER [cte_suggestion_0]
 |  |  runtime filters: RF013[min_max] -> D_WEEK_SEQ, RF012[bloom] -> D_WEEK_SEQ
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=240.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=12 row-size=120B cardinality=6.95M cost=0
 |  |  in pipelines: 27(GETNEXT)
 |  |
@@ -510,7 +510,7 @@ max-parallelism=68410 segment-costs=[684057383222, 743] cpu-comparison-result=39
 |
 F00:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
 Per-Host Shared Resources: mem-estimate=3.00MB mem-reservation=3.00MB thread-reservation=0 runtime-filters-memory=3.00MB
-Per-Instance Resources: mem-estimate=108.97MB mem-reservation=4.00MB thread-reservation=1
+Per-Instance Resources: mem-estimate=105.21MB mem-reservation=0B thread-reservation=1
 max-parallelism=120 segment-costs=[154444845]
 12:HASH JOIN [INNER JOIN, BROADCAST]
 |  hash-table-id=02
@@ -632,7 +632,7 @@ max-parallelism=120 segment-costs=[154444845]
 |
 06:CTE CONSUMER [cte_suggestion_0]
 |  runtime filters: RF009[min_max] -> D_WEEK_SEQ, RF007[min_max] -> SS_STORE_SK, RF003[min_max] -> D_WEEK_SEQ, RF008[bloom] -> D_WEEK_SEQ, RF006[bloom] -> SS_STORE_SK, RF001[bloom] -> D_WEEK_SEQ
-|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=240.00KB mem-reservation=0B thread-reservation=0
 |  tuple-ids=5 row-size=120B cardinality=6.95M cost=0
 |  in pipelines: 27(GETNEXT)
 |
@@ -805,8 +805,8 @@ max-parallelism=1823 segment-costs=[23016709757, 6873521098] cpu-comparison-resu
    tuple-ids=0 row-size=12B cardinality=7.88G cost=1657367506
    in pipelines: 02(GETNEXT)
 ---- PARALLELPLANS
-Max Per-Host Resource Reservation: Memory=978.54MB Threads=83
-Per-Host Resource Estimates: Memory=12.65GB
+Max Per-Host Resource Reservation: Memory=882.54MB Threads=83
+Per-Host Resource Estimates: Memory=12.56GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], sort2=[$2], dir0=[ASC], dir1=[ASC], dir2=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(S_STORE_NAME1=[$9], S_STORE_ID1=[$8], D_WEEK_SEQ1=[$0], EXPR$3=[/($1, $13)], EXPR$4=[/($2, $14)], EXPR$5=[/($3, $15)], EXPR$6=[/($4, $16)], EXPR$7=[/($5, $17)], EXPR$8=[/($6, $18)], EXPR$9=[/($7, $19)])
@@ -890,7 +890,7 @@ max-parallelism=68410 segment-costs=[684057383222, 743] cpu-comparison-result=39
 |  |
 |  F04:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
 |  Per-Host Shared Resources: mem-estimate=1.00MB mem-reservation=1.00MB thread-reservation=0 runtime-filters-memory=1.00MB
-|  Per-Instance Resources: mem-estimate=67.75MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=63.98MB mem-reservation=0B thread-reservation=1
 |  max-parallelism=120 segment-costs=[46883432]
 |  15:HASH JOIN [INNER JOIN, BROADCAST]
 |  |  hash-table-id=01
@@ -932,7 +932,7 @@ max-parallelism=68410 segment-costs=[684057383222, 743] cpu-comparison-result=39
 |  |
 |  13:CTE CONSUMER [cte_suggestion_0]
 |  |  runtime filters: RF013[min_max] -> D_WEEK_SEQ, RF012[bloom] -> D_WEEK_SEQ
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=240.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=12 row-size=120B cardinality=6.95M cost=0
 |  |  in pipelines: 27(GETNEXT)
 |  |
@@ -1026,7 +1026,7 @@ max-parallelism=68410 segment-costs=[684057383222, 743] cpu-comparison-result=39
 |
 F00:PLAN FRAGMENT [RANDOM] hosts=10 instances=120
 Per-Host Shared Resources: mem-estimate=3.00MB mem-reservation=3.00MB thread-reservation=0 runtime-filters-memory=3.00MB
-Per-Instance Resources: mem-estimate=108.97MB mem-reservation=4.00MB thread-reservation=1
+Per-Instance Resources: mem-estimate=105.21MB mem-reservation=0B thread-reservation=1
 max-parallelism=120 segment-costs=[154444845]
 12:HASH JOIN [INNER JOIN, BROADCAST]
 |  hash-table-id=02
@@ -1148,7 +1148,7 @@ max-parallelism=120 segment-costs=[154444845]
 |
 06:CTE CONSUMER [cte_suggestion_0]
 |  runtime filters: RF009[min_max] -> D_WEEK_SEQ, RF007[min_max] -> SS_STORE_SK, RF003[min_max] -> D_WEEK_SEQ, RF008[bloom] -> D_WEEK_SEQ, RF006[bloom] -> SS_STORE_SK, RF001[bloom] -> D_WEEK_SEQ
-|  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  mem-estimate=240.00KB mem-reservation=0B thread-reservation=0
 |  tuple-ids=5 row-size=120B cardinality=6.95M cost=0
 |  in pipelines: 27(GETNEXT)
 |

@@ -85,15 +85,15 @@ public class CTEConsumerNode extends PlanNode {
 
   @Override
   public void computeNodeResourceProfile(TQueryOptions queryOptions) {
-    // This node fetches rows from a BufferedTupleStream. Allocate sufficient capacity
-    // to fetch a row and materialize it into the destination.
-    long bufferSize = computeMaxSpillableBufferSize(
-        queryOptions.getDefault_spillable_buffer_size(), queryOptions.getMax_row_size());
-    nodeResourceProfile_ = new ResourceProfileBuilder()
-        .setMemEstimateBytes(2 * bufferSize)
-        .setMinMemReservationBytes(2 * bufferSize)
-        .setMaxMemReservationBytes(2 * bufferSize)
-        .setSpillableBufferBytes(bufferSize).setMaxRowBufferBytes(bufferSize).build();
+    // Rows are read from the producer's LocalExchanger, whose buffers are backed by the
+    // CTEProducerNode's reservation. This node only needs memory for its input and
+    // output row batches.
+    long rowsPerBatch = getRowBatchSize(queryOptions);
+    if (getCardinality() > 0) rowsPerBatch = Math.min(rowsPerBatch, getCardinality());
+    long batchBytes = Math.min(
+        (long) Math.ceil(rowsPerBatch * Math.max(avgRowSize_, 1)),
+        ROWBATCH_MAX_MEM_USAGE);
+    nodeResourceProfile_ = ResourceProfile.noReservation(2 * batchBytes);
   }
 
   @Override
@@ -125,6 +125,8 @@ public class CTEConsumerNode extends PlanNode {
         .addValue(super.debugString())
         .toString();
   }
+
+  public String getCteName() { return cteName_; }
 
   @Override
   protected String getDisplayLabelDetail() {

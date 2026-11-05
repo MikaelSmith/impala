@@ -50,11 +50,11 @@ Status CTEConsumerPlanNode::Init(const TPlanNode& tnode, FragmentState* state) {
   tuple_desc_ = row_descriptor_->tuple_descriptors()[0];
 
   DCHECK_EQ(cte_node.input_row_tuples.size(), cte_node.nullable_tuples.size());
-  RowDescriptor input_row_desc(
+  input_row_desc_ = std::make_unique<RowDescriptor>(
       state->desc_tbl(), cte_node.input_row_tuples, cte_node.nullable_tuples);
 
-  RETURN_IF_ERROR(
-      ScalarExpr::Create(cte_node.result_exprs, input_row_desc, state, &input_exprs_));
+  RETURN_IF_ERROR(ScalarExpr::Create(
+      cte_node.result_exprs, *input_row_desc_, state, &input_exprs_));
   DCHECK_EQ(input_exprs_.size(), tuple_desc_->slots().size());
 
   // Set up runtime filter expressions, one per filter assigned to this node.
@@ -68,7 +68,7 @@ Status CTEConsumerPlanNode::Init(const TPlanNode& tnode, FragmentState* state) {
     runtime_filter_exprs_.push_back(filter_expr);
   }
 
-  is_passthrough_ = row_descriptor_->LayoutEquals(input_row_desc);
+  is_passthrough_ = row_descriptor_->LayoutEquals(*input_row_desc_);
   return Status::OK();
 }
 
@@ -123,6 +123,7 @@ CTEConsumerNode::CTEConsumerNode(
     ObjectPool* pool, const CTEConsumerPlanNode& pnode, const DescriptorTbl& descs)
   : ExecNode(pool, pnode, descs),
     tuple_desc_(pnode.tuple_desc_),
+    input_row_desc_(pnode.input_row_desc_.get()),
     input_exprs_(pnode.input_exprs_),
     codegend_materialize_batch_fn_(pnode.codegend_materialize_batch_fn_),
     is_passthrough_(pnode.is_passthrough_) { }
@@ -145,6 +146,8 @@ Status CTEConsumerNode::Prepare(RuntimeState* state) {
     RETURN_IF_ERROR(ScalarExprEvaluator::Create(input_exprs_, state, pool_,
         expr_perm_pool(), expr_results_pool(), &input_expr_evals_));
   }
+  input_batch_ =
+      std::make_unique<RowBatch>(input_row_desc_, state->batch_size(), mem_tracker());
 
   const CTEConsumerPlanNode& pnode =
       static_cast<const CTEConsumerPlanNode&>(plan_node());
@@ -174,9 +177,8 @@ Status CTEConsumerNode::Open(RuntimeState* state) {
   SCOPED_TIMER(runtime_profile()->total_time_counter());
   ScopedOpenEventAdder ea(this);
   RETURN_IF_ERROR(ExecNode::Open(state));
-  if (!buffer_pool_client()->is_registered()) {
-    RETURN_IF_ERROR(ClaimBufferReservation(state));
-  }
+  // Rows are read through the producer's buffer pool client, so this node has no
+  // reservation to claim.
 
   if (!is_passthrough_) {
     RETURN_IF_ERROR(ScalarExprEvaluator::Open(input_expr_evals_, state));
@@ -213,40 +215,35 @@ Status CTEConsumerNode::GetNext(
     return Status::OK();
   }
 
-  // Fetch rows from LocalExchanger
-  RowBatch* input_batch = exchanger_->Pull(consumer_index_, eos);
-  if (input_batch == nullptr) {
-    // Pull only returns nullptr when eos_ is set and no batches remain.
-    DCHECK(*eos);
-    return Status::OK();
-  }
-
-  VLOG_PROGRESS << "Pulled " << input_batch->num_rows() << " rows from CTE exchange "
+  // Rows in 'input_batch_' reference exchanger memory that remains valid until the
+  // next call to LocalExchanger::GetNext() for this consumer.
+  input_batch_->Reset();
+  RETURN_IF_ERROR(exchanger_->GetNext(state, consumer_index_, input_batch_.get(), eos));
+  VLOG_PROGRESS << "Pulled " << input_batch_->num_rows() << " rows from CTE exchange "
       << name_ << " in instance " << state->instance_ctx().per_fragment_instance_idx
       << " of " << label();
-  if (is_passthrough_) {
-    int rows_to_copy = input_batch->num_rows();
-    if (rows_to_copy > 0) {
-      DCHECK_LE(rows_to_copy, output_batch->capacity() - output_batch->num_rows())
-          << "Output batch capacity: " << output_batch->capacity()
-          << ", current rows: " << output_batch->num_rows()
-          << ", input batch rows: " << input_batch->num_rows();
-      int dst_offset = output_batch->AddRows(rows_to_copy);
-      output_batch->CopyRows(input_batch, rows_to_copy, 0, dst_offset);
-      output_batch->CommitRows(rows_to_copy);
-    }
-  } else {
-    // Copy input_batch to output_batch while translating slots.
-    int64_t tuple_buf_size;
-    uint8_t* tuple_buf;
-    RETURN_IF_ERROR(output_batch->ResizeAndAllocateTupleBuffer(
-        state, &tuple_buf_size, &tuple_buf));
-    memset(tuple_buf, 0, tuple_buf_size);
-    CTEConsumerPlanNode::MaterializeBatchFn fn = codegend_materialize_batch_fn_.load();
-    if (fn == nullptr) {
-      MaterializeBatch(input_batch, output_batch, &tuple_buf);
+  int num_input_rows = input_batch_->num_rows();
+  if (num_input_rows > 0) {
+    DCHECK_LE(num_input_rows, output_batch->capacity() - output_batch->num_rows())
+        << "Output batch capacity: " << output_batch->capacity()
+        << ", current rows: " << output_batch->num_rows();
+    if (is_passthrough_) {
+      int dst_offset = output_batch->AddRows(num_input_rows);
+      output_batch->CopyRows(input_batch_.get(), num_input_rows, 0, dst_offset);
+      output_batch->CommitRows(num_input_rows);
     } else {
-      fn(this, input_batch, output_batch, &tuple_buf);
+      // Copy input_batch_ to output_batch while translating slots.
+      int64_t tuple_buf_size;
+      uint8_t* tuple_buf;
+      RETURN_IF_ERROR(output_batch->ResizeAndAllocateTupleBuffer(
+          state, &tuple_buf_size, &tuple_buf));
+      memset(tuple_buf, 0, tuple_buf_size);
+      CTEConsumerPlanNode::MaterializeBatchFn fn = codegend_materialize_batch_fn_.load();
+      if (fn == nullptr) {
+        MaterializeBatch(input_batch_.get(), output_batch, &tuple_buf);
+      } else {
+        fn(this, input_batch_.get(), output_batch, &tuple_buf);
+      }
     }
   }
 
@@ -297,6 +294,7 @@ void CTEConsumerNode::Close(RuntimeState* state) {
   if (!is_passthrough_) {
     ScalarExprEvaluator::Close(input_expr_evals_, state);
   }
+  if (input_batch_ != nullptr) input_batch_.reset();
   ExecNode::Close(state);
 }
 

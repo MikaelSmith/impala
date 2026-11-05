@@ -54,8 +54,8 @@ order by
   i_item_desc
 limit 100
 ---- PLAN
-Max Per-Host Resource Reservation: Memory=136.70MB Threads=1
-Per-Host Resource Estimates: Memory=8.57GB
+Max Per-Host Resource Reservation: Memory=128.70MB Threads=1
+Per-Host Resource Estimates: Memory=8.56GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], dir0=[ASC], dir1=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(S_STORE_NAME=[$9], I_ITEM_DESC=[$4], REVENUE=[$2], I_CURRENT_PRICE=[$5], I_WHOLESALE_COST=[$6], I_BRAND=[$7])
@@ -91,7 +91,7 @@ ImpalaSequence
         ImpalaProjectRel(d_date_sk=[$0], d_month_seq=[$3])
           ImpalaHdfsScanRel(table=[[tpcds_partitioned_parquet_snap, date_dim]])
 F00:PLAN FRAGMENT [UNPARTITIONED] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=8.57GB mem-reservation=136.70MB thread-reservation=1 runtime-filters-memory=5.00MB
+|  Per-Instance Resources: mem-estimate=8.56GB mem-reservation=128.70MB thread-reservation=1 runtime-filters-memory=5.00MB
 |  max-parallelism=1 segment-costs=[17703778580, 17471961622, 68796982, 166265905026, 15173]
 PLAN-ROOT SINK
 |  output exprs: s_store_name, i_item_desc, sum(tpcds_partitioned_parquet_snap.store_sales.ss_sales_price), i_current_price, i_wholesale_cost, i_brand
@@ -166,7 +166,7 @@ PLAN-ROOT SINK
 |  |  |  in pipelines: 10(GETNEXT), 11(OPEN)
 |  |  |
 |  |  |--11:CTE CONSUMER [cte_suggestion_0]
-|  |  |     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |     tuple-ids=12 row-size=8B cardinality=7.30K cost=0
 |  |  |     in pipelines: 11(GETNEXT)
 |  |  |
@@ -235,7 +235,7 @@ PLAN-ROOT SINK
 |  in pipelines: 03(GETNEXT), 04(OPEN)
 |
 |--04:CTE CONSUMER [cte_suggestion_0]
-|     mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|     mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |     tuple-ids=4 row-size=8B cardinality=7.30K cost=0
 |     in pipelines: 04(GETNEXT)
 |
@@ -254,8 +254,8 @@ PLAN-ROOT SINK
    tuple-ids=2 row-size=16B cardinality=7.88G cost=2364367980
    in pipelines: 03(GETNEXT)
 ---- DISTRIBUTEDPLAN
-Max Per-Host Resource Reservation: Memory=1.73GB Threads=82
-Per-Host Resource Estimates: Memory=29.01GB
+Max Per-Host Resource Reservation: Memory=1.72GB Threads=82
+Per-Host Resource Estimates: Memory=29.00GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], dir0=[ASC], dir1=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(S_STORE_NAME=[$9], I_ITEM_DESC=[$4], REVENUE=[$2], I_CURRENT_PRICE=[$5], I_WHOLESALE_COST=[$6], I_BRAND=[$7])
@@ -433,10 +433,10 @@ max-parallelism=16630 segment-costs=[166270075245, 504] cpu-comparison-result=36
 |  |  |  |  in pipelines: 02(GETNEXT)
 |  |  |  |
 |  |  |  F07:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  |  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  |  |  max-parallelism=1 segment-costs=[236]
 |  |  |  11:CTE CONSUMER [cte_suggestion_0]
-|  |  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  |  tuple-ids=12 row-size=8B cardinality=7.30K cost=0
 |  |  |  |  in pipelines: 02(GETNEXT)
 |  |  |  |
@@ -581,10 +581,10 @@ max-parallelism=1823 segment-costs=[47769653573, 14166879089] cpu-comparison-res
 |  |  in pipelines: 02(GETNEXT)
 |  |
 |  F01:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  max-parallelism=1 segment-costs=[236]
 |  04:CTE CONSUMER [cte_suggestion_0]
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=4 row-size=8B cardinality=7.30K cost=0
 |  |  in pipelines: 02(GETNEXT)
 |  |
@@ -648,8 +648,8 @@ LOCAL MULTI SINK [FRAGMENT=F11, EXCHANGE=01, cte_suggestion_0]
    tuple-ids=0 row-size=8B cardinality=7.30K cost=14573
    in pipelines: 02(GETNEXT)
 ---- PARALLELPLANS
-Max Per-Host Resource Reservation: Memory=1.73GB Threads=82
-Per-Host Resource Estimates: Memory=29.01GB
+Max Per-Host Resource Reservation: Memory=1.72GB Threads=82
+Per-Host Resource Estimates: Memory=29.00GB
 ImpalaSequence
   ImpalaSortRel(sort0=[$0], sort1=[$1], dir0=[ASC], dir1=[ASC], fetch=[100:TINYINT])
     ImpalaProjectRel(S_STORE_NAME=[$9], I_ITEM_DESC=[$4], REVENUE=[$2], I_CURRENT_PRICE=[$5], I_WHOLESALE_COST=[$6], I_BRAND=[$7])
@@ -827,10 +827,10 @@ max-parallelism=16630 segment-costs=[166270075245, 504] cpu-comparison-result=36
 |  |  |  |  in pipelines: 02(GETNEXT)
 |  |  |  |
 |  |  |  F07:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  |  |  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  |  |  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  |  |  max-parallelism=1 segment-costs=[236]
 |  |  |  11:CTE CONSUMER [cte_suggestion_0]
-|  |  |  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  |  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  |  |  tuple-ids=12 row-size=8B cardinality=7.30K cost=0
 |  |  |  |  in pipelines: 02(GETNEXT)
 |  |  |  |
@@ -975,10 +975,10 @@ max-parallelism=1823 segment-costs=[47769653573, 14166879089] cpu-comparison-res
 |  |  in pipelines: 02(GETNEXT)
 |  |
 |  F01:PLAN FRAGMENT [RANDOM] hosts=1 instances=1
-|  Per-Instance Resources: mem-estimate=4.03MB mem-reservation=4.00MB thread-reservation=1
+|  Per-Instance Resources: mem-estimate=48.00KB mem-reservation=0B thread-reservation=1
 |  max-parallelism=1 segment-costs=[236]
 |  04:CTE CONSUMER [cte_suggestion_0]
-|  |  mem-estimate=4.00MB mem-reservation=4.00MB spill-buffer=2.00MB thread-reservation=0
+|  |  mem-estimate=16.00KB mem-reservation=0B thread-reservation=0
 |  |  tuple-ids=4 row-size=8B cardinality=7.30K cost=0
 |  |  in pipelines: 02(GETNEXT)
 |  |

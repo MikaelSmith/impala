@@ -38,6 +38,9 @@ class CTEConsumerPlanNode : public PlanNode {
   TupleDescriptor* tuple_desc_;
   std::vector<ScalarExpr*> input_exprs_;
 
+  /// Layout of the rows produced by the CTE producer and stored in the exchanger.
+  std::unique_ptr<RowDescriptor> input_row_desc_;
+
   /// Runtime filter expressions, one per filter in tnode.runtime_filters.
   std::vector<ScalarExpr*> runtime_filter_exprs_;
 
@@ -84,6 +87,11 @@ class CTEConsumerNode : public ExecNode {
   std::string name_;
   LocalExchanger* exchanger_ = nullptr;
   const TupleDescriptor* tuple_desc_;
+  const RowDescriptor* input_row_desc_;
+
+  /// Batch that rows are read into from the exchanger before being copied (passthrough)
+  /// or materialized into the output batch.
+  std::unique_ptr<RowBatch> input_batch_;
   const std::vector<ScalarExpr*>& input_exprs_;
   std::vector<ScalarExprEvaluator*> input_expr_evals_;
   const CodegenFnPtr<CTEConsumerPlanNode::MaterializeBatchFn>&

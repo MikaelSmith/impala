@@ -35,18 +35,17 @@ class CTEProducerPlanNode : public PlanNode {
   }
 
   std::map<int32_t, std::unique_ptr<LocalExchanger>> exchangers_;
-
-  /// True if any hash join or nested-loop join in the child plan-node subtree uses a
-  /// separate build fragment and returns build-side tuples in its output rows. When true,
-  /// each pushed RowBatch must be deep-copied so the exchanger holds no references to
-  /// the build fragment's hash-table memory.
-  bool needs_batch_deep_copy_ = false;
 };
 
 /// Node that buffers results produced by a Common Table Expression into a
 /// LocalExchanger. It's expected to be the root of a fragment; on Open it
 /// accumulates all results from its children; GetNext() waits for all consumers
 /// (executing in other fragments) to consume the results, then returns eos.
+///
+/// The LocalExchanger copies rows into buffer pool pages using this node's buffer pool
+/// client and reservation, and spills them to scratch when the reservation cannot be
+/// increased. Because rows are copied, the exchanger never references memory of the
+/// child subtree (e.g. hash tables of a separate join build fragment).
 class CTEProducerNode : public ExecNode {
  public:
   CTEProducerNode(
@@ -60,9 +59,11 @@ class CTEProducerNode : public ExecNode {
   void DebugString(int indentation_level, std::stringstream* out) const override;
 
  private:
+  /// Pushes all rows from the child into 'exchanger_'.
+  Status OpenInternal(RuntimeState* state);
+
   string name_;
   LocalExchanger* exchanger_;
-  const bool needs_batch_deep_copy_;
 };
 
 }
