@@ -20,6 +20,7 @@
 #include "exec/exec-node-util.h"
 #include "exprs/scalar-expr-evaluator.h"
 #include "exprs/scalar-expr.h"
+#include "exprs/slot-ref.h"
 #include "runtime/exec-env.h"
 #include "runtime/fragment-state.h"
 #include "runtime/local-exchanger.h"
@@ -68,8 +69,28 @@ Status CTEConsumerPlanNode::Init(const TPlanNode& tnode, FragmentState* state) {
     runtime_filter_exprs_.push_back(filter_expr);
   }
 
-  is_passthrough_ = row_descriptor_->LayoutEquals(*input_row_desc_);
+  is_passthrough_ = row_descriptor_->LayoutEquals(*input_row_desc_)
+      && ExprsCopySlotsInPlace(state->desc_tbl());
   return Status::OK();
+}
+
+bool CTEConsumerPlanNode::ExprsCopySlotsInPlace(const DescriptorTbl& desc_tbl) const {
+  // Equal layouts are not enough: the exprs could e.g. swap two slots of the same type.
+  // Only if every slot is read from the input slot at the same position can the input
+  // tuple be returned as-is.
+  const TupleDescriptor* input_tuple_desc = input_row_desc_->tuple_descriptors()[0];
+  for (int i = 0; i < input_exprs_.size(); ++i) {
+    if (!input_exprs_[i]->IsSlotRef()) return false;
+    const SlotDescriptor* input_slot = desc_tbl.GetSlotDescriptor(
+        static_cast<const SlotRef*>(input_exprs_[i])->slot_id());
+    const SlotDescriptor* slot = tuple_desc_->slots()[i];
+    if (input_slot == nullptr || input_slot->parent() != input_tuple_desc
+        || input_slot->tuple_offset() != slot->tuple_offset()
+        || !input_slot->null_indicator_offset().Equals(slot->null_indicator_offset())) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void CTEConsumerPlanNode::Close() {

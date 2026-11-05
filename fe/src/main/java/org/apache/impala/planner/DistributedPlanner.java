@@ -183,9 +183,17 @@ public class DistributedPlanner {
       // what CTEProducerNode was constructed with (e.g. a phase-split aggregation
       // replaces the final output tuple with an intermediate tuple). Refresh the
       // node's tuple IDs so the C++ row_desc matches child(0)->row_desc().
+      // A producer that materializes its own output tuple is not affected.
+      CTEProducerNode producer = (CTEProducerNode) root;
       PlanNode cteChild = root.getChild(0);
-      root.tupleIds_ = new ArrayList<>(cteChild.getTupleIds());
-      root.nullableTupleIds_ = new HashSet<>(cteChild.getNullableTupleIds());
+      if (!producer.materializesOutput()) {
+        root.tupleIds_ = new ArrayList<>(cteChild.getTupleIds());
+        root.nullableTupleIds_ = new HashSet<>(cteChild.getNullableTupleIds());
+      } else {
+        Preconditions.checkState(producer.getOutputExprs().stream().allMatch(
+            e -> e.isBoundByTupleIds(cteChild.getTupleIds())),
+            "CTE producer output exprs are not bound by its child's tuples");
+      }
       List<PlanNode> dests = cteConsumers_.get(root.getDisplayLabelDetail());
       for (PlanNode dest : dests) {
         dest.addChild(root);

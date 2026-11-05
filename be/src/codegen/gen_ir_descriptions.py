@@ -302,6 +302,8 @@ ir_functions = [
    "_ZN6impala15SortedRunMerger13HeapifyHelperEi"],
   ["CTE_MATERIALIZE_BATCH",
    "_ZN6impala15CTEConsumerNode16MaterializeBatchEPNS_8RowBatchES2_PPh"],
+  ["CTE_PRODUCER_MATERIALIZE_BATCH",
+   "_ZN6impala15CTEProducerNode16MaterializeBatchEPNS_8RowBatchES2_PPh"],
   ["LOCAL_EXCHANGER_ADD_ROWS",
    "_ZN6impala14LocalExchanger7AddRowsEPNS_19BufferedTupleStreamEPNS_8RowBatchEiPNS_6StatusE"]
 ]

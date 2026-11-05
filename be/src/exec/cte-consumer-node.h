@@ -51,7 +51,14 @@ class CTEConsumerPlanNode : public PlanNode {
   /// Codegen is disabled, there should be a NULL for every child.
   CodegenFnPtr<MaterializeBatchFn> codegend_materialize_batch_fn_;
 
+  /// True if the input rows can be returned as-is: they have the layout of the output
+  /// rows and 'input_exprs_' read each slot from the input slot at the same position.
   bool is_passthrough_;
+
+ private:
+  /// Returns true if each of 'input_exprs_' is a SlotRef of the input tuple's slot with
+  /// the same offset and null indicator as the corresponding output slot.
+  bool ExprsCopySlotsInPlace(const DescriptorTbl& desc_tbl) const;
 };
 
 /// Node that scans results of a Common Table Expression from a LocalExchanger

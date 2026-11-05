@@ -23,13 +23,20 @@
 
 namespace impala {
 
+class CTEProducerNode;
 class LocalExchanger;
+class ScalarExpr;
+class ScalarExprEvaluator;
 
 class CTEProducerPlanNode : public PlanNode {
  public:
   Status Init(const TPlanNode& tnode, FragmentState* state) override;
+  void Close() override;
   Status CreateExecNode(RuntimeState* state, ExecNode** node) const override;
   void Codegen(FragmentState* state) override;
+
+  /// Codegens CTEProducerNode::MaterializeBatch() for 'output_exprs_'.
+  Status CodegenMaterializeBatch(LlvmCodeGen* codegen);
   ~CTEProducerPlanNode() override = default;
 
   string GetCTEName(int32_t index) const {
@@ -40,6 +47,14 @@ class CTEProducerPlanNode : public PlanNode {
 
   /// Codegen'd LocalExchanger::AddRows(), specialized for this node's row layout.
   CodegenFnPtr<LocalExchanger::AddRowsFn> codegend_add_rows_fn_;
+
+  /// Exprs materialized into the output tuple, evaluated over the child's rows. Empty if
+  /// the child's rows are buffered as-is.
+  std::vector<ScalarExpr*> output_exprs_;
+
+  typedef void (*MaterializeBatchFn)(CTEProducerNode*, RowBatch*, RowBatch*, uint8_t**);
+  /// Codegen'd CTEProducerNode::MaterializeBatch(). Only used if 'output_exprs_' is set.
+  CodegenFnPtr<MaterializeBatchFn> codegend_materialize_batch_fn_;
 };
 
 /// Node that buffers results produced by a Common Table Expression into a
@@ -63,12 +78,31 @@ class CTEProducerNode : public ExecNode {
   void Close(RuntimeState* state) override;
   void DebugString(int indentation_level, std::stringstream* out) const override;
 
+  /// Evaluates 'output_exprs_' over the rows of 'input_batch' and materializes the
+  /// results into 'tuple_buf', which is attached to 'output_batch'. Var-len data is not
+  /// copied: it references 'input_batch' or expr results, which remain valid until the
+  /// rows are pushed into the exchanger. Cross-compiled.
+  void MaterializeBatch(RowBatch* input_batch, RowBatch* output_batch,
+      uint8_t** tuple_buf);
+
  private:
   /// Pushes all rows from the child into 'exchanger_'.
   Status OpenInternal(RuntimeState* state);
 
+  /// Materializes the rows of 'child_batch' into 'output_batch_' if needed and pushes
+  /// them into 'exchanger_'.
+  Status PushBatch(RuntimeState* state, RowBatch* child_batch);
+
   string name_;
   LocalExchanger* exchanger_;
+  const TupleDescriptor* output_tuple_desc_;
+  const std::vector<ScalarExpr*>& output_exprs_;
+  std::vector<ScalarExprEvaluator*> output_expr_evals_;
+  const CodegenFnPtr<CTEProducerPlanNode::MaterializeBatchFn>&
+      codegend_materialize_batch_fn_;
+  /// Batch the projected rows are materialized into. Only used if 'output_exprs_' is
+  /// set.
+  std::unique_ptr<RowBatch> output_batch_;
   const CodegenFnPtr<LocalExchanger::AddRowsFn>& codegend_add_rows_fn_;
 };
 

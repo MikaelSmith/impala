@@ -21,19 +21,32 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.impala.analysis.Analyzer;
+import org.apache.impala.analysis.Expr;
+import org.apache.impala.analysis.TupleDescriptor;
 import org.apache.impala.thrift.TCTEProducer;
 import org.apache.impala.thrift.TExplainLevel;
 import org.apache.impala.thrift.TPlanNode;
 import org.apache.impala.thrift.TPlanNodeType;
 import org.apache.impala.thrift.TQueryOptions;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 
 /**
  * Evaluation of a Common Table Expression for distribution to CTEConsumerNodes.
+ *
+ * The producer either buffers its child's rows as-is, or, if 'outputExprs_' is set,
+ * materializes 'outputExprs_' (evaluated over the child's rows) into its own output
+ * tuple. The latter keeps columns only needed inside the CTE (e.g. for filters) out of
+ * the buffered rows, and lets consumers use the producer's rows without materializing
+ * them again (see CTEConsumerNode).
  */
 public class CTEProducerNode extends PlanNode {
   private final String cteName_;
+
+  // Exprs over the child's rows materialized into the output tuple. Null if the child's
+  // rows are buffered as-is.
+  private final List<Expr> outputExprs_;
 
   protected final static long DEFAULT_PER_INSTANCE_MEM = 128L * 1024L * 1024L;
 
@@ -45,7 +58,27 @@ public class CTEProducerNode extends PlanNode {
     super(id, ctePlan.getTupleIds(), "CTE PRODUCER");
     children_.add(ctePlan);
     cteName_ = cteName;
+    outputExprs_ = null;
   }
+
+  /**
+   * Creates a producer that materializes 'outputExprs', evaluated over the rows of
+   * 'ctePlan', into 'outputTuple'.
+   */
+  public CTEProducerNode(PlanNodeId id, PlanNode ctePlan, String cteName,
+      TupleDescriptor outputTuple, List<Expr> outputExprs) {
+    super(id, outputTuple.getId().asList(), "CTE PRODUCER");
+    Preconditions.checkArgument(outputTuple.getSlots().size() == outputExprs.size());
+    children_.add(ctePlan);
+    cteName_ = cteName;
+    outputExprs_ = outputExprs;
+  }
+
+  /** Returns true if the producer materializes its own output tuple. */
+  public boolean materializesOutput() { return outputExprs_ != null; }
+
+  /** Returns the exprs materialized into the output tuple, or null. */
+  public List<Expr> getOutputExprs() { return outputExprs_; }
 
   @Override
   public void computeStats(Analyzer analyzer) {
@@ -104,6 +137,9 @@ public class CTEProducerNode extends PlanNode {
   protected void toThrift(TPlanNode msg) {
     msg.node_type = TPlanNodeType.CTE_PRODUCER_NODE;
     msg.cte_producer = new TCTEProducer(cteName_);
+    if (outputExprs_ != null) {
+      msg.cte_producer.setOutput_exprs(Expr.treesToThrift(outputExprs_));
+    }
   }
 
   @Override
@@ -114,6 +150,13 @@ public class CTEProducerNode extends PlanNode {
   @Override
   protected String getNodeExplainString(String prefix, String detailPrefix,
       TExplainLevel detailLevel) {
-    return String.format("%s%s [%s]\n", prefix, getDisplayLabel(), cteName_);
+    StringBuilder output = new StringBuilder(
+        String.format("%s%s [%s]\n", prefix, getDisplayLabel(), cteName_));
+    if (outputExprs_ != null
+        && detailLevel.ordinal() >= TExplainLevel.EXTENDED.ordinal()) {
+      output.append(detailPrefix + "output exprs: "
+          + Expr.getExplainString(outputExprs_, detailLevel) + "\n");
+    }
+    return output.toString();
   }
 }

@@ -36,6 +36,7 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}/exec")
 
 add_library(ExecIr
   cte-consumer-node-ir.cc
+  cte-producer-node-ir.cc
   grouping-aggregator-ir.cc
   hdfs-columnar-scanner-ir.cc
   hdfs-scanner-ir.cc

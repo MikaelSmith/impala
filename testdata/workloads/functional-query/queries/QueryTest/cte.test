@@ -65,7 +65,7 @@ UNION SELECT name FROM emps e WHERE salary > 50000;
 '|  row-size=12B cardinality=2'
 '|'
 '|--01:CTE PRODUCER [cte_suggestion_0]'
-'|  |  row-size=16B cardinality=1'
+'|  |  row-size=12B cardinality=1'
 '|  |'
 '|  02:SCAN $FILESYSTEM_NAME [$DATABASE.emps]'
 '|     $FILESYSTEM_NAME partitions=1/1 files=1 size=58B'
@@ -81,10 +81,10 @@ UNION SELECT name FROM emps e WHERE salary > 50000;
 '|  row-size=12B cardinality=2'
 '|'
 '|--05:CTE CONSUMER [cte_suggestion_0]'
-'|     row-size=16B cardinality=1'
+'|     row-size=12B cardinality=1'
 '|'
 '04:CTE CONSUMER [cte_suggestion_0]'
-'   row-size=16B cardinality=1'
+'   row-size=12B cardinality=1'
 ====
 ---- QUERY
 # Example from "Optimization of Common Table Expressions in MPP Database Systems"

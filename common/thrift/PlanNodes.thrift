@@ -855,6 +855,9 @@ struct TIcebergMergeNode {
 
 struct TCTEProducer {
   1: required string name
+  // If set, the producer materializes these exprs, evaluated over its child's rows,
+  // into its output tuple instead of buffering the child's rows as-is.
+  2: optional list<Exprs.TExpr> output_exprs
 }
 
 struct TCTEConsumer {

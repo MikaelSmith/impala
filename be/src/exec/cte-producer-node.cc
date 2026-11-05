@@ -18,12 +18,15 @@
 #include "exec/cte-producer-node.h"
 #include "codegen/llvm-codegen.h"
 #include "exec/exec-node-util.h"
+#include "exprs/scalar-expr-evaluator.h"
+#include "exprs/scalar-expr.h"
 #include "runtime/exec-env.h"
 #include "runtime/fragment-state.h"
 #include "runtime/local-exchanger.h"
 #include "runtime/query-state.h"
 #include "runtime/row-batch.h"
 #include "runtime/runtime-state.h"
+#include "runtime/tuple.h"
 #include "util/runtime-profile-counters.h"
 #include "util/runtime-profile.h"
 
@@ -45,7 +48,20 @@ Status CTEProducerPlanNode::Init(const TPlanNode& tnode, FragmentState* state) {
     state->query_state()->RegisterExchanger(exchange_instance, exchanger.get());
     exchangers_.emplace(instance_ctx->per_fragment_instance_idx, std::move(exchanger));
   }
+  const TCTEProducer& cte_node = tnode.cte_producer;
+  if (cte_node.__isset.output_exprs) {
+    DCHECK_EQ(row_descriptor_->tuple_descriptors().size(), 1);
+    RETURN_IF_ERROR(ScalarExpr::Create(cte_node.output_exprs,
+        *children_[0]->row_descriptor_, state, &output_exprs_));
+    DCHECK_EQ(output_exprs_.size(),
+        row_descriptor_->tuple_descriptors()[0]->slots().size());
+  }
   return Status::OK();
+}
+
+void CTEProducerPlanNode::Close() {
+  ScalarExpr::Close(output_exprs_);
+  PlanNode::Close();
 }
 
 void CTEProducerPlanNode::Codegen(FragmentState* state) {
@@ -57,7 +73,27 @@ void CTEProducerPlanNode::Codegen(FragmentState* state) {
   llvm::Function* add_rows_fn = nullptr;
   Status status = LocalExchanger::CodegenAddRows(codegen, row_descriptor_, &add_rows_fn);
   if (status.ok()) codegen->AddFunctionToJit(add_rows_fn, &codegend_add_rows_fn_);
+  if (status.ok() && !output_exprs_.empty()) status = CodegenMaterializeBatch(codegen);
   AddCodegenStatus(status);
+}
+
+Status CTEProducerPlanNode::CodegenMaterializeBatch(LlvmCodeGen* codegen) {
+  const TupleDescriptor& tuple_desc = *row_descriptor_->tuple_descriptors()[0];
+  llvm::Function* materialize_exprs_fn;
+  RETURN_IF_ERROR(Tuple::CodegenMaterializeExprs(codegen, false, tuple_desc,
+      output_exprs_, /*use_mem_pool=*/false, &materialize_exprs_fn));
+  llvm::Function* materialize_batch_fn =
+      codegen->GetFunction(IRFunction::CTE_PRODUCER_MATERIALIZE_BATCH, true);
+  DCHECK(materialize_batch_fn != nullptr);
+  int replaced = codegen->ReplaceCallSites(materialize_batch_fn, materialize_exprs_fn,
+      Tuple::MATERIALIZE_EXPRS_NULL_POOL_SYMBOL);
+  DCHECK_REPLACE_COUNT(replaced, 1) << LlvmCodeGen::Print(materialize_batch_fn);
+  materialize_batch_fn = codegen->FinalizeFunction(materialize_batch_fn);
+  if (materialize_batch_fn == nullptr) {
+    return Status("Codegen'd CTEProducerNode::MaterializeBatch() failed verification");
+  }
+  codegen->AddFunctionToJit(materialize_batch_fn, &codegend_materialize_batch_fn_);
+  return Status::OK();
 }
 
 Status CTEProducerPlanNode::CreateExecNode(RuntimeState* state, ExecNode** node) const {
@@ -69,6 +105,9 @@ Status CTEProducerPlanNode::CreateExecNode(RuntimeState* state, ExecNode** node)
 CTEProducerNode::CTEProducerNode(
     ObjectPool* pool, const CTEProducerPlanNode& pnode, RuntimeState* state)
   : ExecNode(pool, pnode, state->desc_tbl()),
+    output_tuple_desc_(pnode.row_descriptor_->tuple_descriptors()[0]),
+    output_exprs_(pnode.output_exprs_),
+    codegend_materialize_batch_fn_(pnode.codegend_materialize_batch_fn_),
     codegend_add_rows_fn_(pnode.codegend_add_rows_fn_) {
   int32_t idx = state->instance_ctx().per_fragment_instance_idx;
   exchanger_ = pnode.exchangers_.at(idx).get();
@@ -77,6 +116,11 @@ CTEProducerNode::CTEProducerNode(
 
 Status CTEProducerNode::Prepare(RuntimeState* state) {
   RETURN_IF_ERROR(ExecNode::Prepare(state));
+  if (!output_exprs_.empty()) {
+    RETURN_IF_ERROR(ScalarExprEvaluator::Create(output_exprs_, state, pool_,
+        expr_perm_pool(), expr_results_pool(), &output_expr_evals_));
+    output_batch_.reset(new RowBatch(row_desc(), state->batch_size(), mem_tracker()));
+  }
   DCHECK(resource_profile_.__isset.spillable_buffer_size);
   DCHECK(resource_profile_.__isset.max_row_buffer_size);
   RETURN_IF_ERROR(exchanger_->Init(state, runtime_profile(), mem_tracker(),
@@ -97,6 +141,7 @@ Status CTEProducerNode::Open(RuntimeState* state) {
 
 Status CTEProducerNode::OpenInternal(RuntimeState* state) {
   RETURN_IF_ERROR(ExecNode::Open(state));
+  RETURN_IF_ERROR(ScalarExprEvaluator::Open(output_expr_evals_, state));
   RETURN_IF_ERROR(child(0)->Open(state));
   // Claim reservation after the child has been opened to reduce the peak reservation
   // requirement. The exchanger uses it to buffer rows.
@@ -104,7 +149,7 @@ Status CTEProducerNode::OpenInternal(RuntimeState* state) {
     RETURN_IF_ERROR(ClaimBufferReservation(state));
   }
 
-  DCHECK(row_desc()->Equals(*child(0)->row_desc()));
+  DCHECK(!output_exprs_.empty() || row_desc()->Equals(*child(0)->row_desc()));
   RowBatch child_batch(child(0)->row_desc(), state->batch_size(), mem_tracker());
   bool eos = false;
   do {
@@ -113,12 +158,34 @@ Status CTEProducerNode::OpenInternal(RuntimeState* state) {
     RETURN_IF_ERROR(children_[0]->GetNext(state, &child_batch, &eos));
     VLOG_PROGRESS << "Adding " << child_batch.num_rows()
                   << " rows to CTE exchange " << name_ << " in " << label();
-    // The exchanger copies the rows, so the batch can be reused.
-    RETURN_IF_ERROR(exchanger_->Push(&child_batch, codegend_add_rows_fn_.load()));
+    RETURN_IF_ERROR(PushBatch(state, &child_batch));
     IncrementNumRowsReturned(child_batch.num_rows());
     child_batch.Reset();
   } while (!eos);
   return Status::OK();
+}
+
+Status CTEProducerNode::PushBatch(RuntimeState* state, RowBatch* child_batch) {
+  // The exchanger copies the rows, so the batches can be reused afterwards.
+  if (output_exprs_.empty()) {
+    return exchanger_->Push(child_batch, codegend_add_rows_fn_.load());
+  }
+  output_batch_->Reset();
+  if (child_batch->num_rows() > 0) {
+    int64_t tuple_buf_size;
+    uint8_t* tuple_buf;
+    RETURN_IF_ERROR(output_batch_->ResizeAndAllocateTupleBuffer(
+        state, &tuple_buf_size, &tuple_buf));
+    memset(tuple_buf, 0, tuple_buf_size);
+    CTEProducerPlanNode::MaterializeBatchFn fn = codegend_materialize_batch_fn_.load();
+    if (fn == nullptr) {
+      MaterializeBatch(child_batch, output_batch_.get(), &tuple_buf);
+    } else {
+      fn(this, child_batch, output_batch_.get(), &tuple_buf);
+    }
+    DCHECK_EQ(output_batch_->num_rows(), child_batch->num_rows());
+  }
+  return exchanger_->Push(output_batch_.get(), codegend_add_rows_fn_.load());
 }
 
 Status CTEProducerNode::GetNext(
@@ -144,6 +211,8 @@ void CTEProducerNode::Close(RuntimeState* state) {
   if (is_closed()) return;
   VLOG_QUERY << "Releasing CTE exchange " << name_;
   exchanger_->Release();
+  output_batch_.reset();
+  ScalarExprEvaluator::Close(output_expr_evals_, state);
   ExecNode::Close(state);
 }
 
