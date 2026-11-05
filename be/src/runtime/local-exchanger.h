@@ -29,8 +29,13 @@
 #include "runtime/bufferpool/buffer-pool.h"
 #include "util/runtime-profile.h"
 
+namespace llvm {
+class Function;
+}
+
 namespace impala {
 
+class LlvmCodeGen;
 class MemTracker;
 class RowBatch;
 class RowDescriptor;
@@ -86,10 +91,26 @@ class LocalExchanger {
   /// Called by each consumer to get its unique consumer index.
   int32_t Open();
 
+  /// Signature of AddRows() and its codegen'd version.
+  typedef int (*AddRowsFn)(BufferedTupleStream*, RowBatch*, int, Status*);
+
+  /// Appends rows of 'batch' starting at 'start_row' to 'stream' until a row cannot be
+  /// added. Returns the index of the first row not added, or batch->num_rows() if all
+  /// were added. Sets 'status' if an error occurred. Cross-compiled so the AddRow()
+  /// call can be replaced with a version specialized for the row layout.
+  static int AddRows(BufferedTupleStream* stream, RowBatch* batch, int start_row,
+      Status* status);
+
+  /// Codegens AddRows() for rows described by 'row_desc', with
+  /// BufferedTupleStream::AddRow() replaced by its codegen'd version.
+  static Status CodegenAddRows(LlvmCodeGen* codegen, const RowDescriptor* row_desc,
+      llvm::Function** fn);
+
   /// Copies all rows in 'batch' into the exchanger, spilling if needed. 'batch' may be
   /// reused or destroyed after this returns. Returns an error if the rows could not be
   /// stored, e.g. because spilling is disabled or a scratch I/O error occurred.
-  Status Push(RowBatch* batch);
+  /// 'add_rows_fn' is the codegen'd AddRows(), or nullptr to use the interpreted one.
+  Status Push(RowBatch* batch, AddRowsFn add_rows_fn = nullptr);
 
   /// Reads the next rows for consumer 'consumer_index' into 'batch', which must be
   /// empty and have the row layout of the pushed rows. Blocks until rows are available
@@ -191,9 +212,9 @@ class LocalExchanger {
   int64_t min_page_len_ = 0;
   std::string name_;
 
-  /// Stream used only to compute the size of rows; never written to. Created on the
-  /// first Push(), since the client must be registered to create a stream.
-  std::unique_ptr<BufferedTupleStream> row_size_calculator_;
+  /// Estimated bytes per row in a segment, used to size the page of segments created
+  /// while consumers are waiting. Updated as segments fill up.
+  int64_t avg_row_bytes_ = 0;
 
   RuntimeProfile::HighWaterMarkCounter* num_segments_counter_ = nullptr;
   RuntimeProfile::HighWaterMarkCounter* pinned_bytes_counter_ = nullptr;

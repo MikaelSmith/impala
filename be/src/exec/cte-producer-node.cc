@@ -16,6 +16,7 @@
 // under the License.
 
 #include "exec/cte-producer-node.h"
+#include "codegen/llvm-codegen.h"
 #include "exec/exec-node-util.h"
 #include "runtime/exec-env.h"
 #include "runtime/fragment-state.h"
@@ -47,6 +48,18 @@ Status CTEProducerPlanNode::Init(const TPlanNode& tnode, FragmentState* state) {
   return Status::OK();
 }
 
+void CTEProducerPlanNode::Codegen(FragmentState* state) {
+  DCHECK(state->ShouldCodegen());
+  PlanNode::Codegen(state);
+  if (IsNodeCodegenDisabled()) return;
+  LlvmCodeGen* codegen = state->codegen();
+  DCHECK(codegen != nullptr);
+  llvm::Function* add_rows_fn = nullptr;
+  Status status = LocalExchanger::CodegenAddRows(codegen, row_descriptor_, &add_rows_fn);
+  if (status.ok()) codegen->AddFunctionToJit(add_rows_fn, &codegend_add_rows_fn_);
+  AddCodegenStatus(status);
+}
+
 Status CTEProducerPlanNode::CreateExecNode(RuntimeState* state, ExecNode** node) const {
   ObjectPool* pool = state->obj_pool();
   *node = pool->Add(new CTEProducerNode(pool, *this, state));
@@ -55,7 +68,8 @@ Status CTEProducerPlanNode::CreateExecNode(RuntimeState* state, ExecNode** node)
 
 CTEProducerNode::CTEProducerNode(
     ObjectPool* pool, const CTEProducerPlanNode& pnode, RuntimeState* state)
-  : ExecNode(pool, pnode, state->desc_tbl()) {
+  : ExecNode(pool, pnode, state->desc_tbl()),
+    codegend_add_rows_fn_(pnode.codegend_add_rows_fn_) {
   int32_t idx = state->instance_ctx().per_fragment_instance_idx;
   exchanger_ = pnode.exchangers_.at(idx).get();
   name_ = pnode.GetCTEName(idx);
@@ -100,7 +114,7 @@ Status CTEProducerNode::OpenInternal(RuntimeState* state) {
     VLOG_PROGRESS << "Adding " << child_batch.num_rows()
                   << " rows to CTE exchange " << name_ << " in " << label();
     // The exchanger copies the rows, so the batch can be reused.
-    RETURN_IF_ERROR(exchanger_->Push(&child_batch));
+    RETURN_IF_ERROR(exchanger_->Push(&child_batch, codegend_add_rows_fn_.load()));
     IncrementNumRowsReturned(child_batch.num_rows());
     child_batch.Reset();
   } while (!eos);

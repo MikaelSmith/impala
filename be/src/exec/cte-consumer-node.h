@@ -68,9 +68,10 @@ class CTEConsumerNode : public ExecNode {
   void Close(RuntimeState* state) override;
   void DebugString(int indentation_level, std::stringstream* out) const override;
 
-  /// Evaluates exprs for the input batch and materializes the results into 'tuple_buf',
-  /// which is attached to 'dst_batch'. Runs until 'dst_batch' is at capacity, or all rows
-  /// have been consumed from 'input_batch'.
+  /// Evaluates exprs for the rows of 'input_batch' starting at 'input_batch_row_idx_' and
+  /// materializes the results into 'tuple_buf', which is attached to 'dst_batch'. Runs
+  /// until 'dst_batch' has no more row capacity, or all rows have been consumed from
+  /// 'input_batch'. Advances 'input_batch_row_idx_' past the consumed rows.
   void MaterializeBatch(RowBatch* input_batch, RowBatch* dst_batch, uint8_t** tuple_buf);
 
   /// Evaluates 'exprs' over 'row', materializes the results in 'tuple_buf'.
@@ -84,14 +85,22 @@ class CTEConsumerNode : public ExecNode {
   }
 
  private:
+  /// Copies (passthrough) or materializes the remaining rows of 'input_batch_' into
+  /// 'output_batch', first reading more rows from the exchanger if all were returned.
+  Status GetNextFromInputBatch(RuntimeState* state, RowBatch* output_batch, bool* eos);
+
   std::string name_;
   LocalExchanger* exchanger_ = nullptr;
   const TupleDescriptor* tuple_desc_;
   const RowDescriptor* input_row_desc_;
 
-  /// Batch that rows are read into from the exchanger before being copied (passthrough)
-  /// or materialized into the output batch.
+  /// Batch that rows are read into from the exchanger before being materialized into
+  /// the output batch, or copied if the output batch is not empty.
   std::unique_ptr<RowBatch> input_batch_;
+  /// Index of the next row of 'input_batch_' to return. Rows from 'input_batch_' may be
+  /// returned over several GetNext() calls if the output batch doesn't have room for
+  /// all of them.
+  int input_batch_row_idx_ = 0;
   const std::vector<ScalarExpr*>& input_exprs_;
   std::vector<ScalarExprEvaluator*> input_expr_evals_;
   const CodegenFnPtr<CTEConsumerPlanNode::MaterializeBatchFn>&

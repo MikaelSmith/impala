@@ -410,10 +410,14 @@ class BufferedTupleStream {
     return bytes_unpinned_;
   }
 
-  /// Returns true if a row of 'row_size' bytes (see ComputeRowSize()) can be appended
-  /// to the current write page without allocating a new page.
-  bool WritePageHasSpace(int64_t row_size) const {
-    return write_page_ != nullptr && write_ptr_ + row_size <= write_end_ptr_;
+  /// Limits the stream to a single page: once a page has been written, AddRow() and
+  /// AddRowCustomBegin() fail (returning false/nullptr with an OK status) instead of
+  /// allocating another page. The caller can distinguish this from a reservation
+  /// failure because the stream is non-empty. Must be called before the first row is
+  /// added.
+  void LimitToSinglePage() {
+    DCHECK(pages_.empty());
+    single_page_ = true;
   }
 
   bool is_closed() const { return closed_; }
@@ -615,6 +619,9 @@ class BufferedTupleStream {
   // IMPALA-5629: avoid O(n) list.size() call by explicitly tracking the number of pages.
   // TODO: remove when we switch to GCC5+, where list.size() is O(1). See GCC bug #49561.
   int64_t num_pages_ = 0;
+
+  /// If true, the stream never allocates more than one page. See LimitToSinglePage().
+  bool single_page_ = false;
 
   /// Total size of pages_, including any pages already deleted in 'attach_on_read'
   /// mode.

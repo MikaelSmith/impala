@@ -76,6 +76,7 @@
 #include "runtime/sorter-ir.cc"
 #include "runtime/string-value-ir.cc"
 #include "runtime/buffered-tuple-stream-ir.cc"
+#include "runtime/local-exchanger-ir.cc"
 #include "runtime/tuple-row-ir.cc"
 #include "runtime/tuple-ir.cc"
 #include "runtime/descriptors-ir.cc"

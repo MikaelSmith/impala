@@ -35,6 +35,7 @@ add_library(RuntimeIr
   sorted-run-merger-ir.cc
   string-value-ir.cc
   buffered-tuple-stream-ir.cc
+  local-exchanger-ir.cc
   tuple-row-ir.cc
   tuple-ir.cc
   descriptors-ir.cc

@@ -21,11 +21,13 @@
 #include <thread>
 #include <vector>
 
+#include <boost/scoped_ptr.hpp>
 #include <gutil/strings/substitute.h>
 
 #include "codegen/llvm-codegen.h"
 #include "common/init.h"
 #include "runtime/bufferpool/buffer-pool.h"
+#include "runtime/fragment-state.h"
 #include "runtime/bufferpool/reservation-tracker.h"
 #include "runtime/local-exchanger.h"
 #include "runtime/mem-tracker.h"
@@ -60,6 +62,8 @@ class LocalExchangerTest : public testing::Test {
   void SetUp() override {}
 
   void TearDown() override {
+    if (codegen_ != nullptr) codegen_->Close();
+    if (fragment_state_ != nullptr) fragment_state_->ReleaseResources();
     if (client_.is_registered()) {
       EXPECT_EQ(0, client_.GetUsedReservation()) << "Exchanger leaked pages";
       test_env_->exec_env()->buffer_pool()->DeregisterClient(&client_);
@@ -91,6 +95,24 @@ class LocalExchangerTest : public testing::Test {
         runtime_state_->instance_buffer_reservation(), client_tracker,
         reservation_limit, profile_, &client_));
     ASSERT_TRUE(client_.IncreaseReservation(reservation_limit));
+  }
+
+  /// Codegens LocalExchanger::AddRows() for 'row_desc_' and sets 'add_rows_fn_'.
+  void CodegenAddRows() {
+    QueryState* qs = runtime_state_->query_state();
+    TPlanFragment* fragment = qs->obj_pool()->Add(new TPlanFragment());
+    PlanFragmentCtxPB* fragment_ctx = qs->obj_pool()->Add(new PlanFragmentCtxPB());
+    fragment_state_ =
+        qs->obj_pool()->Add(new FragmentState(qs, *fragment, *fragment_ctx));
+    ASSERT_OK(LlvmCodeGen::CreateImpalaCodegen(fragment_state_, nullptr, "test",
+        &codegen_));
+    llvm::Function* fn = nullptr;
+    ASSERT_OK(LocalExchanger::CodegenAddRows(codegen_.get(), row_desc_, &fn));
+    CodegenFnPtr<LocalExchanger::AddRowsFn> fn_ptr;
+    codegen_->AddFunctionToJit(fn, &fn_ptr);
+    ASSERT_OK(codegen_->FinalizeModule());
+    add_rows_fn_ = fn_ptr.load();
+    ASSERT_TRUE(add_rows_fn_ != nullptr);
   }
 
   unique_ptr<LocalExchanger> CreateExchanger(int num_consumers) {
@@ -131,7 +153,7 @@ class LocalExchangerTest : public testing::Test {
     for (int64_t start = 0; start < num_rows; start += BATCH_SIZE) {
       int n = std::min<int64_t>(BATCH_SIZE, num_rows - start);
       FillBatch(&batch, start, n);
-      *status = exchanger->Push(&batch);
+      *status = exchanger->Push(&batch, add_rows_fn_);
       if (!status->ok()) break;
     }
     batch.Reset();
@@ -218,6 +240,9 @@ class LocalExchangerTest : public testing::Test {
   MemTracker* tracker_ = nullptr;
   const RowDescriptor* row_desc_ = nullptr;
   BufferPool::ClientHandle client_;
+  FragmentState* fragment_state_ = nullptr;
+  boost::scoped_ptr<LlvmCodeGen> codegen_;
+  LocalExchanger::AddRowsFn add_rows_fn_ = nullptr;
 };
 
 /// A single consumer with plenty of reservation never spills.
@@ -256,6 +281,21 @@ TEST_F(LocalExchangerTest, GrowsReservationBeforeSpilling) {
   Init(256 * PAGE_LEN);
   RunConsumers(20000, {0, -1});
   EXPECT_EQ(0, GetCounter("SegmentsSpilled"));
+}
+
+/// Same as StalledConsumerSpills, using the codegen'd AddRows().
+TEST_F(LocalExchangerTest, CodegenStalledConsumerSpills) {
+  Init(3 * PAGE_LEN);
+  CodegenAddRows();
+  RunConsumers(50000, {0, -1});
+  EXPECT_GT(GetCounter("SegmentsSpilled"), 0);
+}
+
+/// Codegen'd AddRows() with consumers keeping up, which creates small segments.
+TEST_F(LocalExchangerTest, CodegenFastConsumers) {
+  Init(64 * PAGE_LEN);
+  CodegenAddRows();
+  RunConsumers(50000, {0, 0, 0});
 }
 
 /// A consumer that closes early must not block release of segments.

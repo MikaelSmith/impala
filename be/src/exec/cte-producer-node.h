@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "codegen/codegen-fn-ptr.h"
 #include "exec/exec-node.h"
 #include "runtime/local-exchanger.h"
 
@@ -28,6 +29,7 @@ class CTEProducerPlanNode : public PlanNode {
  public:
   Status Init(const TPlanNode& tnode, FragmentState* state) override;
   Status CreateExecNode(RuntimeState* state, ExecNode** node) const override;
+  void Codegen(FragmentState* state) override;
   ~CTEProducerPlanNode() override = default;
 
   string GetCTEName(int32_t index) const {
@@ -35,6 +37,9 @@ class CTEProducerPlanNode : public PlanNode {
   }
 
   std::map<int32_t, std::unique_ptr<LocalExchanger>> exchangers_;
+
+  /// Codegen'd LocalExchanger::AddRows(), specialized for this node's row layout.
+  CodegenFnPtr<LocalExchanger::AddRowsFn> codegend_add_rows_fn_;
 };
 
 /// Node that buffers results produced by a Common Table Expression into a
@@ -64,6 +69,7 @@ class CTEProducerNode : public ExecNode {
 
   string name_;
   LocalExchanger* exchanger_;
+  const CodegenFnPtr<LocalExchanger::AddRowsFn>& codegend_add_rows_fn_;
 };
 
 }

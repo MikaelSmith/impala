@@ -22,6 +22,7 @@
 
 #include <gutil/strings/substitute.h>
 
+#include "codegen/llvm-codegen.h"
 #include "runtime/buffered-tuple-stream.inline.h"
 #include "runtime/exec-env.h"
 #include "runtime/row-batch.h"
@@ -49,7 +50,8 @@ LocalExchanger::~LocalExchanger() {
 
 Status LocalExchanger::Init(RuntimeState* state, RuntimeProfile* profile,
     MemTracker* mem_tracker, BufferPool::ClientHandle* client,
-    const RowDescriptor* row_desc, int64_t default_page_len, int64_t max_page_len, const string& name) {
+    const RowDescriptor* row_desc, int64_t default_page_len, int64_t max_page_len,
+    const string& name) {
   DCHECK(state_ == nullptr) << "Init() called twice";
   DCHECK(BitUtil::IsPowerOf2(default_page_len)) << default_page_len;
   DCHECK(BitUtil::IsPowerOf2(max_page_len)) << max_page_len;
@@ -74,6 +76,7 @@ Status LocalExchanger::Init(RuntimeState* state, RuntimeProfile* profile,
       ADD_COUNTER(runtime_profile_, "SegmentsSpilled", TUnit::UNIT);
   segments_repinned_counter_ =
       ADD_COUNTER(runtime_profile_, "SegmentsRepinned", TUnit::UNIT);
+  avg_row_bytes_ = std::max(1, row_desc->GetRowSize());
   return Status::OK();
 }
 
@@ -97,6 +100,9 @@ Status LocalExchanger::CreateOpenSegment(int64_t size_hint) {
   segment->stream.reset(
       new BufferedTupleStream(state_, row_desc_, client_, page_len, max_page_len_));
   RETURN_IF_ERROR(segment->stream->Init(name_, /*pinned=*/true));
+  // Keep each segment to a single page so that a segment can always be pinned with a
+  // single page worth of reservation.
+  segment->stream->LimitToSinglePage();
   while (true) {
     bool got_reservation = false;
     Status status = segment->stream->PrepareForWrite(&got_reservation);
@@ -151,47 +157,54 @@ Status LocalExchanger::Spill(const Segment* exclude, int64_t bytes_needed) {
       client_->DebugString()));
 }
 
-Status LocalExchanger::Push(RowBatch* batch) {
+Status LocalExchanger::CodegenAddRows(
+    LlvmCodeGen* codegen, const RowDescriptor* row_desc, llvm::Function** fn) {
+  llvm::Function* add_row_fn = nullptr;
+  RETURN_IF_ERROR(BufferedTupleStream::CodegenAddRow(codegen, row_desc, &add_row_fn));
+  llvm::Function* add_rows_fn =
+      codegen->GetFunction(IRFunction::LOCAL_EXCHANGER_ADD_ROWS, true);
+  DCHECK(add_rows_fn != nullptr);
+  int replaced = codegen->ReplaceCallSites(
+      add_rows_fn, add_row_fn, "BufferedTupleStream6AddRow");
+  DCHECK_REPLACE_COUNT(replaced, 1);
+  *fn = codegen->FinalizeFunction(add_rows_fn);
+  if (*fn == nullptr) {
+    return Status("Codegen'd LocalExchanger::AddRows() failed verification, see log");
+  }
+  return Status::OK();
+}
+
+Status LocalExchanger::Push(RowBatch* batch, AddRowsFn add_rows_fn) {
   DCHECK(state_ != nullptr) << "Init() must be called before Push()";
   DCHECK(client_->is_registered());
   DCHECK(batch->row_desc()->Equals(*row_desc_));
+  if (add_rows_fn == nullptr) add_rows_fn = &LocalExchanger::AddRows;
   lock_guard<mutex> l(mutex_);
   DCHECK(!eos_) << "Push() after CloseProducer()";
   // Nobody will read the rows, drop them.
   if (NumActiveConsumers() == 0) return Status::OK();
-  if (row_size_calculator_ == nullptr) {
-    row_size_calculator_.reset(new BufferedTupleStream(
-        state_, row_desc_, client_, default_page_len_, max_page_len_));
-  }
   const int num_rows = batch->num_rows();
-  for (int i = 0; i < num_rows; ++i) {
-    TupleRow* row = batch->GetRow(i);
-    int64_t row_size = row_size_calculator_->ComputeRowSize(row);
-    // Keep each segment to a single page so that a segment can always be pinned in
-    // a single page worth of reservation.
-    if (open_segment_ != nullptr && open_segment_->stream->num_rows() > 0
-        && !open_segment_->stream->WritePageHasSpace(row_size)) {
-      FinalizeOpenSegment();
-    }
+  int next_row = 0;
+  while (next_row < num_rows) {
     if (open_segment_ == nullptr) {
-      // Estimate the size of the remaining rows; only used if a consumer is waiting.
-      int64_t size_hint = row_size;
-      if (HasWaitingConsumers()) {
-        for (int j = i + 1; j < num_rows; ++j) {
-          size_hint += row_size_calculator_->ComputeRowSize(batch->GetRow(j));
-        }
-      }
-      RETURN_IF_ERROR(CreateOpenSegment(size_hint));
+      // Only used to size the page if a consumer is waiting.
+      RETURN_IF_ERROR(CreateOpenSegment((num_rows - next_row) * avg_row_bytes_));
     }
     BufferedTupleStream* stream = open_segment_->stream.get();
     int64_t pinned_before = stream->BytesPinned(false);
     Status status;
-    while (!stream->AddRow(row, &status)) {
-      RETURN_IF_ERROR(status);
-      // Out of reservation: spill an idle segment and retry.
-      RETURN_IF_ERROR(Spill(nullptr, std::max(row_size, default_page_len_)));
-    }
+    next_row = add_rows_fn(stream, batch, next_row, &status);
     pinned_bytes_ += stream->BytesPinned(false) - pinned_before;
+    RETURN_IF_ERROR(status);
+    if (next_row == num_rows) break;
+    if (stream->num_rows() > 0) {
+      // The segment's single page is full.
+      avg_row_bytes_ = std::max<int64_t>(1, stream->byte_size() / stream->num_rows());
+      FinalizeOpenSegment();
+    } else {
+      // Out of reservation for the segment's page: spill an idle segment and retry.
+      RETURN_IF_ERROR(Spill(nullptr, default_page_len_));
+    }
   }
   pinned_bytes_counter_->Set(pinned_bytes_);
   COUNTER_ADD(rows_pushed_counter_, num_rows);
@@ -354,9 +367,6 @@ void LocalExchanger::Release() {
     segment->stream->Close(nullptr, RowBatch::FlushMode::NO_FLUSH_RESOURCES);
   }
   segments_.clear();
-  if (row_size_calculator_ != nullptr) {
-    row_size_calculator_->Close(nullptr, RowBatch::FlushMode::NO_FLUSH_RESOURCES);
-  }
   pinned_bytes_ = 0;
   released_ = true;
 }

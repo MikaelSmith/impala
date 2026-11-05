@@ -805,7 +805,8 @@ template <bool FILL_FLAT_ROWS, bool HAS_NULLABLE_TUPLE>
 Status BufferedTupleStream::GetNextInternal(ReadIterator* RESTRICT read_iter,
     RowBatch* batch, bool* eos, vector<FlatRowPtr>* flat_rows) {
   DCHECK(!closed_);
-  DCHECK(batch->row_desc()->Equals(*desc_));
+  // Only the layout matters, so callers may read into batches with different tuple ids.
+  DCHECK(batch->row_desc()->LayoutEquals(*desc_));
   DCHECK(is_pinned() || !FILL_FLAT_ROWS)
       << "FlatRowPtrs are only valid for pinned streams";
   *eos = (read_iter->rows_returned_ == num_rows_);
@@ -1226,6 +1227,11 @@ bool BufferedTupleStream::AddRowSlow(TupleRow* row, Status* status) noexcept {
 
 uint8_t* BufferedTupleStream::AddRowCustomBeginSlow(
     int64_t size, Status* status) noexcept {
+  if (UNLIKELY(single_page_ && num_pages_ > 0)) {
+    // The single page is full.
+    *status = Status::OK();
+    return nullptr;
+  }
   bool got_reservation;
   *status = AdvanceWritePage(size, &got_reservation);
   if (!status->ok() || !got_reservation) return nullptr;

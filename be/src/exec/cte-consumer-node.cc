@@ -215,37 +215,18 @@ Status CTEConsumerNode::GetNext(
     return Status::OK();
   }
 
-  // Rows in 'input_batch_' reference exchanger memory that remains valid until the
-  // next call to LocalExchanger::GetNext() for this consumer.
-  input_batch_->Reset();
-  RETURN_IF_ERROR(exchanger_->GetNext(state, consumer_index_, input_batch_.get(), eos));
-  VLOG_PROGRESS << "Pulled " << input_batch_->num_rows() << " rows from CTE exchange "
+  if (is_passthrough_ && output_batch->num_rows() == 0
+      && input_batch_row_idx_ == input_batch_->num_rows()) {
+    // Read directly into the output batch: rows point into the exchanger's pages, which
+    // remain valid until the next call to LocalExchanger::GetNext() for this consumer.
+    // Blocking operators above must copy any data they retain.
+    RETURN_IF_ERROR(exchanger_->GetNext(state, consumer_index_, output_batch, eos));
+  } else {
+    RETURN_IF_ERROR(GetNextFromInputBatch(state, output_batch, eos));
+  }
+  VLOG_PROGRESS << "Pulled " << output_batch->num_rows() << " rows from CTE exchange "
       << name_ << " in instance " << state->instance_ctx().per_fragment_instance_idx
       << " of " << label();
-  int num_input_rows = input_batch_->num_rows();
-  if (num_input_rows > 0) {
-    DCHECK_LE(num_input_rows, output_batch->capacity() - output_batch->num_rows())
-        << "Output batch capacity: " << output_batch->capacity()
-        << ", current rows: " << output_batch->num_rows();
-    if (is_passthrough_) {
-      int dst_offset = output_batch->AddRows(num_input_rows);
-      output_batch->CopyRows(input_batch_.get(), num_input_rows, 0, dst_offset);
-      output_batch->CommitRows(num_input_rows);
-    } else {
-      // Copy input_batch_ to output_batch while translating slots.
-      int64_t tuple_buf_size;
-      uint8_t* tuple_buf;
-      RETURN_IF_ERROR(output_batch->ResizeAndAllocateTupleBuffer(
-          state, &tuple_buf_size, &tuple_buf));
-      memset(tuple_buf, 0, tuple_buf_size);
-      CTEConsumerPlanNode::MaterializeBatchFn fn = codegend_materialize_batch_fn_.load();
-      if (fn == nullptr) {
-        MaterializeBatch(input_batch_.get(), output_batch, &tuple_buf);
-      } else {
-        fn(this, input_batch_.get(), output_batch, &tuple_buf);
-      }
-    }
-  }
 
   if (!filter_ctxs_.empty()) {
     if (!filters_waited_) {
@@ -262,6 +243,48 @@ Status CTEConsumerNode::GetNext(
     output_batch->MarkNeedsDeepCopy();
   }
   COUNTER_SET(rows_returned_counter_, rows_returned());
+  return Status::OK();
+}
+
+Status CTEConsumerNode::GetNextFromInputBatch(
+    RuntimeState* state, RowBatch* output_batch, bool* eos) {
+  // Rows in 'input_batch_' reference exchanger memory that remains valid until the
+  // next call to LocalExchanger::GetNext() for this consumer, so only read more rows
+  // once all rows of 'input_batch_' have been returned. 'output_batch' may not have room
+  // for all of them.
+  *eos = false;
+  if (input_batch_row_idx_ == input_batch_->num_rows()) {
+    input_batch_->Reset();
+    input_batch_row_idx_ = 0;
+    RETURN_IF_ERROR(
+        exchanger_->GetNext(state, consumer_index_, input_batch_.get(), eos));
+    // The exchanger only returns an empty batch at eos.
+    if (input_batch_->num_rows() == 0) return Status::OK();
+  }
+  DCHECK_LT(input_batch_row_idx_, input_batch_->num_rows());
+  if (is_passthrough_) {
+    int num_rows = std::min(input_batch_->num_rows() - input_batch_row_idx_,
+        output_batch->capacity() - output_batch->num_rows());
+    if (num_rows == 0) return Status::OK();
+    int dst_offset = output_batch->AddRows(num_rows);
+    output_batch->CopyRows(
+        input_batch_.get(), num_rows, input_batch_row_idx_, dst_offset);
+    output_batch->CommitRows(num_rows);
+    input_batch_row_idx_ += num_rows;
+  } else {
+    // Copy input_batch_ to output_batch while translating slots.
+    int64_t tuple_buf_size;
+    uint8_t* tuple_buf;
+    RETURN_IF_ERROR(output_batch->ResizeAndAllocateTupleBuffer(
+        state, &tuple_buf_size, &tuple_buf));
+    memset(tuple_buf, 0, tuple_buf_size);
+    CTEConsumerPlanNode::MaterializeBatchFn fn = codegend_materialize_batch_fn_.load();
+    if (fn == nullptr) {
+      MaterializeBatch(input_batch_.get(), output_batch, &tuple_buf);
+    } else {
+      fn(this, input_batch_.get(), output_batch, &tuple_buf);
+    }
+  }
   return Status::OK();
 }
 

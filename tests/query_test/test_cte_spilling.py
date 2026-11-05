@@ -64,14 +64,19 @@ class TestCteSpilling(ImpalaTestSuite):
     cls.ImpalaTestMatrix.clear_constraints()
     cls.ImpalaTestMatrix.add_dimension(create_parquet_dimension('tpch'))
     # num_nodes=1 places the CTE producer and consumers in the same fragment.
+    # disable_codegen covers the interpreted LocalExchanger::AddRows().
     cls.ImpalaTestMatrix.add_dimension(create_exec_option_dimension_from_dict({
         'debug_action': [None, DENY_RESERVATION],
         'mt_dop': [0, 2],
-        'num_nodes': [0, 1]}))
+        'num_nodes': [0, 1],
+        'disable_codegen': [False, True]}))
     if cls.exploration_strategy() != 'exhaustive':
       cls.ImpalaTestMatrix.add_constraint(lambda v:
-          v.get_value('exec_option')['mt_dop'] == 0
-          or v.get_value('exec_option')['num_nodes'] == 0)
+          (v.get_value('exec_option')['mt_dop'] == 0
+           or v.get_value('exec_option')['num_nodes'] == 0)
+          and (not v.get_value('exec_option')['disable_codegen']
+               or (v.get_value('exec_option')['mt_dop'] == 0
+                   and v.get_value('exec_option')['num_nodes'] == 0)))
     add_mandatory_exec_option(cls, 'planner', 'CALCITE')
     add_mandatory_exec_option(cls, 'fallback_planner', 'CALCITE')
     add_mandatory_exec_option(cls, 'cte_threshold', 1)
