@@ -17,12 +17,19 @@
 
 #pragma once
 
+#include <utility>
+#include <vector>
+
 #include "codegen/codegen-fn-ptr.h"
 #include "exec/exec-node.h"
+#include "runtime/descriptors.h"
 #include "runtime/local-exchanger.h"
+#include "runtime/string-value.h"
+#include "runtime/tuple.h"
 
 namespace impala {
 
+class BufferedTupleStream;
 class CTEProducerNode;
 class LocalExchanger;
 class ScalarExpr;
@@ -35,8 +42,13 @@ class CTEProducerPlanNode : public PlanNode {
   Status CreateExecNode(RuntimeState* state, ExecNode** node) const override;
   void Codegen(FragmentState* state) override;
 
-  /// Codegens CTEProducerNode::MaterializeBatch() for 'output_exprs_'.
-  Status CodegenMaterializeBatch(LlvmCodeGen* codegen);
+  /// Codegens CTEProducerNode::MaterializeRows() for 'output_exprs_'.
+  Status CodegenMaterializeRows(LlvmCodeGen* codegen);
+
+  /// Codegens versions of CTEProducerNode::VarlenSize() and CopyVarlen() specialized for
+  /// the string slots of 'tuple_desc'.
+  static Status CodegenVarlenFns(LlvmCodeGen* codegen, const TupleDescriptor& tuple_desc,
+      llvm::Function** varlen_size_fn, llvm::Function** copy_varlen_fn);
   ~CTEProducerPlanNode() override = default;
 
   string GetCTEName(int32_t index) const {
@@ -52,9 +64,8 @@ class CTEProducerPlanNode : public PlanNode {
   /// the child's rows are buffered as-is.
   std::vector<ScalarExpr*> output_exprs_;
 
-  typedef void (*MaterializeBatchFn)(CTEProducerNode*, RowBatch*, RowBatch*, uint8_t**);
-  /// Codegen'd CTEProducerNode::MaterializeBatch(). Only used if 'output_exprs_' is set.
-  CodegenFnPtr<MaterializeBatchFn> codegend_materialize_batch_fn_;
+  /// Codegen'd CTEProducerNode::MaterializeRows(). Only used if 'output_exprs_' is set.
+  CodegenFnPtr<LocalExchanger::AddRowsFn> codegend_materialize_rows_fn_;
 };
 
 /// Node that buffers results produced by a Common Table Expression into a
@@ -78,19 +89,53 @@ class CTEProducerNode : public ExecNode {
   void Close(RuntimeState* state) override;
   void DebugString(int indentation_level, std::stringstream* out) const override;
 
-  /// Evaluates 'output_exprs_' over the rows of 'input_batch' and materializes the
-  /// results into 'tuple_buf', which is attached to 'output_batch'. Var-len data is not
-  /// copied: it references 'input_batch' or expr results, which remain valid until the
-  /// rows are pushed into the exchanger. Cross-compiled.
-  void MaterializeBatch(RowBatch* input_batch, RowBatch* output_batch,
-      uint8_t** tuple_buf);
+  /// LocalExchanger::AddRowsFn used if 'output_exprs_' is set. 'ctx' is the
+  /// CTEProducerNode. Evaluates 'output_exprs_' over the rows of 'batch', the child's
+  /// rows, and materializes the results directly into the write page of 'stream'
+  /// followed by their string data, laid out like BufferedTupleStream::AddRow() does.
+  /// Cross-compiled, so that the materialization is specialized for 'output_exprs_'.
+  static int MaterializeRows(void* ctx, BufferedTupleStream* stream, RowBatch* batch,
+      int start_row, Status* status);
+
+ private:
+  /// Slow path of MaterializeRows() if 'row' may not fit in the write page of 'stream':
+  /// materializes it into 'pending_tuple_' and calls AddPendingRow().
+  bool IR_NO_INLINE AddRowSlow(
+      BufferedTupleStream* stream, TupleRow* row, Status* status) noexcept;
+
+  /// Saves the materialized 'tuple', whose string data was not copied yet, as the
+  /// pending row.
+  void IR_NO_INLINE SavePendingRow(const Tuple* tuple) noexcept;
+
+  /// Adds the pending row to 'stream' with AddRowCustomBegin(). Returns false, keeping
+  /// the row pending, if it cannot be added to the stream, e.g. because the page is full
+  /// or there's no reservation. The row is then added by the next MaterializeRows() call
+  /// instead of evaluating the exprs again.
+  bool IR_NO_INLINE AddPendingRow(BufferedTupleStream* stream, Status* status) noexcept;
+
+  /// Returns the length of the string data of 'tuple' that is stored after the tuple in
+  /// the stream: the non-NULL strings that are not small strings. Replaced by a version
+  /// with constant slot offsets when MaterializeRows() is codegen'd.
+  int64_t IR_NO_INLINE VarlenSize(const Tuple* tuple) const noexcept;
+
+  /// Copies the string data of 'tuple' to 'dst', in slot order, and points the slots at
+  /// the copies, as BufferedTupleStream::AddRow() does. Replaced by a version with
+  /// constant slot offsets when MaterializeRows() is codegen'd.
+  void IR_NO_INLINE CopyVarlen(Tuple* tuple, uint8_t* dst) const noexcept;
+
+ public:
+  /// Helpers for VarlenSize() and CopyVarlen() for one string slot, called with constant
+  /// arguments by their codegen'd versions.
+  static int64_t IR_ALWAYS_INLINE StringSlotVarlenSize(const Tuple* tuple,
+      int null_byte_offset, uint8_t null_bit_mask, int tuple_offset);
+  static void IR_ALWAYS_INLINE CopyStringSlot(Tuple* tuple, int null_byte_offset,
+      uint8_t null_bit_mask, int tuple_offset, uint8_t** dst);
 
  private:
   /// Pushes all rows from the child into 'exchanger_'.
   Status OpenInternal(RuntimeState* state);
 
-  /// Materializes the rows of 'child_batch' into 'output_batch_' if needed and pushes
-  /// them into 'exchanger_'.
+  /// Pushes the rows of 'child_batch' into 'exchanger_', projecting them if needed.
   Status PushBatch(RuntimeState* state, RowBatch* child_batch);
 
   string name_;
@@ -98,11 +143,15 @@ class CTEProducerNode : public ExecNode {
   const TupleDescriptor* output_tuple_desc_;
   const std::vector<ScalarExpr*>& output_exprs_;
   std::vector<ScalarExprEvaluator*> output_expr_evals_;
-  const CodegenFnPtr<CTEProducerPlanNode::MaterializeBatchFn>&
-      codegend_materialize_batch_fn_;
-  /// Batch the projected rows are materialized into. Only used if 'output_exprs_' is
-  /// set.
-  std::unique_ptr<RowBatch> output_batch_;
+  const CodegenFnPtr<LocalExchanger::AddRowsFn>& codegend_materialize_rows_fn_;
+  /// Null indicator and tuple offset of each string slot of the output tuple, in slot
+  /// order.
+  std::vector<std::pair<NullIndicatorOffset, int>> string_slots_;
+  /// A materialized output tuple that could not be added to the stream yet. Its strings
+  /// reference the child's batch or expr results, which remain valid while the batch is
+  /// pushed.
+  std::vector<uint8_t> pending_tuple_;
+  bool has_pending_row_ = false;
   const CodegenFnPtr<LocalExchanger::AddRowsFn>& codegend_add_rows_fn_;
 };
 

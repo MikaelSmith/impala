@@ -1791,6 +1791,71 @@ TEST_F(SimpleTupleStreamTest, ConcurrentReaders) {
   stream.Close(nullptr, RowBatch::FlushMode::NO_FLUSH_RESOURCES);
 }
 
+TEST_F(SimpleTupleStreamTest, ConcurrentStringReaders) {
+  const int BUFFER_SIZE = 4 * 1024;
+  const int NUM_BATCHES = 8;
+  Init(BUFFER_POOL_LIMIT);
+  for (bool use_codegen : {false, true}) {
+    BufferedTupleStream stream(
+        runtime_state_, string_desc_, &client_, BUFFER_SIZE, BUFFER_SIZE);
+    ASSERT_OK(stream.Init("ConcurrentStringReaders", true));
+    bool got_reservation;
+    ASSERT_OK(stream.PrepareForWrite(&got_reservation));
+    ASSERT_TRUE(got_reservation);
+    for (int i = 0; i < NUM_BATCHES; ++i) {
+      RowBatch* batch = CreateBatch(string_desc_, i * BATCH_SIZE, BATCH_SIZE, false);
+      for (int j = 0; j < batch->num_rows(); ++j) {
+        Status status;
+        bool added = use_codegen ?
+            string_add_row_fn_(&stream, batch->GetRow(j), &status) :
+            stream.AddRow(batch->GetRow(j), &status);
+        ASSERT_OK(status);
+        ASSERT_TRUE(added);
+      }
+      batch->Reset();
+    }
+    stream.DoneWriting();
+
+    for (int pass = 0; pass < 2; ++pass) {
+      if (pass == 1) {
+        ASSERT_OK(stream.UnpinStream(BufferedTupleStream::UNPIN_ALL));
+        bool pinned;
+        ASSERT_OK(stream.PinStream(&pinned));
+        ASSERT_TRUE(pinned);
+      }
+      ASSERT_TRUE(stream.HasUnresolvedPages());
+      ASSERT_OK(stream.ResolvePointers());
+      ASSERT_FALSE(stream.HasUnresolvedPages());
+      // Resolving an already resolved, multi-page stream must also work.
+      ASSERT_OK(stream.ResolvePointers());
+      thread_group workers;
+      for (int t = 0; t < 4; ++t) {
+        workers.add_thread(new thread([&]() {
+          for (int r = 0; r < 3; ++r) {
+            BufferedTupleStream::ReadIterator iter;
+            ASSERT_OK(stream.PrepareForPinnedRead(&iter));
+            RowBatch batch(string_desc_, BATCH_SIZE, &tracker_);
+            int row_idx = 0;
+            bool eos = false;
+            do {
+              batch.Reset();
+              ASSERT_OK(stream.GetNext(&iter, &batch, &eos));
+              for (int i = 0; i < batch.num_rows(); ++i, ++row_idx) {
+                const StringValue* sv = batch.GetRow(i)->GetTuple(0)->GetStringSlot(
+                    string_desc_->tuple_descriptors()[0]->slots()[0]->tuple_offset());
+                ASSERT_EQ(STRINGS[row_idx % NUM_STRINGS], *sv) << row_idx;
+              }
+            } while (!eos);
+            ASSERT_EQ(NUM_BATCHES * BATCH_SIZE, row_idx);
+          }
+        }));
+      }
+      workers.join_all();
+    }
+    stream.Close(nullptr, RowBatch::FlushMode::NO_FLUSH_RESOURCES);
+  }
+}
+
 void StreamStateTest::TestShortDebugString() {
   Init(BUFFER_POOL_LIMIT);
 

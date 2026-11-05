@@ -300,6 +300,32 @@ class BufferedTupleStream {
   /// AddRow() comment.
   ALWAYS_INLINE uint8_t* AddRowCustomBegin(int64_t size, Status* status);
 
+  /// Returns the start of the free space in the current write page and sets '*len' to
+  /// its length, or returns nullptr if there is no write page. A caller that does not
+  /// know the size of a row before writing it can write the row there, laid out as
+  /// AddRow() does, and add it with AddInPlaceRow(). This avoids writing the row
+  /// elsewhere first.
+  uint8_t* GetWriteBuffer(int64_t* len) const {
+    DCHECK(has_write_iterator());
+    if (write_page_ == nullptr) {
+      *len = 0;
+      return nullptr;
+    }
+    *len = write_end_ptr_ - write_ptr_;
+    return write_ptr_;
+  }
+
+  /// Adds the row of 'size' bytes written at the buffer returned by GetWriteBuffer(). The
+  /// row must fit in that buffer.
+  void AddInPlaceRow(int64_t size) {
+    DCHECK(write_page_ != nullptr);
+    DCHECK_LE(write_ptr_ + size, write_end_ptr_);
+    DCHECK_LE(size, default_page_len_);
+    write_ptr_ += size;
+    ++num_rows_;
+    ++write_page_->num_rows;
+  }
+
   /// Called after AddRowCustomBegin() when done writing the row. Only should be called
   /// if AddRowCustomBegin() succeeded. See the AddRowCustomBegin() comment for
   /// explanation.
@@ -360,7 +386,8 @@ class BufferedTupleStream {
   /// stream remains pinned.
   ///
   /// This method is safe to call concurrently from different threads, as long as the
-  /// stream remains pinned and 'iter' is not shared between threads.
+  /// stream remains pinned and 'iter' is not shared between threads. ResolvePointers()
+  /// must be called before concurrent reads of var-len data.
   Status GetNext(ReadIterator* read_iter, RowBatch* batch, bool* eos);
 
   /// Same as above, but populate 'flat_rows' with a pointer to the flat version of
@@ -410,6 +437,14 @@ class BufferedTupleStream {
     return bytes_unpinned_;
   }
 
+  /// Fixes up the var-len pointers of all rows of all pages whose pointers are not
+  /// already resolved (see Page::ptrs_resolved), so that subsequent reads of those pages
+  /// via GetNext() don't need to write to the pages. Must be called before reading a
+  /// pinned stream concurrently through multiple external ReadIterators, and again
+  /// after unpinning and pinning it. The stream must be pinned and have no write iterator.
+  /// May block waiting for pages to be read back from disk. Not thread-safe.
+  Status ResolvePointers();
+
   /// Returns true if any page has var-len pointers that are not resolved, i.e. if
   /// ResolvePointers() would need to fix up any rows. Not thread-safe.
   bool HasUnresolvedPages() const;
@@ -453,6 +488,7 @@ class BufferedTupleStream {
       : handle(std::move(src.handle)),
         num_rows(src.num_rows),
         retrieved_buffer(src.retrieved_buffer.Load()),
+        ptrs_resolved(src.ptrs_resolved.Load()),
         attached_to_output_batch(src.attached_to_output_batch) {}
 
     inline int len() const { return handle.len(); }
@@ -484,6 +520,11 @@ class BufferedTupleStream {
     /// iterators may call GetBuffer() concurrently.
     AtomicBool retrieved_buffer{true};
 
+    /// True if ResolvePointers() has fixed up all var-len pointers in this page.
+    /// Cleared when the page is unpinned, since its buffer may change. Only set after
+    /// writing has finished, so readers can skip fix-ups until the page is unpinned.
+    AtomicBool ptrs_resolved{false};
+
     /// If the page was just attached to the output batch on the last GetNext() call while
     /// in attach_on_read mode. If true, then 'handle' is closed.
     bool attached_to_output_batch = false;
@@ -498,8 +539,8 @@ class BufferedTupleStream {
   ///   etc.
   /// * As an external iterator for a read-only pinned stream. In this case, multiple
   ///   iterators can be used simultaneously and reading from the stream via different
-  ///   iterators is thread safe (as long as each iterator is not accessed concurrently
-  //    from different threads).
+  ///   iterators is thread safe after ResolvePointers(), as long as each iterator is
+  ///   not accessed concurrently from different threads.
   class ReadIterator {
    public:
     int64_t rows_returned() const { return rows_returned_; }
@@ -868,6 +909,15 @@ class BufferedTupleStream {
   template <bool HAS_NULLABLE_TUPLE>
   void UnflattenTupleRow(uint8_t** data, TupleRow* row) const;
 
+  /// Unflattens the next row and fixes up its var-len pointers.
+  template <bool HAS_NULLABLE_TUPLE>
+  void UnflattenAndFixUpRow(ReadIterator* RESTRICT read_iter, TupleRow* row);
+
+  /// Unflattens the next row, advancing past its already resolved var-len data without
+  /// modifying the page.
+  template <bool HAS_NULLABLE_TUPLE>
+  void SkipRow(ReadIterator* RESTRICT read_iter, TupleRow* row);
+
   /// Helper function for GetNextInternal(). For each string slot in string_slots,
   /// update StringValue's ptr field to point to the corresponding string data stored
   /// inline in the stream (at the current value of read_iter->read_ptr_) advance
@@ -881,6 +931,14 @@ class BufferedTupleStream {
   /// read.  Assumes that the collection was serialized to the stream in DeepCopy()'s
   /// format.
   static void FixUpCollectionsForRead(const vector<SlotDescriptor*>& collection_slots,
+      ReadIterator* RESTRICT read_iter, Tuple* tuple);
+
+  /// Like FixUpStringsForRead(), but only advances past already resolved strings.
+  static void SkipStringsForRead(const vector<SlotDescriptor*>& string_slots,
+      ReadIterator* RESTRICT read_iter, Tuple* tuple);
+
+  /// Like FixUpCollectionsForRead(), but only advances past already resolved collections.
+  static void SkipCollectionsForRead(const vector<SlotDescriptor*>& collection_slots,
       ReadIterator* RESTRICT read_iter, Tuple* tuple);
 
   /// Returns the number of null indicator bytes per row. Only valid if this stream has

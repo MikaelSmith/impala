@@ -127,8 +127,7 @@ void LocalExchanger::FinalizeOpenSegment() {
     segment->stream->Close(nullptr, RowBatch::FlushMode::NO_FLUSH_RESOURCES);
     return;
   }
-  // Resolve pointers that were not resolved on write, e.g. of collections, before any
-  // consumer can read the segment concurrently.
+  // Resolve var-len pointers before consumers read the segment concurrently.
   segment->needs_resolve = segment->stream->HasUnresolvedPages();
   segments_.push_back(std::move(segment));
   num_segments_counter_->Set(static_cast<int64_t>(segments_.size()));
@@ -177,11 +176,13 @@ Status LocalExchanger::CodegenAddRows(
   return Status::OK();
 }
 
-Status LocalExchanger::Push(RowBatch* batch, AddRowsFn add_rows_fn) {
+Status LocalExchanger::Push(RowBatch* batch, AddRowsFn add_rows_fn, void* ctx) {
   DCHECK(state_ != nullptr) << "Init() must be called before Push()";
   DCHECK(client_->is_registered());
-  DCHECK(batch->row_desc()->Equals(*row_desc_));
   if (add_rows_fn == nullptr) add_rows_fn = &LocalExchanger::AddRows;
+  // Other functions may write rows of a different layout, e.g. projected rows.
+  DCHECK(add_rows_fn != &LocalExchanger::AddRows
+      || batch->row_desc()->Equals(*row_desc_));
   lock_guard<mutex> l(mutex_);
   DCHECK(!eos_) << "Push() after CloseProducer()";
   // Nobody will read the rows, drop them.
@@ -196,7 +197,7 @@ Status LocalExchanger::Push(RowBatch* batch, AddRowsFn add_rows_fn) {
     BufferedTupleStream* stream = open_segment_->stream.get();
     int64_t pinned_before = stream->BytesPinned(false);
     Status status;
-    next_row = add_rows_fn(stream, batch, next_row, &status);
+    next_row = add_rows_fn(ctx, stream, batch, next_row, &status);
     pinned_bytes_ += stream->BytesPinned(false) - pinned_before;
     RETURN_IF_ERROR(status);
     if (next_row == num_rows) break;

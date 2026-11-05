@@ -16,30 +16,90 @@
 // under the License.
 
 #include "exec/cte-producer-node.h"
+#include "runtime/buffered-tuple-stream.h"
 #include "runtime/row-batch.h"
 #include "runtime/tuple-row.h"
 #include "runtime/tuple.h"
 
 using namespace impala;
 
-void CTEProducerNode::MaterializeBatch(
-    RowBatch* input_batch, RowBatch* output_batch, uint8_t** tuple_buf) {
-  // Take all references to member variables out of the loop to reduce the number of
-  // loads and stores.
-  const TupleDescriptor& tuple_desc = *output_tuple_desc_;
-  const int tuple_byte_size = tuple_desc.byte_size();
-  uint8_t* cur_tuple = *tuple_buf;
-  const int num_rows = input_batch->num_rows();
-  DCHECK_LE(num_rows, output_batch->capacity() - output_batch->num_rows());
-  FOREACH_ROW_LIMIT(input_batch, 0, num_rows, batch_iter) {
-    Tuple* dst_tuple = reinterpret_cast<Tuple*>(cur_tuple);
-    TupleRow* dst_row = output_batch->GetRow(output_batch->AddRow());
-    // Var-len data is not copied: LocalExchanger::Push() copies it into the exchanger.
-    dst_tuple->MaterializeExprs<false, true>(
-        batch_iter.Get(), tuple_desc, output_expr_evals_, nullptr);
-    dst_row->SetTuple(0, dst_tuple);
-    output_batch->CommitLastRow();
-    cur_tuple += tuple_byte_size;
+int64_t CTEProducerNode::StringSlotVarlenSize(const Tuple* tuple, int null_byte_offset,
+    uint8_t null_bit_mask, int tuple_offset) {
+  NullIndicatorOffset null_indicator_offset;
+  null_indicator_offset.byte_offset = null_byte_offset;
+  null_indicator_offset.bit_mask = null_bit_mask;
+  if (tuple->IsNull(null_indicator_offset)) return 0;
+  const StringValue* sv = tuple->GetStringSlot(tuple_offset);
+  return sv->IsSmall() ? 0 : sv->Len();
+}
+
+void CTEProducerNode::CopyStringSlot(Tuple* tuple, int null_byte_offset,
+    uint8_t null_bit_mask, int tuple_offset, uint8_t** dst) {
+  NullIndicatorOffset null_indicator_offset;
+  null_indicator_offset.byte_offset = null_byte_offset;
+  null_indicator_offset.bit_mask = null_bit_mask;
+  if (tuple->IsNull(null_indicator_offset)) return;
+  StringValue* sv = tuple->GetStringSlot(tuple_offset);
+  if (sv->IsSmall()) return;
+  const int len = sv->Len();
+  if (len > 0) memcpy(*dst, sv->Ptr(), len);
+  // Also for empty strings, so that the row is identical to one added with AddRow().
+  sv->SetPtr(reinterpret_cast<char*>(*dst));
+  *dst += len;
+}
+
+int64_t CTEProducerNode::VarlenSize(const Tuple* tuple) const noexcept {
+  int64_t size = 0;
+  for (const std::pair<NullIndicatorOffset, int>& slot : string_slots_) {
+    size += StringSlotVarlenSize(
+        tuple, slot.first.byte_offset, slot.first.bit_mask, slot.second);
   }
-  *tuple_buf = cur_tuple;
+  return size;
+}
+
+void CTEProducerNode::CopyVarlen(Tuple* tuple, uint8_t* dst) const noexcept {
+  for (const std::pair<NullIndicatorOffset, int>& slot : string_slots_) {
+    CopyStringSlot(tuple, slot.first.byte_offset, slot.first.bit_mask, slot.second, &dst);
+  }
+}
+
+int CTEProducerNode::MaterializeRows(void* ctx, BufferedTupleStream* stream,
+    RowBatch* batch, int start_row, Status* status) {
+  CTEProducerNode* node = reinterpret_cast<CTEProducerNode*>(ctx);
+  const TupleDescriptor& tuple_desc = *node->output_tuple_desc_;
+  const int64_t fixed_size = tuple_desc.byte_size();
+  const int num_rows = batch->num_rows();
+  int i = start_row;
+  // A row that didn't fit last time was already materialized.
+  if (node->has_pending_row_ && i < num_rows) {
+    if (!node->AddPendingRow(stream, status)) return i;
+    ++i;
+  }
+  for (; i < num_rows; ++i) {
+    TupleRow* row = batch->GetRow(i);
+    int64_t buf_len;
+    uint8_t* buf = stream->GetWriteBuffer(&buf_len);
+    if (UNLIKELY(buf_len < fixed_size)) {
+      // No write page, or the fixed-length part doesn't fit.
+      if (!node->AddRowSlow(stream, row, status)) return i;
+      continue;
+    }
+    // Materialize the tuple directly into the page. Var-len data still references the
+    // child's batch or expr results; it is copied after the tuple below.
+    Tuple* tuple = reinterpret_cast<Tuple*>(buf);
+    memset(tuple, 0, fixed_size);
+    tuple->MaterializeExprs<false, true>(row, tuple_desc, node->output_expr_evals_,
+        nullptr);
+    const int64_t size = fixed_size + node->VarlenSize(tuple);
+    if (UNLIKELY(size > buf_len)) {
+      // The var-len data doesn't fit in the page. Add the row to another page without
+      // evaluating the exprs again.
+      node->SavePendingRow(tuple);
+      if (!node->AddPendingRow(stream, status)) return i;
+      continue;
+    }
+    node->CopyVarlen(tuple, buf + fixed_size);
+    stream->AddInPlaceRow(size);
+  }
+  return i;
 }

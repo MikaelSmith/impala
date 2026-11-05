@@ -20,6 +20,7 @@
 #include "exec/exec-node-util.h"
 #include "exprs/scalar-expr-evaluator.h"
 #include "exprs/scalar-expr.h"
+#include "runtime/buffered-tuple-stream.inline.h"
 #include "runtime/exec-env.h"
 #include "runtime/fragment-state.h"
 #include "runtime/local-exchanger.h"
@@ -70,29 +71,115 @@ void CTEProducerPlanNode::Codegen(FragmentState* state) {
   if (IsNodeCodegenDisabled()) return;
   LlvmCodeGen* codegen = state->codegen();
   DCHECK(codegen != nullptr);
-  llvm::Function* add_rows_fn = nullptr;
-  Status status = LocalExchanger::CodegenAddRows(codegen, row_descriptor_, &add_rows_fn);
-  if (status.ok()) codegen->AddFunctionToJit(add_rows_fn, &codegend_add_rows_fn_);
-  if (status.ok() && !output_exprs_.empty()) status = CodegenMaterializeBatch(codegen);
+  Status status;
+  if (output_exprs_.empty()) {
+    llvm::Function* add_rows_fn = nullptr;
+    status = LocalExchanger::CodegenAddRows(codegen, row_descriptor_, &add_rows_fn);
+    if (status.ok()) codegen->AddFunctionToJit(add_rows_fn, &codegend_add_rows_fn_);
+  } else {
+    // Rows are written by MaterializeRows(), not LocalExchanger::AddRows().
+    status = CodegenMaterializeRows(codegen);
+  }
   AddCodegenStatus(status);
 }
 
-Status CTEProducerPlanNode::CodegenMaterializeBatch(LlvmCodeGen* codegen) {
+Status CTEProducerPlanNode::CodegenMaterializeRows(LlvmCodeGen* codegen) {
   const TupleDescriptor& tuple_desc = *row_descriptor_->tuple_descriptors()[0];
   llvm::Function* materialize_exprs_fn;
   RETURN_IF_ERROR(Tuple::CodegenMaterializeExprs(codegen, false, tuple_desc,
       output_exprs_, /*use_mem_pool=*/false, &materialize_exprs_fn));
-  llvm::Function* materialize_batch_fn =
-      codegen->GetFunction(IRFunction::CTE_PRODUCER_MATERIALIZE_BATCH, true);
-  DCHECK(materialize_batch_fn != nullptr);
-  int replaced = codegen->ReplaceCallSites(materialize_batch_fn, materialize_exprs_fn,
+  llvm::Function* materialize_rows_fn =
+      codegen->GetFunction(IRFunction::CTE_PRODUCER_MATERIALIZE_ROWS, true);
+  DCHECK(materialize_rows_fn != nullptr);
+  int replaced = codegen->ReplaceCallSites(materialize_rows_fn, materialize_exprs_fn,
       Tuple::MATERIALIZE_EXPRS_NULL_POOL_SYMBOL);
-  DCHECK_REPLACE_COUNT(replaced, 1) << LlvmCodeGen::Print(materialize_batch_fn);
-  materialize_batch_fn = codegen->FinalizeFunction(materialize_batch_fn);
-  if (materialize_batch_fn == nullptr) {
-    return Status("Codegen'd CTEProducerNode::MaterializeBatch() failed verification");
+  DCHECK_REPLACE_COUNT(replaced, 1) << LlvmCodeGen::Print(materialize_rows_fn);
+
+  llvm::Function* varlen_size_fn;
+  llvm::Function* copy_varlen_fn;
+  RETURN_IF_ERROR(CodegenVarlenFns(codegen, tuple_desc, &varlen_size_fn,
+      &copy_varlen_fn));
+  replaced = codegen->ReplaceCallSites(
+      materialize_rows_fn, varlen_size_fn, "CTEProducerNode10VarlenSize");
+  DCHECK_REPLACE_COUNT(replaced, 1) << LlvmCodeGen::Print(materialize_rows_fn);
+  replaced = codegen->ReplaceCallSites(
+      materialize_rows_fn, copy_varlen_fn, "CTEProducerNode10CopyVarlen");
+  DCHECK_REPLACE_COUNT(replaced, 1) << LlvmCodeGen::Print(materialize_rows_fn);
+  materialize_rows_fn = codegen->FinalizeFunction(materialize_rows_fn);
+  if (materialize_rows_fn == nullptr) {
+    return Status("Codegen'd CTEProducerNode::MaterializeRows() failed verification");
   }
-  codegen->AddFunctionToJit(materialize_batch_fn, &codegend_materialize_batch_fn_);
+  codegen->AddFunctionToJit(materialize_rows_fn, &codegend_materialize_rows_fn_);
+  return Status::OK();
+}
+
+// Codegens versions of CTEProducerNode::VarlenSize() and CopyVarlen() that call
+// StringSlotVarlenSize() and CopyStringSlot() with constant arguments for each string
+// slot of 'tuple_desc'. For a tuple with one string slot:
+//
+// define i64 @VarlenSize(ptr %this_ptr, ptr %tuple) {
+//   %size0 = call i64 @StringSlotVarlenSize(ptr %tuple, i32 16, i8 1, i32 0)
+//   %size = add i64 0, %size0
+//   ret i64 %size
+// }
+//
+// define void @CopyVarlen(ptr %this_ptr, ptr %tuple, ptr %dst) {
+//   %dst_ptr = alloca ptr
+//   store ptr %dst, ptr %dst_ptr
+//   call void @CopyStringSlot(ptr %tuple, i32 16, i8 1, i32 0, ptr %dst_ptr)
+//   ret void
+// }
+Status CTEProducerPlanNode::CodegenVarlenFns(LlvmCodeGen* codegen,
+    const TupleDescriptor& tuple_desc, llvm::Function** varlen_size_fn,
+    llvm::Function** copy_varlen_fn) {
+  llvm::LLVMContext& context = codegen->context();
+  {
+    LlvmCodeGen::FnPrototype prototype(codegen, "VarlenSize", codegen->i64_type());
+    prototype.AddArgument(LlvmCodeGen::NamedVariable("this_ptr", codegen->ptr_type()));
+    prototype.AddArgument(LlvmCodeGen::NamedVariable("tuple", codegen->ptr_type()));
+    LlvmBuilder builder(context);
+    llvm::Value* args[2];
+    *varlen_size_fn = prototype.GeneratePrototype(&builder, args);
+    llvm::Value* size = codegen->GetI64Constant(0);
+    for (const SlotDescriptor* slot : tuple_desc.string_slots()) {
+      llvm::Value* slot_size = codegen->CodegenCallFunction(&builder,
+          IRFunction::CTE_PRODUCER_STRING_SLOT_VARLEN_SIZE,
+          {args[1], codegen->GetI32Constant(slot->null_indicator_offset().byte_offset),
+              codegen->GetI8Constant(slot->null_indicator_offset().bit_mask),
+              codegen->GetI32Constant(slot->tuple_offset())},
+          "slot_size");
+      size = builder.CreateAdd(size, slot_size, "size");
+    }
+    builder.CreateRet(size);
+    *varlen_size_fn = codegen->FinalizeFunction(*varlen_size_fn);
+    if (*varlen_size_fn == nullptr) {
+      return Status("Codegen'd CTEProducerNode::VarlenSize() failed verification");
+    }
+  }
+  {
+    LlvmCodeGen::FnPrototype prototype(codegen, "CopyVarlen", codegen->void_type());
+    prototype.AddArgument(LlvmCodeGen::NamedVariable("this_ptr", codegen->ptr_type()));
+    prototype.AddArgument(LlvmCodeGen::NamedVariable("tuple", codegen->ptr_type()));
+    prototype.AddArgument(LlvmCodeGen::NamedVariable("dst", codegen->ptr_type()));
+    LlvmBuilder builder(context);
+    llvm::Value* args[3];
+    *copy_varlen_fn = prototype.GeneratePrototype(&builder, args);
+    llvm::Value* dst_ptr = codegen->CreateEntryBlockAlloca(
+        *copy_varlen_fn, LlvmCodeGen::NamedVariable("dst_ptr", codegen->ptr_type()));
+    builder.CreateStore(args[2], dst_ptr);
+    for (const SlotDescriptor* slot : tuple_desc.string_slots()) {
+      codegen->CodegenCallFunction(&builder, IRFunction::CTE_PRODUCER_COPY_STRING_SLOT,
+          {args[1], codegen->GetI32Constant(slot->null_indicator_offset().byte_offset),
+              codegen->GetI8Constant(slot->null_indicator_offset().bit_mask),
+              codegen->GetI32Constant(slot->tuple_offset()), dst_ptr},
+          "");
+    }
+    builder.CreateRetVoid();
+    *copy_varlen_fn = codegen->FinalizeFunction(*copy_varlen_fn);
+    if (*copy_varlen_fn == nullptr) {
+      return Status("Codegen'd CTEProducerNode::CopyVarlen() failed verification");
+    }
+  }
   return Status::OK();
 }
 
@@ -107,7 +194,7 @@ CTEProducerNode::CTEProducerNode(
   : ExecNode(pool, pnode, state->desc_tbl()),
     output_tuple_desc_(pnode.row_descriptor_->tuple_descriptors()[0]),
     output_exprs_(pnode.output_exprs_),
-    codegend_materialize_batch_fn_(pnode.codegend_materialize_batch_fn_),
+    codegend_materialize_rows_fn_(pnode.codegend_materialize_rows_fn_),
     codegend_add_rows_fn_(pnode.codegend_add_rows_fn_) {
   int32_t idx = state->instance_ctx().per_fragment_instance_idx;
   exchanger_ = pnode.exchangers_.at(idx).get();
@@ -119,7 +206,14 @@ Status CTEProducerNode::Prepare(RuntimeState* state) {
   if (!output_exprs_.empty()) {
     RETURN_IF_ERROR(ScalarExprEvaluator::Create(output_exprs_, state, pool_,
         expr_perm_pool(), expr_results_pool(), &output_expr_evals_));
-    output_batch_.reset(new RowBatch(row_desc(), state->batch_size(), mem_tracker()));
+    // Rows are written in the layout of BufferedTupleStream::AddRow(), which has no
+    // null indicators for a single non-nullable tuple.
+    DCHECK_EQ(row_desc()->tuple_descriptors().size(), 1);
+    DCHECK(!row_desc()->IsAnyTupleNullable());
+    for (const SlotDescriptor* slot : output_tuple_desc_->string_slots()) {
+      string_slots_.emplace_back(slot->null_indicator_offset(), slot->tuple_offset());
+    }
+    pending_tuple_.resize(output_tuple_desc_->byte_size());
   }
   DCHECK(resource_profile_.__isset.spillable_buffer_size);
   DCHECK(resource_profile_.__isset.max_row_buffer_size);
@@ -166,26 +260,48 @@ Status CTEProducerNode::OpenInternal(RuntimeState* state) {
 }
 
 Status CTEProducerNode::PushBatch(RuntimeState* state, RowBatch* child_batch) {
-  // The exchanger copies the rows, so the batches can be reused afterwards.
+  // The exchanger copies the rows, so the batch can be reused afterwards.
   if (output_exprs_.empty()) {
     return exchanger_->Push(child_batch, codegend_add_rows_fn_.load());
   }
-  output_batch_->Reset();
-  if (child_batch->num_rows() > 0) {
-    int64_t tuple_buf_size;
-    uint8_t* tuple_buf;
-    RETURN_IF_ERROR(output_batch_->ResizeAndAllocateTupleBuffer(
-        state, &tuple_buf_size, &tuple_buf));
-    memset(tuple_buf, 0, tuple_buf_size);
-    CTEProducerPlanNode::MaterializeBatchFn fn = codegend_materialize_batch_fn_.load();
-    if (fn == nullptr) {
-      MaterializeBatch(child_batch, output_batch_.get(), &tuple_buf);
-    } else {
-      fn(this, child_batch, output_batch_.get(), &tuple_buf);
-    }
-    DCHECK_EQ(output_batch_->num_rows(), child_batch->num_rows());
-  }
-  return exchanger_->Push(output_batch_.get(), codegend_add_rows_fn_.load());
+  DCHECK(!has_pending_row_);
+  LocalExchanger::AddRowsFn fn = codegend_materialize_rows_fn_.load();
+  if (fn == nullptr) fn = &CTEProducerNode::MaterializeRows;
+  RETURN_IF_ERROR(exchanger_->Push(child_batch, fn, this));
+  DCHECK(!has_pending_row_);
+  return Status::OK();
+}
+
+bool CTEProducerNode::AddRowSlow(
+    BufferedTupleStream* stream, TupleRow* row, Status* status) noexcept {
+  Tuple* tuple = reinterpret_cast<Tuple*>(pending_tuple_.data());
+  memset(tuple, 0, pending_tuple_.size());
+  tuple->MaterializeExprs<false, true>(row, *output_tuple_desc_, output_expr_evals_,
+      nullptr);
+  has_pending_row_ = true;
+  return AddPendingRow(stream, status);
+}
+
+void CTEProducerNode::SavePendingRow(const Tuple* tuple) noexcept {
+  DCHECK(!has_pending_row_);
+  memcpy(pending_tuple_.data(), tuple, pending_tuple_.size());
+  has_pending_row_ = true;
+}
+
+bool CTEProducerNode::AddPendingRow(
+    BufferedTupleStream* stream, Status* status) noexcept {
+  DCHECK(has_pending_row_);
+  const int64_t fixed_size = pending_tuple_.size();
+  Tuple* pending = reinterpret_cast<Tuple*>(pending_tuple_.data());
+  const int64_t size = fixed_size + VarlenSize(pending);
+  // Allocates a new (possibly large) page if needed and possible.
+  uint8_t* data = stream->AddRowCustomBegin(size, status);
+  if (data == nullptr) return false;
+  memcpy(data, pending, fixed_size);
+  CopyVarlen(reinterpret_cast<Tuple*>(data), data + fixed_size);
+  stream->AddRowCustomEnd(size);
+  has_pending_row_ = false;
+  return true;
 }
 
 Status CTEProducerNode::GetNext(
@@ -211,7 +327,6 @@ void CTEProducerNode::Close(RuntimeState* state) {
   if (is_closed()) return;
   VLOG_QUERY << "Releasing CTE exchange " << name_;
   exchanger_->Release();
-  output_batch_.reset();
   ScalarExprEvaluator::Close(output_expr_evals_, state);
   ExecNode::Close(state);
 }

@@ -51,7 +51,36 @@ SELECT count(*), sum(a.l_partkey), sum(b.l_partkey), max(a.l_comment),
   max(b.l_comment)
 FROM v a, v b WHERE a.l_orderkey + 1 = b.l_orderkey"""
 
-QUERIES = {'union': UNION_QUERY, 'join': JOIN_QUERY}
+# Rows of 120KB-520KB. The producer's pages fit the largest row (see
+# LARGE_ROWS_MAX_ROW_SIZE), so only a few rows fit in a page and many rows don't fit in
+# the remainder of a page. Segments created while a consumer is waiting have smaller
+# pages, so rows added to them need a large page.
+LARGE_ROWS_QUERY = """
+WITH v AS (
+  SELECT l_orderkey, repeat(l_comment, 12000) AS s FROM tpch_parquet.lineitem
+  WHERE l_orderkey < 200 AND l_shipmode = 'AIR')
+SELECT count(*), sum(l_orderkey), sum(length(s)), max(substr(s, 1, 20))
+FROM (SELECT * FROM v UNION ALL SELECT * FROM v) u"""
+
+# Leaves room above the largest row of LARGE_ROWS_QUERY (43 * 12000 bytes plus the fixed
+# part), which the default max_row_size of 512KB barely fits.
+LARGE_ROWS_MAX_ROW_SIZE = '1m'
+
+# The projected CTE output has NULL, empty, small (inlined) and regular strings, a CHAR
+# and two BIGINTs in a different order than in the table.
+STRINGS_QUERY = """
+WITH v AS (
+  SELECT l_suppkey, l_partkey,
+    CASE l_linenumber WHEN 1 THEN NULL WHEN 2 THEN '' ELSE l_shipinstruct END AS s,
+    CAST(l_returnflag AS CHAR(3)) AS c, l_comment
+  FROM tpch_parquet.lineitem WHERE l_shipmode = 'AIR')
+SELECT count(*), count(s), sum(length(s)), min(s), max(s), count(c), min(c), max(c),
+  sum(l_suppkey), sum(l_partkey), sum(l_partkey - l_suppkey), sum(length(l_comment)),
+  min(l_comment)
+FROM (SELECT * FROM v UNION ALL SELECT * FROM v) u"""
+
+QUERIES = {'union': UNION_QUERY, 'join': JOIN_QUERY, 'large_rows': LARGE_ROWS_QUERY,
+           'strings': STRINGS_QUERY}
 
 
 @pytest.mark.xfail(IMPALA_TEST_CLUSTER_PROPERTIES.is_remote_cluster(),
@@ -94,6 +123,8 @@ class TestCteSpilling(ImpalaTestSuite):
   def test_cte_spilling(self, vector, query_name):
     query = QUERIES[query_name]
     exec_option = vector.get_value('exec_option')
+    if query_name == 'large_rows':
+      exec_option = dict(exec_option, max_row_size=LARGE_ROWS_MAX_ROW_SIZE)
     explain = self.execute_query_expect_success(
         self.client, 'explain ' + query, exec_option).data
     assert any('CTE PRODUCER' in line for line in explain), '\n'.join(explain)

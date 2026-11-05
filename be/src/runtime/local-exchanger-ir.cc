@@ -22,7 +22,7 @@
 
 using namespace impala;
 
-int LocalExchanger::AddRows(BufferedTupleStream* stream, RowBatch* batch,
+int LocalExchanger::AddRows(void* ctx, BufferedTupleStream* stream, RowBatch* batch,
     int start_row, Status* status) {
   const int num_rows = batch->num_rows();
   int i = start_row;

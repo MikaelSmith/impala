@@ -319,7 +319,10 @@ void BufferedTupleStream::UnpinPageIfNeeded(Page* page, bool stream_pinned) {
     bytes_pinned_ -= page->len();
     DCHECK_GE(bytes_pinned_, 0);
     bytes_unpinned_ += page->len();
-    if (page->pin_count() == 0) page->retrieved_buffer.Store(false);
+    if (page->pin_count() == 0) {
+      page->retrieved_buffer.Store(false);
+      page->ptrs_resolved.Store(false);
+    }
   }
 }
 
@@ -856,6 +859,7 @@ Status BufferedTupleStream::GetNextInternal(ReadIterator* RESTRICT read_iter,
   }
 
   const uint64_t tuples_per_row = desc_->tuple_descriptors().size();
+  const bool ptrs_resolved = read_iter->read_page_->ptrs_resolved.Load();
   // Start reading from the current position in 'read_iter->read_page_'.
   for (int i = 0; i < rows_to_fill; ++i) {
     if (FILL_FLAT_ROWS) {
@@ -865,22 +869,10 @@ Status BufferedTupleStream::GetNextInternal(ReadIterator* RESTRICT read_iter,
     // Copy the row into the output batch.
     TupleRow* output_row = reinterpret_cast<TupleRow*>(tuple_row_mem);
     tuple_row_mem += sizeof(Tuple*) * tuples_per_row;
-    UnflattenTupleRow<HAS_NULLABLE_TUPLE>(&read_iter->read_ptr_, output_row);
-
-    // Update string slot ptrs, skipping external strings.
-    for (int j = 0; j < inlined_string_slots_.size(); ++j) {
-      Tuple* tuple = output_row->GetTuple(inlined_string_slots_[j].first);
-      if (HAS_NULLABLE_TUPLE && tuple == nullptr) continue;
-      FixUpStringsForRead(inlined_string_slots_[j].second, read_iter, tuple);
-    }
-
-    // Update collection slot ptrs, skipping external collections. We traverse the
-    // collection structure in the same order as it was written to the stream, allowing
-    // us to infer the data layout based on the length of collections and strings.
-    for (int j = 0; j < inlined_coll_slots_.size(); ++j) {
-      Tuple* tuple = output_row->GetTuple(inlined_coll_slots_[j].first);
-      if (HAS_NULLABLE_TUPLE && tuple == nullptr) continue;
-      FixUpCollectionsForRead(inlined_coll_slots_[j].second, read_iter, tuple);
+    if (ptrs_resolved) {
+      SkipRow<HAS_NULLABLE_TUPLE>(read_iter, output_row);
+    } else {
+      UnflattenAndFixUpRow<HAS_NULLABLE_TUPLE>(read_iter, output_row);
     }
   }
 
@@ -913,6 +905,68 @@ Status BufferedTupleStream::GetNextInternal(ReadIterator* RESTRICT read_iter,
   }
   if (FILL_FLAT_ROWS) DCHECK_EQ(flat_rows->size(), rows_to_fill);
   DCHECK_LE(read_iter->read_ptr_, read_iter->read_end_ptr_);
+  return Status::OK();
+}
+
+template <bool HAS_NULLABLE_TUPLE>
+void BufferedTupleStream::UnflattenAndFixUpRow(
+    ReadIterator* RESTRICT read_iter, TupleRow* row) {
+  UnflattenTupleRow<HAS_NULLABLE_TUPLE>(&read_iter->read_ptr_, row);
+  for (int j = 0; j < inlined_string_slots_.size(); ++j) {
+    Tuple* tuple = row->GetTuple(inlined_string_slots_[j].first);
+    if (HAS_NULLABLE_TUPLE && tuple == nullptr) continue;
+    FixUpStringsForRead(inlined_string_slots_[j].second, read_iter, tuple);
+  }
+  // Traverse collections in the same order as they were written to the stream.
+  for (int j = 0; j < inlined_coll_slots_.size(); ++j) {
+    Tuple* tuple = row->GetTuple(inlined_coll_slots_[j].first);
+    if (HAS_NULLABLE_TUPLE && tuple == nullptr) continue;
+    FixUpCollectionsForRead(inlined_coll_slots_[j].second, read_iter, tuple);
+  }
+}
+
+template <bool HAS_NULLABLE_TUPLE>
+void BufferedTupleStream::SkipRow(ReadIterator* RESTRICT read_iter, TupleRow* row) {
+  UnflattenTupleRow<HAS_NULLABLE_TUPLE>(&read_iter->read_ptr_, row);
+  for (int j = 0; j < inlined_string_slots_.size(); ++j) {
+    Tuple* tuple = row->GetTuple(inlined_string_slots_[j].first);
+    if (HAS_NULLABLE_TUPLE && tuple == nullptr) continue;
+    SkipStringsForRead(inlined_string_slots_[j].second, read_iter, tuple);
+  }
+  for (int j = 0; j < inlined_coll_slots_.size(); ++j) {
+    Tuple* tuple = row->GetTuple(inlined_coll_slots_[j].first);
+    if (HAS_NULLABLE_TUPLE && tuple == nullptr) continue;
+    SkipCollectionsForRead(inlined_coll_slots_[j].second, read_iter, tuple);
+  }
+}
+
+Status BufferedTupleStream::ResolvePointers() {
+  DCHECK(!closed_);
+  DCHECK(pinned_);
+  DCHECK(!has_write_iterator());
+  if (inlined_string_slots_.empty() && inlined_coll_slots_.empty()) return Status::OK();
+  std::vector<Tuple*> row_mem(desc_->tuple_descriptors().size());
+  TupleRow* row = reinterpret_cast<TupleRow*>(row_mem.data());
+  ReadIterator iter;
+  RETURN_IF_ERROR(PrepareForPinnedRead(&iter));
+  while (iter.rows_returned_ < num_rows_) {
+    if (iter.read_page_ == pages_.end() || iter.GetRowsLeftInPage() == 0) {
+      RETURN_IF_ERROR(NextReadPage(&iter));
+    }
+    Page* page = &*iter.read_page_;
+    int64_t num_rows = iter.GetRowsLeftInPage();
+    if (!page->ptrs_resolved.Load()) {
+      for (int64_t i = 0; i < num_rows; ++i) {
+        if (has_nullable_tuple_) {
+          UnflattenAndFixUpRow<true>(&iter, row);
+        } else {
+          UnflattenAndFixUpRow<false>(&iter, row);
+        }
+      }
+      page->ptrs_resolved.Store(true);
+    }
+    iter.IncrRowsReturned(num_rows);
+  }
   return Status::OK();
 }
 
@@ -956,6 +1010,43 @@ void BufferedTupleStream::FixUpCollectionsForRead(
       Tuple* item = reinterpret_cast<Tuple*>(coll_data);
       FixUpStringsForRead(item_desc.string_slots(), read_iter, item);
       FixUpCollectionsForRead(item_desc.collection_slots(), read_iter, item);
+      coll_data += item_desc.byte_size();
+    }
+  }
+}
+
+void BufferedTupleStream::SkipStringsForRead(
+    const vector<SlotDescriptor*>& string_slots, ReadIterator* RESTRICT read_iter,
+    Tuple* tuple) {
+  DCHECK(tuple != nullptr);
+  for (const SlotDescriptor* slot_desc : string_slots) {
+    if (tuple->IsNull(slot_desc->null_indicator_offset())) continue;
+    const StringValue* sv = tuple->GetStringSlot(slot_desc->tuple_offset());
+    if (sv->IsSmall()) continue;
+    DCHECK_EQ(sv->Ptr(), reinterpret_cast<char*>(read_iter->read_ptr_));
+    read_iter->AdvanceReadPtr(sv->Len());
+  }
+}
+
+void BufferedTupleStream::SkipCollectionsForRead(
+    const vector<SlotDescriptor*>& collection_slots, ReadIterator* RESTRICT read_iter,
+    Tuple* tuple) {
+  DCHECK(tuple != nullptr);
+  for (const SlotDescriptor* slot_desc : collection_slots) {
+    if (tuple->IsNull(slot_desc->null_indicator_offset())) continue;
+    const CollectionValue* cv = tuple->GetCollectionSlot(slot_desc->tuple_offset());
+    const TupleDescriptor& item_desc = *slot_desc->children_tuple_descriptor();
+    int coll_byte_size = cv->num_tuples * item_desc.byte_size();
+    if (coll_byte_size > 0) {
+      DCHECK_EQ(cv->ptr, read_iter->read_ptr_);
+      read_iter->AdvanceReadPtr(coll_byte_size);
+    }
+    if (!item_desc.HasVarlenSlots()) continue;
+    uint8_t* coll_data = cv->ptr;
+    for (int i = 0; i < cv->num_tuples; ++i) {
+      Tuple* item = reinterpret_cast<Tuple*>(coll_data);
+      SkipStringsForRead(item_desc.string_slots(), read_iter, item);
+      SkipCollectionsForRead(item_desc.collection_slots(), read_iter, item);
       coll_data += item_desc.byte_size();
     }
   }

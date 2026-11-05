@@ -91,15 +91,20 @@ class LocalExchanger {
   /// Called by each consumer to get its unique consumer index.
   int32_t Open();
 
-  /// Signature of AddRows() and its codegen'd version.
-  typedef int (*AddRowsFn)(BufferedTupleStream*, RowBatch*, int, Status*);
+  /// Signature of functions that append the rows of 'batch' starting at 'start_row' to
+  /// a segment's stream until a row cannot be added, e.g. because the segment's page is
+  /// full or there's no reservation for it. Returns the index of the first row not added,
+  /// or batch->num_rows() if all were added. Sets 'status' if an error occurred. Push()
+  /// then finalizes the segment or spills and calls the function again for the remaining
+  /// rows. 'ctx' is passed through from Push().
+  typedef int (*AddRowsFn)(void* ctx, BufferedTupleStream* stream, RowBatch* batch,
+      int start_row, Status* status);
 
-  /// Appends rows of 'batch' starting at 'start_row' to 'stream' until a row cannot be
-  /// added. Returns the index of the first row not added, or batch->num_rows() if all
-  /// were added. Sets 'status' if an error occurred. Cross-compiled so the AddRow()
-  /// call can be replaced with a version specialized for the row layout.
-  static int AddRows(BufferedTupleStream* stream, RowBatch* batch, int start_row,
-      Status* status);
+  /// AddRowsFn that copies the rows of 'batch' with BufferedTupleStream::AddRow().
+  /// 'ctx' is unused. Cross-compiled so the AddRow() call can be replaced with a version
+  /// specialized for the row layout.
+  static int AddRows(void* ctx, BufferedTupleStream* stream, RowBatch* batch,
+      int start_row, Status* status);
 
   /// Codegens AddRows() for rows described by 'row_desc', with
   /// BufferedTupleStream::AddRow() replaced by its codegen'd version.
@@ -109,8 +114,10 @@ class LocalExchanger {
   /// Copies all rows in 'batch' into the exchanger, spilling if needed. 'batch' may be
   /// reused or destroyed after this returns. Returns an error if the rows could not be
   /// stored, e.g. because spilling is disabled or a scratch I/O error occurred.
-  /// 'add_rows_fn' is the codegen'd AddRows(), or nullptr to use the interpreted one.
-  Status Push(RowBatch* batch, AddRowsFn add_rows_fn = nullptr);
+  /// 'add_rows_fn' writes the rows into the exchanger's streams; if nullptr, the
+  /// interpreted AddRows() is used, and 'batch' must have the row layout passed to
+  /// Init(). 'ctx' is passed to 'add_rows_fn'.
+  Status Push(RowBatch* batch, AddRowsFn add_rows_fn = nullptr, void* ctx = nullptr);
 
   /// Reads the next rows for consumer 'consumer_index' into 'batch', which must be
   /// empty and have the row layout of the pushed rows. Blocks until rows are available

@@ -302,10 +302,14 @@ ir_functions = [
    "_ZN6impala15SortedRunMerger13HeapifyHelperEi"],
   ["CTE_MATERIALIZE_BATCH",
    "_ZN6impala15CTEConsumerNode16MaterializeBatchEPNS_8RowBatchES2_PPh"],
-  ["CTE_PRODUCER_MATERIALIZE_BATCH",
-   "_ZN6impala15CTEProducerNode16MaterializeBatchEPNS_8RowBatchES2_PPh"],
+  ["CTE_PRODUCER_STRING_SLOT_VARLEN_SIZE",
+   "_ZN6impala15CTEProducerNode20StringSlotVarlenSizeEPKNS_5TupleEihi"],
+  ["CTE_PRODUCER_COPY_STRING_SLOT",
+   "_ZN6impala15CTEProducerNode14CopyStringSlotEPNS_5TupleEihiPPh"],
+  ["CTE_PRODUCER_MATERIALIZE_ROWS",
+   "_ZN6impala15CTEProducerNode15MaterializeRowsEPvPNS_19BufferedTupleStreamEPNS_8RowBatchEiPNS_6StatusE"],
   ["LOCAL_EXCHANGER_ADD_ROWS",
-   "_ZN6impala14LocalExchanger7AddRowsEPNS_19BufferedTupleStreamEPNS_8RowBatchEiPNS_6StatusE"]
+   "_ZN6impala14LocalExchanger7AddRowsEPvPNS_19BufferedTupleStreamEPNS_8RowBatchEiPNS_6StatusE"]
 ]
 
 enums_preamble = '\
