@@ -410,6 +410,10 @@ class BufferedTupleStream {
     return bytes_unpinned_;
   }
 
+  /// Returns true if any page has var-len pointers that are not resolved, i.e. if
+  /// ResolvePointers() would need to fix up any rows. Not thread-safe.
+  bool HasUnresolvedPages() const;
+
   /// Limits the stream to a single page: once a page has been written, AddRow() and
   /// AddRowCustomBegin() fail (returning false/nullptr with an OK status) instead of
   /// allocating another page. The caller can distinguish this from a reservation

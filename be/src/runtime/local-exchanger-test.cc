@@ -29,6 +29,8 @@
 #include "runtime/bufferpool/buffer-pool.h"
 #include "runtime/fragment-state.h"
 #include "runtime/bufferpool/reservation-tracker.h"
+#include "runtime/collection-value-builder.h"
+#include "runtime/collection-value.h"
 #include "runtime/local-exchanger.h"
 #include "runtime/mem-tracker.h"
 #include "runtime/query-state.h"
@@ -75,13 +77,21 @@ class LocalExchangerTest : public testing::Test {
   /// Sets up the test environment. The client may use at most 'reservation_limit'
   /// bytes of reservation, which is claimed upfront to mimic an exec node claiming its
   /// minimum reservation.
-  void Init(int64_t reservation_limit, const TQueryOptions* query_options = nullptr) {
+  void Init(int64_t reservation_limit, const TQueryOptions* query_options = nullptr,
+      bool array_rows = false) {
     test_env_.reset(new TestEnv());
     test_env_->SetBufferPoolArgs(MIN_BUFFER_LEN, BUFFER_POOL_LIMIT);
     ASSERT_OK(test_env_->Init());
 
     DescriptorTblBuilder builder(test_env_->exec_env()->frontend(), &pool_);
-    builder.DeclareTuple() << TYPE_INT << TYPE_STRING;
+    if (array_rows) {
+      ColumnType array_type;
+      array_type.type = TYPE_ARRAY;
+      array_type.children.push_back(ColumnType(TYPE_INT));
+      builder.DeclareTuple() << array_type;
+    } else {
+      builder.DeclareTuple() << TYPE_INT << TYPE_STRING;
+    }
     row_desc_ = pool_.Add(new RowDescriptor(*builder.Build(),
         vector<TTupleId>(1, 0), vector<bool>(1, false)));
 
@@ -158,6 +168,89 @@ class LocalExchangerTest : public testing::Test {
     }
     batch.Reset();
     exchanger->CloseProducer(*status);
+  }
+
+  void ProduceArrayRows(LocalExchanger* exchanger, int64_t num_rows, Status* status) {
+    const TupleDescriptor* tuple_desc = row_desc_->tuple_descriptors()[0];
+    const SlotDescriptor* array_slot = tuple_desc->slots()[0];
+    const TupleDescriptor* item_desc = array_slot->children_tuple_descriptor();
+    RowBatch batch(row_desc_, BATCH_SIZE, tracker_);
+    for (int64_t start = 0; start < num_rows; start += BATCH_SIZE) {
+      batch.Reset();
+      int rows = std::min<int64_t>(BATCH_SIZE, num_rows - start);
+      for (int r = 0; r < rows; ++r) {
+        int64_t value = start + r;
+        Tuple* tuple = Tuple::Create(tuple_desc->byte_size(), batch.tuple_data_pool());
+        CollectionValue* cv = tuple->GetCollectionSlot(array_slot->tuple_offset());
+        CollectionValueBuilder builder(
+            cv, *item_desc, batch.tuple_data_pool(), runtime_state_, 2);
+        Tuple* items;
+        int num_items;
+        *status = builder.GetFreeMemory(&items, &num_items);
+        if (!status->ok()) break;
+        if (num_items != 2) {
+          *status = Status("Unexpected array size in CTE exchanger test");
+          break;
+        }
+        for (int i = 0; i < num_items; ++i) {
+          *reinterpret_cast<int32_t*>(
+              items->GetSlot(item_desc->slots()[0]->tuple_offset())) =
+              value * 2 + i;
+          items = reinterpret_cast<Tuple*>(
+              reinterpret_cast<uint8_t*>(items) + item_desc->byte_size());
+        }
+        builder.CommitTuples(num_items);
+        TupleRow* row = batch.GetRow(batch.AddRow());
+        row->SetTuple(0, tuple);
+        batch.CommitLastRow();
+      }
+      if (!status->ok()) break;
+      *status = exchanger->Push(&batch);
+      if (!status->ok()) break;
+    }
+    batch.Reset();
+    exchanger->CloseProducer(*status);
+  }
+
+  void ConsumeArrayRows(LocalExchanger* exchanger, int32_t consumer_idx,
+      int64_t num_rows, Status* status) {
+    const TupleDescriptor* tuple_desc = row_desc_->tuple_descriptors()[0];
+    const SlotDescriptor* array_slot = tuple_desc->slots()[0];
+    const TupleDescriptor* item_desc = array_slot->children_tuple_descriptor();
+    RowBatch batch(row_desc_, BATCH_SIZE, tracker_);
+    bool eos = false;
+    int64_t rows_read = 0;
+    while (!eos) {
+      batch.Reset();
+      *status = exchanger->GetNext(runtime_state_, consumer_idx, &batch, &eos);
+      if (!status->ok()) break;
+      for (int r = 0; r < batch.num_rows(); ++r) {
+        CollectionValue* cv = batch.GetRow(r)->GetTuple(0)->GetCollectionSlot(
+            array_slot->tuple_offset());
+        if (cv->num_tuples != 2) {
+          *status = Status("Unexpected array length in CTE exchanger test");
+          break;
+        }
+        for (int i = 0; i < cv->num_tuples; ++i) {
+          Tuple* item = reinterpret_cast<Tuple*>(
+              cv->ptr + i * item_desc->byte_size());
+          int32_t value = *reinterpret_cast<int32_t*>(
+              item->GetSlot(item_desc->slots()[0]->tuple_offset()));
+          if (value != rows_read * 2 + i) {
+            *status = Status("Unexpected array value in CTE exchanger test");
+            break;
+          }
+        }
+        if (!status->ok()) break;
+        ++rows_read;
+      }
+      if (!status->ok()) break;
+    }
+    if (status->ok() && rows_read != num_rows) {
+      *status = Status("Unexpected number of rows in CTE exchanger test");
+    }
+    batch.Reset();
+    exchanger->CloseConsumer(consumer_idx);
   }
 
   /// Reads rows from 'exchanger', verifying that they arrive in order. Stops after
@@ -266,6 +359,34 @@ TEST_F(LocalExchangerTest, AllConsumersStalled) {
   Init(3 * PAGE_LEN);
   RunConsumers(50000, {-1, -1});
   EXPECT_GT(GetCounter("SegmentsSpilled"), 0);
+}
+
+/// Collection pointers must be resolved before consumers read shared pages concurrently.
+TEST_F(LocalExchangerTest, CollectionRowsConcurrentConsumers) {
+  const int64_t NUM_ROWS = 50000;
+  Init(3 * PAGE_LEN, nullptr, true);
+  unique_ptr<LocalExchanger> exchanger = CreateExchanger(2);
+  int32_t consumer0 = exchanger->Open();
+  int32_t consumer1 = exchanger->Open();
+  Status producer_status;
+  ProduceArrayRows(exchanger.get(), NUM_ROWS, &producer_status);
+  ASSERT_OK(producer_status);
+  EXPECT_GT(GetCounter("SegmentsSpilled"), 0);
+
+  Status status0;
+  Status status1;
+  std::thread thread0([&]() {
+    ConsumeArrayRows(exchanger.get(), consumer0, NUM_ROWS, &status0);
+  });
+  std::thread thread1([&]() {
+    ConsumeArrayRows(exchanger.get(), consumer1, NUM_ROWS, &status1);
+  });
+  thread0.join();
+  thread1.join();
+  exchanger->Release();
+  ASSERT_OK(status0);
+  ASSERT_OK(status1);
+  EXPECT_GT(GetCounter("SegmentsRepinned"), 0);
 }
 
 /// Four consumers at different speeds with minimal reservation.

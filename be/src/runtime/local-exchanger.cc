@@ -127,6 +127,9 @@ void LocalExchanger::FinalizeOpenSegment() {
     segment->stream->Close(nullptr, RowBatch::FlushMode::NO_FLUSH_RESOURCES);
     return;
   }
+  // Resolve pointers that were not resolved on write, e.g. of collections, before any
+  // consumer can read the segment concurrently.
+  segment->needs_resolve = segment->stream->HasUnresolvedPages();
   segments_.push_back(std::move(segment));
   num_segments_counter_->Set(static_cast<int64_t>(segments_.size()));
   batch_available_cv_.notify_all();
@@ -213,13 +216,14 @@ Status LocalExchanger::Push(RowBatch* batch, AddRowsFn add_rows_fn) {
   return Status::OK();
 }
 
-Status LocalExchanger::EnterSegment(ConsumerState* cs) {
+Status LocalExchanger::EnterSegment(
+    ConsumerState* cs, unique_lock<mutex>* lock) {
   DCHECK(!cs->in_segment);
+  DCHECK(lock->owns_lock());
   Segment* segment = GetSegment(cs->segment_idx);
   BufferedTupleStream* stream = segment->stream.get();
   if (!stream->is_pinned()) {
-    // Read the segment back from scratch. PinStream() only starts the reads; this
-    // consumer waits for the I/O when it reads the page, outside of 'mutex_'.
+    // Read the segment back from scratch. PinStream() only starts the reads.
     while (true) {
       bool pinned = false;
       RETURN_IF_ERROR(stream->PinStream(&pinned));
@@ -229,10 +233,38 @@ Status LocalExchanger::EnterSegment(ConsumerState* cs) {
     pinned_bytes_ += stream->BytesPinned(false);
     pinned_bytes_counter_->Set(pinned_bytes_);
     COUNTER_ADD(segments_repinned_counter_, 1);
+    // Pages read back from scratch may be in different buffers.
+    segment->needs_resolve = stream->HasUnresolvedPages();
+  }
+  // An active reader keeps the segment pinned while 'mutex_' is released below.
+  ++segment->active_readers;
+  while (segment->needs_resolve) {
+    if (segment->resolving) {
+      // Another consumer is resolving the segment.
+      batch_available_cv_.wait(*lock);
+      continue;
+    }
+    // Fix up the segment's pointers once so that no consumer writes to the page while
+    // others read it. This waits for the page to be read back from scratch, so release
+    // 'mutex_'. ResolvePointers() doesn't use the BufferPool client of a pinned stream.
+    segment->resolving = true;
+    lock->unlock();
+    Status status = stream->ResolvePointers();
+    lock->lock();
+    segment->resolving = false;
+    if (status.ok()) segment->needs_resolve = false;
+    batch_available_cv_.notify_all();
+    if (!status.ok()) {
+      --segment->active_readers;
+      return status;
+    }
   }
   cs->iter = BufferedTupleStream::ReadIterator();
-  RETURN_IF_ERROR(stream->PrepareForPinnedRead(&cs->iter));
-  ++segment->active_readers;
+  Status status = stream->PrepareForPinnedRead(&cs->iter);
+  if (!status.ok()) {
+    --segment->active_readers;
+    return status;
+  }
   cs->stream = stream;
   cs->in_segment = true;
   cs->segment_done = false;
@@ -293,7 +325,7 @@ Status LocalExchanger::GetNext(
         *eos = true;
         return Status::OK();
       }
-      RETURN_IF_ERROR(EnterSegment(cs));
+      RETURN_IF_ERROR(EnterSegment(cs, &l));
     }
     // The segment is pinned and has an active reader, so it can be read without the
     // lock.

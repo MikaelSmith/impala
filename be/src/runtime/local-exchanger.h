@@ -145,6 +145,13 @@ class LocalExchanger {
     int32_t active_readers = 0;
     /// Number of consumers that have not yet read past this segment.
     int32_t remaining_consumers = 0;
+    /// True if this segment's var-len pointers must be resolved (see
+    /// BufferedTupleStream::ResolvePointers()) before consumers read it. Resolving once
+    /// lets all consumers read the page without writing to it.
+    bool needs_resolve = false;
+    /// True while a consumer is resolving the segment's pointers without holding
+    /// 'mutex_'. Other consumers wait for it to finish.
+    bool resolving = false;
   };
 
   struct ConsumerState {
@@ -183,9 +190,10 @@ class LocalExchanger {
   /// or there is nothing to unpin. Must be called with 'mutex_' held.
   Status Spill(const Segment* exclude, int64_t bytes_needed);
 
-  /// Enters segment 'cs->segment_idx', pinning it if needed. Must be called with
-  /// 'mutex_' held.
-  Status EnterSegment(ConsumerState* cs);
+  /// Enters segment 'cs->segment_idx', pinning it if needed. Resolves its pointers
+  /// (releasing 'lock' while doing so) or waits for another consumer to do it.
+  /// 'lock' must hold 'mutex_'.
+  Status EnterSegment(ConsumerState* cs, std::unique_lock<std::mutex>* lock);
 
   /// Leaves the consumer's current segment. Must be called with 'mutex_' held.
   void LeaveSegment(ConsumerState* cs);

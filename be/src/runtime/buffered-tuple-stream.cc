@@ -916,6 +916,14 @@ Status BufferedTupleStream::GetNextInternal(ReadIterator* RESTRICT read_iter,
   return Status::OK();
 }
 
+bool BufferedTupleStream::HasUnresolvedPages() const {
+  if (inlined_string_slots_.empty() && inlined_coll_slots_.empty()) return false;
+  for (const Page& page : pages_) {
+    if (page.num_rows > 0 && !page.ptrs_resolved.Load()) return true;
+  }
+  return false;
+}
+
 void BufferedTupleStream::FixUpStringsForRead(const vector<SlotDescriptor*>& string_slots,
     ReadIterator* RESTRICT read_iter, Tuple* tuple) {
   DCHECK(tuple != nullptr);
