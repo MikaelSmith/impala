@@ -88,8 +88,9 @@ class CTEConsumerNode : public ExecNode {
   std::vector<ScalarExprEvaluator*> input_expr_evals_;
   const CodegenFnPtr<CTEConsumerPlanNode::MaterializeBatchFn>&
       codegend_materialize_batch_fn_;
-  int32_t consumer_index_;
+  int32_t consumer_index_ = -1;
   bool is_passthrough_;
+  bool consumer_registered_ = false;
 
   /// Runtime filter contexts, one per filter assigned to this node.
   std::vector<FilterContext> filter_ctxs_;

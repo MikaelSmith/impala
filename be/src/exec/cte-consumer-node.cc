@@ -128,6 +128,18 @@ CTEConsumerNode::CTEConsumerNode(
     is_passthrough_(pnode.is_passthrough_) { }
 
 Status CTEConsumerNode::Prepare(RuntimeState* state) {
+  // Must be set before preparing children: a child CTE producer can fail during
+  // Prepare(), and Close() must still be able to release this consumer's exchanger
+  // slot.
+  if (auto it = state->instance_ctx().cte_consumer_to_producer_idx.find(id());
+      it != state->instance_ctx().cte_consumer_to_producer_idx.end()) {
+    name_ = plan_node().tnode_->cte_consumer.name + "_" + std::to_string(it->second);
+  } else {
+    // No CTE producer scheduled on this node for this consumer. Already logged in
+    // Scheduler::ComputeFragmentExecParams.
+    name_ = plan_node().tnode_->cte_consumer.name;
+  }
+
   RETURN_IF_ERROR(ExecNode::Prepare(state));
   if (!is_passthrough_) {
     RETURN_IF_ERROR(ScalarExprEvaluator::Create(input_exprs_, state, pool_,
@@ -155,17 +167,6 @@ Status CTEConsumerNode::Prepare(RuntimeState* state) {
         expr_perm_pool(), expr_results_pool(), &filter_ctx.expr_eval));
   }
   filter_stats_.resize(filter_ctxs_.size());
-
-  // Must match CTEProducerPlanNode::GetCTEName. CTEProducerPlanNode::Init registers CTEs
-  // before fragment instances begin execution, so the mapping must exist here.
-  if (auto it = state->instance_ctx().cte_consumer_to_producer_idx.find(id());
-      it != state->instance_ctx().cte_consumer_to_producer_idx.end()) {
-    name_ = plan_node().tnode_->cte_consumer.name + "_" + std::to_string(it->second);
-  } else {
-    // No CTE producer scheduled on this node for this consumer. Already logged in
-    // Scheduler::ComputeFragmentExecParams.
-    name_ = plan_node().tnode_->cte_consumer.name;
-  }
   return Status::OK();
 }
 
@@ -191,6 +192,7 @@ Status CTEConsumerNode::Open(RuntimeState* state) {
   exchanger_ = state->query_state()->GetExchanger(name_);
   if (exchanger_ != nullptr) {
     consumer_index_ = exchanger_->Open();
+    consumer_registered_ = true;
   } else {
     VLOG_QUERY << "No CTE exchanger present for CTE consumer: " << name_;
   }
@@ -232,10 +234,6 @@ Status CTEConsumerNode::GetNext(
       int dst_offset = output_batch->AddRows(rows_to_copy);
       output_batch->CopyRows(input_batch, rows_to_copy, 0, dst_offset);
       output_batch->CommitRows(rows_to_copy);
-      // Ensure blocking operators make a deep copy of data if they need to retain it.
-      // Heap memory is re-used from input_batch; if this is the last reference to the
-      // Cell in LocalExchanger, it will be freed on the next GetNext() call.
-      output_batch->MarkNeedsDeepCopy();
     }
   } else {
     // Copy input_batch to output_batch while translating slots.
@@ -261,6 +259,11 @@ Status CTEConsumerNode::GetNext(
   }
 
   CheckLimitAndTruncateRowBatchIfNeeded(output_batch, eos);
+  // Filtering and limit truncation may reduce the batch after rows are read from the
+  // exchanger. Mark it only now, when its row count matches the flushed capacity.
+  if (is_passthrough_ && output_batch->num_rows() > 0) {
+    output_batch->MarkNeedsDeepCopy();
+  }
   COUNTER_SET(rows_returned_counter_, rows_returned());
   return Status::OK();
 }
@@ -275,10 +278,21 @@ Status CTEConsumerNode::Reset(RuntimeState* state, RowBatch* row_batch) {
 void CTEConsumerNode::Close(RuntimeState* state) {
   if (is_closed()) return;
   FinalizeFilters(state);
+  // A sibling CTE producer may fail during Open() before this consumer's Open() runs.
+  // Register and close a slot here so the producer's Release() can finish waiting for
+  // all scheduled consumers.
+  if (!consumer_registered_ && !name_.empty()) {
+    exchanger_ = state->query_state()->GetExchanger(name_);
+    if (exchanger_ != nullptr) {
+      consumer_index_ = exchanger_->Open();
+      consumer_registered_ = true;
+    }
+  }
   if (exchanger_) {
     VLOG_QUERY << "Closing consumer of CTE exchange " << name_ << " in instance "
         << state->instance_ctx().per_fragment_instance_idx << " of " << label();
     exchanger_->CloseConsumer(consumer_index_);
+    consumer_registered_ = false;
   }
   if (!is_passthrough_) {
     ScalarExprEvaluator::Close(input_expr_evals_, state);
